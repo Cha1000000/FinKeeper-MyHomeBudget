@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
     ensureMonth, getIncomes, getExpenses, getCategories, getBudgets, setBudget,
-    addIncome, addExpense, deleteIncome, deleteExpense, updateExpense, reorderCategories
+    addIncome, addExpense, deleteIncome, deleteExpense, updateExpense, updateIncome, reorderCategories
 } from '../api';
 import type { Month, Income, Expense, Category, Budget } from '../api';
 import { formatCurrency, formatDate } from '../utils';
@@ -93,6 +93,7 @@ const MonthView: React.FC = () => {
     // Editing State
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editingAmount, setEditingAmount] = useState('');
+    const [pendingSave, setPendingSave] = useState<{ id: number, type: 'income' | 'expense' } | null>(null);
     const isSavingRef = useRef(false);
 
     const sensors = useSensors(
@@ -193,44 +194,62 @@ const MonthView: React.FC = () => {
         }
     };
 
-    const handleEditClick = (item: Expense) => {
+    const handleEditClick = (item: Income | Expense) => {
         setEditingId(item.id);
         setEditingAmount(item.amount.toString());
         isSavingRef.current = false;
     };
 
-    const saveExpenseAmount = async (id: number) => {
+    const saveAmount = async (id: number, type: 'income' | 'expense') => {
         const amount = parseFloat(editingAmount);
+        console.log(`[DEBUG] saveAmount started: id=${id}, type=${type}, amount=${amount}`);
+        
         if (isNaN(amount)) {
+            console.log(`[DEBUG] saveAmount: invalid amount, aborting.`);
             setEditingId(null);
             return;
         }
+
         try {
-            await updateExpense(id, { amount });
+            if (type === 'income') {
+                await updateIncome(id, { amount });
+            } else {
+                await updateExpense(id, { amount });
+            }
+            console.log(`[DEBUG] saveAmount: API call successful, reloading data...`);
             await loadData();
-        } catch (e) { console.error(e); }
-        setEditingId(null);
+        } catch (e) { 
+            console.error(`[DEBUG] saveAmount error:`, e); 
+        } finally {
+            setEditingId(null);
+            isSavingRef.current = false;
+            console.log(`[DEBUG] saveAmount finished: editingId cleared.`);
+        }
     };
 
-    const handleBlur = (id: number) => {
+    const handleBlur = (id: number, type: 'income' | 'expense') => {
+        console.log(`[DEBUG] handleBlur triggered: id=${id}, type=${type}, isSavingRef=${isSavingRef.current}`);
+        
         if (isSavingRef.current) {
-            isSavingRef.current = false;
+            console.log(`[DEBUG] handleBlur: Already saving from Enter, skipping blur handler.`);
             return;
         }
-        if (confirm('Сохранить изменения?')) {
-            saveExpenseAmount(id);
-        } else {
-            setEditingId(null);
-        }
+
+        // Instead of native confirm, we show our custom confirmation
+        setPendingSave({ id, type });
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent, id: number) => {
+    const handleKeyDown = (e: React.KeyboardEvent, id: number, type: 'income' | 'expense') => {
         if (e.key === 'Enter') {
+            console.log(`[DEBUG] handleKeyDown: Enter pressed.`);
             isSavingRef.current = true;
-            saveExpenseAmount(id);
+            saveAmount(id, type);
         } else if (e.key === 'Escape') {
+            console.log(`[DEBUG] handleKeyDown: Escape pressed.`);
             isSavingRef.current = true; // Prevent blur confirm
             setEditingId(null);
+            // Reset isSaving after a short delay so subsequent blurs are handled
+            setTimeout(() => { isSavingRef.current = false; }, 100);
         }
     };
 
@@ -413,17 +432,18 @@ const MonthView: React.FC = () => {
                                                     <td className="p-4 pl-12 text-sm text-gray-500 w-32 whitespace-nowrap">{formatDate(item.date)}</td>
                                                     <td className="p-4 text-sm text-gray-600">{item.comment}</td>
                                                     <td className="p-4 text-sm font-medium text-right w-32">
-                                                        {editingId === item.id ? (
+                                                        {editingId === item.id && activeTab === 'expense' ? (
                                                             <input
                                                                 type="number"
-                                                                value={editingAmount}
-                                                                onChange={(e) => setEditingAmount(e.target.value)}
-                                                                onBlur={() => handleBlur(item.id)}
-                                                                onKeyDown={(e) => handleKeyDown(e, item.id)}
-                                                                className="w-full p-1 border border-blue-300 rounded text-right focus:outline-none focus:ring-2 focus:ring-blue-100"
-                                                                autoFocus
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            />
+                                                                    value={editingAmount}
+                                                                    onChange={(e) => setEditingAmount(e.target.value)}
+                                                                    onBlur={() => handleBlur(item.id, 'expense')}
+                                                                    onKeyDown={(e) => handleKeyDown(e, item.id, 'expense')}
+                                                                    className="w-full p-1 border border-blue-300 rounded text-right focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                                                    autoFocus
+                                                                    aria-label="Сумма расхода"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
                                                         ) : (
                                                             formatCurrency(item.amount)
                                                         )}
@@ -480,14 +500,42 @@ const MonthView: React.FC = () => {
                                 <tr><td colSpan={4} className="p-8 text-center text-gray-400">Нет записей</td></tr>
                             )}
                             {incomes.map(item => (
-                                <tr key={item.id} className="hover:bg-gray-50">
-                                    <td className="p-4">{formatDate(item.date)}</td>
-                                    <td className="p-4 font-medium">{item.source}</td>
-                                    <td className="p-4 font-medium text-right text-emerald-600">{formatCurrency(item.amount)}</td>
-                                    <td className="p-4">
-                                        <button onClick={() => handleDelete(item.id, 'income')} className="text-gray-400 hover:text-red-500">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                <tr key={item.id} className="hover:bg-gray-50 group/row">
+                                    <td className="p-4 text-sm text-gray-500">{formatDate(item.date)}</td>
+                                    <td className="p-4 font-medium text-gray-700">{item.source}</td>
+                                    <td className="p-4 font-medium text-right text-emerald-600">
+                                        {editingId === item.id && activeTab === 'income' ? (
+                                            <input
+                                                type="number"
+                                                value={editingAmount}
+                                                onChange={(e) => setEditingAmount(e.target.value)}
+                                                onBlur={() => handleBlur(item.id, 'income')}
+                                                onKeyDown={(e) => handleKeyDown(e, item.id, 'income')}
+                                                className="w-24 p-1 border border-blue-300 rounded text-right focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                                autoFocus
+                                                aria-label="Сумма дохода"
+                                            />
+                                        ) : (
+                                            formatCurrency(item.amount)
+                                        )}
+                                    </td>
+                                    <td className="p-4 w-24 text-right">
+                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => handleEditClick(item)}
+                                                className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                                                title="Редактировать"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(item.id, 'income')} 
+                                                className="p-1 text-gray-400 hover:text-red-500 rounded"
+                                                title="Удалить"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -601,6 +649,41 @@ const MonthView: React.FC = () => {
                     >
                         Готово
                     </button>
+                </div>
+            </Modal>
+            {/* Confirmation Modal for Blur Save */}
+            <Modal
+                isOpen={!!pendingSave}
+                onClose={() => {
+                    setPendingSave(null);
+                    setEditingId(null);
+                }}
+                title="Подтверждение"
+            >
+                <div className="space-y-4">
+                    <p className="text-gray-600">Сохранить изменения суммы?</p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => {
+                                if (pendingSave) {
+                                    saveAmount(pendingSave.id, pendingSave.type);
+                                }
+                                setPendingSave(null);
+                            }}
+                            className="flex-1 bg-primary text-white py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                        >
+                            Сохранить
+                        </button>
+                        <button
+                            onClick={() => {
+                                setPendingSave(null);
+                                setEditingId(null);
+                            }}
+                            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                        >
+                            Отмена
+                        </button>
+                    </div>
                 </div>
             </Modal>
         </div>

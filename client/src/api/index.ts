@@ -49,6 +49,7 @@ export const ensureMonth = (year: number, month: number) => api.post<Month>('/mo
 
 export const getIncomes = (monthId: number) => api.get<Income[]>(`/months/${monthId}/incomes`);
 export const addIncome = (data: Omit<Income, 'id'>) => api.post<Income>('/incomes', data);
+export const updateIncome = (id: number, data: { amount: number }) => api.put(`/incomes/${id}`, data);
 export const deleteIncome = (id: number) => api.delete(`/incomes/${id}`);
 
 export const getExpenses = (monthId: number) => api.get<Expense[]>(`/months/${monthId}/expenses`);

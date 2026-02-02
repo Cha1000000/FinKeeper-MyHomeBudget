@@ -89,6 +89,12 @@ app.post('/api/incomes', (req, res) => {
     res.json({ id: info.lastInsertRowid, ...req.body });
 });
 
+app.put('/api/incomes/:id', (req, res) => {
+    const { amount } = req.body;
+    db.prepare('UPDATE incomes SET amount = ? WHERE id = ?').run(amount, req.params.id);
+    res.json({ success: true });
+});
+
 app.delete('/api/incomes/:id', (req, res) => {
     db.prepare('DELETE FROM incomes WHERE id = ?').run(req.params.id);
     res.json({ success: true });
