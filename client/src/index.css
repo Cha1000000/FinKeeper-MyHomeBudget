@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* stylelint-disable at-rule-no-unknown */
+@theme {
+  /* ============================================
+     ЦВЕТОВАЯ ПАЛИТРА ПРИЛОЖЕНИЯ
+     Файл: client/src/index.css
+     ============================================ */
+
+  /* --- Основные цвета --- */
+
+  /* Цвет боковой панели (сайдбара) */
+  --color-primary: #4a5d4b;
+
+  /* Акцентный цвет (кнопки, активные элементы навигации) */
+  --color-brand: #6b8e23;
+
+  /* Светлый акцент (для ховеров, второстепенных элементов) */
+  --color-brand-light: #8fbc8f;
+
+  /* --- Статусные цвета --- */
+
+  /* Успех/Доходы (зелёный) */
+  --color-success: #558b2f;
+
+  /* Ошибка/Расходы (красный) */
+  --color-danger: #c62828;
+
+  /* Предупреждение/Накопления (золотистый) */
+  --color-warning: #d4a017;
+
+  /* --- Фоновые цвета --- */
+
+  /* Основной фон страниц (оливковый) */
+  --color-background: #d5ddd0;
+
+  /* Фон карточек и блоков (белый) */
+  --color-surface: #ffffff;
+
+  /* --- Цвета текста --- */
+
+  /* Основной текст */
+  --color-text-main: #2c352d;
+
+  /* Второстепенный текст (подписи, метки) */
+  --color-text-muted: #6e7a70;
+
+  /* --- Шрифт --- */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* --- Тени для карточек --- */
+  --shadow-card: 0 1px 3px 0 rgb(47 62 48 / 0.1), 0 1px 2px -1px rgb(47 62 48 / 0.1);
+  --shadow-card-hover: 0 10px 15px -3px rgb(47 62 48 / 0.1), 0 4px 6px -4px rgb(47 62 48 / 0.1);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-main);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Кастомный скроллбар в оливковых тонах */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #aab5aa;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8aa08a;
+}
