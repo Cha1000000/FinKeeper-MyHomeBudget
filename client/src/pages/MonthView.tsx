@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Target, ChevronDown, Pencil, GripVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Pencil, GripVertical } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -44,13 +44,20 @@ const SortableGroup = ({ group, isExpanded, toggleCategory, itemsContent, contex
                             <ChevronDown className="w-4 h-4 text-gray-500" />
                         </div>
                     )}
-                    <span className="font-medium text-gray-800">{group.name}</span>
+                    <div className="flex flex-col">
+                        <span className="font-medium text-gray-800">{group.name}</span>
+                        {group.isOverLimit && (
+                            <span className="text-xs text-red-700 font-medium">
+                                Превышен установленный лимит! ({formatCurrency(group.limit)})
+                            </span>
+                        )}
+                    </div>
                     <span className="text-xs text-gray-400 bg-white px-2 py-0.5 rounded-full border border-gray-200">
                         {group.items.length} {group.items.length === 1 ? 'запись' : 'записей'}
                     </span>
                 </div>
                 <div className="flex items-center gap-4">
-                    <span className="font-bold text-gray-800">{formatCurrency(group.total)}</span>
+                    <span className={`font-bold ${group.isOverLimit ? 'text-red-600' : 'text-gray-800'}`}>{formatCurrency(group.total)}</span>
                     <div {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-200" onClick={e => e.stopPropagation()}>
                         <GripVertical className="w-5 h-5" />
                     </div>
@@ -94,6 +101,7 @@ const MonthView: React.FC = () => {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editingAmount, setEditingAmount] = useState('');
     const [pendingSave, setPendingSave] = useState<{ id: number, type: 'income' | 'expense' } | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<{ id: number, type: 'income' | 'expense' } | null>(null);
     const isSavingRef = useRef(false);
 
     const sensors = useSensors(
@@ -254,13 +262,18 @@ const MonthView: React.FC = () => {
     };
 
     const handleDelete = async (id: number, type: 'income' | 'expense') => {
-        if (!confirm('Удалить запись?')) return;
+        setPendingDelete({ id, type });
+    };
+
+    const confirmDelete = async () => {
+        if (!pendingDelete) return;
         try {
-            if (type === 'income') await deleteIncome(id);
-            else await deleteExpense(id);
+            if (pendingDelete.type === 'income') await deleteIncome(pendingDelete.id);
+            else await deleteExpense(pendingDelete.id);
+            setPendingDelete(null);
             loadData();
         } catch (e) { console.error(e); }
-    }
+    };
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
@@ -308,7 +321,7 @@ const MonthView: React.FC = () => {
     const totalExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
     const totalLimit = budgets.reduce((sum, item) => sum + item.limit_amount, 0);
 
-    // Grouping Expenses
+    // Grouping Expenses with Budget Info
     const groupedExpenses = expenses.reduce((acc, item) => {
         const catId = item.category_id;
         if (!acc[catId]) {
@@ -324,13 +337,25 @@ const MonthView: React.FC = () => {
         return acc;
     }, {} as Record<number, { id: number, name: string, items: Expense[], total: number }>);
 
+    // Add budget info to groups
+    const groupsWithBudget = Object.values(groupedExpenses).map(group => {
+        const budget = budgets.find(b => b.category_id === group.id);
+        const limit = budget ? budget.limit_amount : 0;
+        return {
+            ...group,
+            limit,
+            isOverLimit: limit > 0 && group.total > limit
+        };
+    });
+
     // Sort groups according to category order (which is preserved in 'categories' state)
     const sortedGroups = categories
         .filter(cat => groupedExpenses[cat.id]) // Only categories with expenses
-        .map(cat => groupedExpenses[cat.id]);
+        .map(cat => groupsWithBudget.find(g => g.id === cat.id)!)
+        .filter(Boolean);
     
     // Add any groups that might be missing from categories (safe fallback)
-    Object.values(groupedExpenses).forEach(group => {
+    groupsWithBudget.forEach(group => {
         if (!categories.find(c => c.id === group.id)) {
             sortedGroups.push(group);
         }
@@ -353,19 +378,16 @@ const MonthView: React.FC = () => {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-100">
+                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
                     <p className="text-sm text-emerald-600 font-medium">Доходы</p>
                     <p className="text-3xl font-bold text-emerald-700">{formatCurrency(totalIncome)}</p>
                 </div>
-                <div className="bg-red-50 p-6 rounded-xl border border-red-100">
+                <div className="bg-red-50 p-4 rounded-xl border border-red-100">
                     <p className="text-sm text-red-600 font-medium">Расходы</p>
                     <p className="text-3xl font-bold text-red-700">{formatCurrency(totalExpense)}</p>
                 </div>
-                <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => setIsBudgetModalOpen(true)}>
-                    <div className="flex justify-between items-start">
-                        <p className="text-sm text-blue-600 font-medium">Лимит на месяц</p>
-                        <Target className="w-4 h-4 text-blue-500" />
-                    </div>
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => setIsBudgetModalOpen(true)}>
+                    <p className="text-sm text-blue-600 font-medium">Лимит трат на месяц</p>
                     <p className="text-3xl font-bold text-blue-700">{formatCurrency(totalLimit)}</p>
                     <div className="w-full bg-blue-200 rounded-full h-1.5 mt-2">
                         <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${Math.min((totalExpense / (totalLimit || 1)) * 100, 100)}%` }}></div>
@@ -678,6 +700,35 @@ const MonthView: React.FC = () => {
                             onClick={() => {
                                 setPendingSave(null);
                                 setEditingId(null);
+                            }}
+                            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                        >
+                            Отмена
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Confirmation Modal for Delete */}
+            <Modal
+                isOpen={!!pendingDelete}
+                onClose={() => {
+                    setPendingDelete(null);
+                }}
+                title="Подтверждение удаления"
+            >
+                <div className="space-y-4">
+                    <p className="text-gray-600">Вы уверены, что хотите удалить эту запись?</p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={confirmDelete}
+                            className="flex-1 bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                        >
+                            Удалить
+                        </button>
+                        <button
+                            onClick={() => {
+                                setPendingDelete(null);
                             }}
                             className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
                         >
