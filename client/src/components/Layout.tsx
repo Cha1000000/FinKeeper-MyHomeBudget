@@ -65,7 +65,7 @@ const Layout: React.FC = () => {
                         onClick={() => setIsCollapsed(!isCollapsed)}
                         className={classNames(
                             "rounded-lg transition-all duration-200",
-                            isCollapsed ? "bg-brand p-2" : "bg-brand p-2"
+                            isCollapsed ? "bg-white/20 backdrop-blur-md p-2" : "bg-white/20 backdrop-blur-md p-2"
                         )}
                     >
                         {isCollapsed ? (

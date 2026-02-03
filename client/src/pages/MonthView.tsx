@@ -421,15 +421,15 @@ const MonthView: React.FC = () => {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                <div className="bg-emerald-50 p-4 rounded-xl shadow-sm border border-emerald-100">
                     <p className="text-sm text-emerald-600 font-medium">Доходы</p>
                     <p className="text-3xl font-bold text-emerald-700">{formatCurrency(totalIncome)}</p>
                 </div>
-                <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
                     <p className="text-sm text-red-600 font-medium">Расходы</p>
                     <p className="text-3xl font-bold text-red-700">{formatCurrency(totalExpense)}</p>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => setIsBudgetModalOpen(true)}>
+                <div className="bg-blue-50 p-4 rounded-xl shadow-sm border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => setIsBudgetModalOpen(true)}>
                     <p className="text-sm text-blue-600 font-medium">Лимит трат на месяц</p>
                     <p className="text-3xl font-bold text-blue-700">{formatCurrency(totalLimit)}</p>
                     <div className="w-full bg-blue-200 rounded-full h-1.5 mt-2">
