@@ -297,6 +297,18 @@ app.get('/api/analytics/trend', (req, res) => {
     res.json(data);
 });
 
+// Serve static files from client/dist in production
+const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
+app.use(express.static(clientDistPath));
+
+// Handle SPA routing - return index.html for all non-API routes
+app.get('*', (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+});
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
