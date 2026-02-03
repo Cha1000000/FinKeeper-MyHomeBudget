@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
     ensureMonth, getIncomes, getExpenses, getCategories, getBudgets, setBudget,
-    addIncome, addExpense, deleteIncome, deleteExpense, updateExpense, updateIncome, reorderCategories, getIncomeSources
+    addIncome, addExpense, deleteIncome, deleteExpense, updateExpense, updateIncome, reorderCategories, getIncomeSources, addIncomeSource
 } from '../api';
 import type { Month, Income, Expense, Category, Budget, IncomeSource } from '../api';
 import { formatCurrency, formatDate } from '../utils';
@@ -92,7 +92,7 @@ const MonthView: React.FC = () => {
 
     // Form State
     const [formData, setFormData] = useState({
-        sourceId: '',
+        source: '',
         amount: '',
         categoryId: '',
         comment: ''
@@ -115,6 +115,9 @@ const MonthView: React.FC = () => {
     // State for expanded groups
     const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>({});
 
+    const [showNewSourceConfirm, setShowNewSourceConfirm] = useState(false);
+    const [newSourceName, setNewSourceName] = useState('');
+
     // Toggle expansion
     const toggleCategory = (catId: number) => {
         setExpandedCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
@@ -124,7 +127,7 @@ const MonthView: React.FC = () => {
     const openAddModal = (type: 'income' | 'expense', categoryId?: number) => {
         setActiveTab(type);
         setFormData({
-            sourceId: '',
+            source: '',
             amount: '',
             categoryId: categoryId ? categoryId.toString() : '',
             comment: ''
@@ -177,10 +180,21 @@ const MonthView: React.FC = () => {
 
         try {
             if (activeTab === 'income') {
-                const source = incomeSources.find(s => s.id === parseInt(formData.sourceId))?.name || '';
+                const sourceName = formData.source.trim();
+                
+                // Check if source is new (not found in incomeSources)
+                const existingSource = incomeSources.find(s => s.name.toLowerCase() === sourceName.toLowerCase());
+                
+                if (!existingSource && sourceName) {
+                    // New source - show confirmation
+                    setNewSourceName(sourceName);
+                    setShowNewSourceConfirm(true);
+                    return;
+                }
+                
                 await addIncome({
                     month_id: monthData.id,
-                    source,
+                    source: sourceName || existingSource?.name || '',
                     amount: parseFloat(formData.amount),
                     date: new Date().toISOString()
                 });
@@ -199,7 +213,7 @@ const MonthView: React.FC = () => {
                 }
             }
             setIsModalOpen(false);
-            setFormData({ sourceId: '', amount: '', categoryId: '', comment: '' });
+            setFormData({ source: '', amount: '', categoryId: '', comment: '' });
             loadData();
         } catch (err) {
             console.error(err);
@@ -277,6 +291,31 @@ const MonthView: React.FC = () => {
             setPendingDelete(null);
             loadData();
         } catch (e) { console.error(e); }
+    };
+
+    const confirmAddNewSource = async (addToList: boolean) => {
+        if (!monthData) return;
+        
+        try {
+            if (addToList) {
+                await addIncomeSource({ name: newSourceName });
+            }
+            
+            await addIncome({
+                month_id: monthData.id,
+                source: newSourceName,
+                amount: parseFloat(formData.amount),
+                date: new Date().toISOString()
+            });
+            
+            setShowNewSourceConfirm(false);
+            setNewSourceName('');
+            setIsModalOpen(false);
+            setFormData({ source: '', amount: '', categoryId: '', comment: '' });
+            loadData();
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     const handleDragEnd = async (event: DragEndEvent) => {
@@ -592,17 +631,19 @@ const MonthView: React.FC = () => {
                     {activeTab === 'income' ? (
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700">Источник</label>
-                            <select
+                            <input
+                                list="income-sources-list"
                                 required
-                                value={formData.sourceId}
-                                onChange={e => setFormData({ ...formData, sourceId: e.target.value })}
+                                value={formData.source}
+                                onChange={e => setFormData({ ...formData, source: e.target.value })}
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                            >
-                                <option value="">Выберите источник</option>
+                                placeholder="Например: Зарплата"
+                            />
+                            <datalist id="income-sources-list">
                                 {incomeSources.map(source => (
-                                    <option key={source.id} value={source.id}>{source.name}</option>
+                                    <option key={source.id} value={source.name} />
                                 ))}
-                            </select>
+                            </datalist>
                         </div>
                     ) : (
                         <>
@@ -740,6 +781,34 @@ const MonthView: React.FC = () => {
                             className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
                         >
                             Отмена
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Confirmation Modal for New Source */}
+            <Modal
+                isOpen={showNewSourceConfirm}
+                onClose={() => {
+                    setShowNewSourceConfirm(false);
+                    setNewSourceName('');
+                }}
+                title="Новый источник дохода"
+            >
+                <div className="space-y-4">
+                    <p className="text-gray-600">Добавить новый источник <span className="font-medium">'{newSourceName}'</span> в список?</p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => confirmAddNewSource(true)}
+                            className="flex-1 bg-primary text-white py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                        >
+                            Да, добавить
+                        </button>
+                        <button
+                            onClick={() => confirmAddNewSource(false)}
+                            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                        >
+                            Нет, только сохранить
                         </button>
                     </div>
                 </div>
