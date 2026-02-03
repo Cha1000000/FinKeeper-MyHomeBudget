@@ -54,10 +54,10 @@ const Layout: React.FC = () => {
     }, []);
 
     return (
-        <div className="flex h-screen overflow-hidden bg-background">
+        <div className="flex h-screen overflow-hidden">
             {/* Sidebar Desktop */}
             <aside className={classNames(
-            "bg-primary text-white shadow-xl flex-shrink-0 hidden md:flex flex-col relative z-20 transition-all duration-300",
+            "bg-gradient-to-br from-emerald-600 to-emerald-800 text-white shadow-xl flex-shrink-0 hidden md:flex flex-col relative z-20 transition-all duration-300",
             isCollapsed ? "w-16" : "w-58"
         )}>
                 <div className={classNames("flex items-center border-b border-white/10", isCollapsed ? "justify-center p-4" : "p-6 gap-3")}>
@@ -143,7 +143,7 @@ const Layout: React.FC = () => {
 
             {/* Main Content */}
             <main 
-                    className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8"
+                    className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-slate-50 to-slate-100"
                     onClick={() => !isCollapsed && setIsCollapsed(true)}
                 >
                 <Outlet />

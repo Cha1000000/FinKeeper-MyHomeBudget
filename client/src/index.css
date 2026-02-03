@@ -55,7 +55,8 @@
 }
 
 body {
-  background-color: var(--color-background);
+  /* Мягкий градиентный фон как на референсе */
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
   color: var(--color-text-main);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
