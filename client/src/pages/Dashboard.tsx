@@ -4,7 +4,7 @@ import {
     PieChart, Pie, Cell
 } from 'recharts';
 import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
-import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses } from '../api';
+import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals } from '../api';
 import { formatCurrency } from '../utils';
 
 const COLORS = ['#6b8e23', '#2f3e30', '#d4a017', '#8fbc8f', '#a0522d', '#556b2f', '#c0c0c0', '#bdb76b'];
@@ -13,6 +13,7 @@ const Dashboard: React.FC = () => {
     const [trendData, setTrendData] = useState<any[]>([]);
     const [currentSummary, setCurrentSummary] = useState<any>(null);
     const [expenseStructure, setExpenseStructure] = useState<any[]>([]);
+    const [totalSavings, setTotalSavings] = useState<number>(0);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -30,9 +31,11 @@ const Dashboard: React.FC = () => {
                 // 3. Category Breakdown (Pie Chart)
                 const expRes = await getExpenses(mRes.data.id);
 
-                // Group expenses by category
+                // Group expenses by category (exclude hidden savings expenses)
                 const catMap: Record<string, number> = {};
                 expRes.data.forEach((e: any) => {
+                    // Skip hidden savings-related expenses
+                    if (e.category_name === 'Пополнение копилки') return;
                     if (!catMap[e.category_name]) catMap[e.category_name] = 0;
                     catMap[e.category_name] += e.amount;
                 });
@@ -43,11 +46,24 @@ const Dashboard: React.FC = () => {
 
                 setExpenseStructure(pieData);
 
+                // 4. Total Savings from all goals
+                const savingsRes = await getSavingsGoals();
+                const totalSavingsAmount = savingsRes.data.reduce((sum: number, goal: any) => sum + goal.current_amount, 0);
+                setTotalSavings(totalSavingsAmount);
+
             } catch (e) {
                 console.error(e);
             }
         };
         fetchData();
+        
+        // Listen for savings updates
+        const handleSavingsUpdate = () => fetchData();
+        window.addEventListener('savingsUpdated', handleSavingsUpdate);
+        
+        return () => {
+            window.removeEventListener('savingsUpdated', handleSavingsUpdate);
+        };
     }, []);
 
     return (
@@ -86,7 +102,7 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                     <p className="text-s font-medium text-slate-500">Накопления</p>
-                    <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(currentSummary?.savings || 0)}</p>
+                    <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(totalSavings)}</p>
                 </div>
 
                 {/* Доступный баланс = Доходы - Расходы */}
@@ -102,7 +118,7 @@ const Dashboard: React.FC = () => {
                     </p>
                 </div>
 
-                {/* Всего активов = Доступный баланс + Накопления */}
+                {/* Всего активов = Доступно + Накопления */}
                 <div className="bg-primary p-3 rounded-2xl shadow-sm border border-white/20 backdrop-blur-md transition-shadow overflow-hidden">
                     <div className="relative z-10">
                         <div className="flex justify-between items-start mb-3">
@@ -112,7 +128,7 @@ const Dashboard: React.FC = () => {
                         </div>
                         <p className="text-s font-medium text-slate-100/90">Всего активов</p>
                         <p className="text-xl font-bold text-white mt-1">
-                            {formatCurrency((currentSummary?.income || 0) - (currentSummary?.expenses || 0) + (currentSummary?.savings || 0))}
+                            {formatCurrency((currentSummary?.income || 0) - (currentSummary?.expenses || 0) + totalSavings)}
                         </p>
                     </div>
                     <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-brand/20 rounded-full blur-2xl"></div>

@@ -246,8 +246,35 @@ app.post('/api/savings_transactions', (req, res) => {
 
     const transact = db.transaction(() => {
         const info = db.prepare('INSERT INTO savings_transactions (goal_id, amount, date, month_id) VALUES (?, ?, ?, ?)').run(goal_id, amount, date, month_id);
+        
         // Update goal balance
         db.prepare('UPDATE savings_goals SET current_amount = current_amount + ? WHERE id = ?').run(amount, goal_id);
+        
+        // If deposit (positive amount), create a hidden expense to reduce available balance
+        if (amount > 0 && month_id) {
+            // Get or create "Пополнение копилки" category (hidden)
+            let savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ?').get('Пополнение копилки');
+            if (!savingsCategory) {
+                const maxOrder = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories').get();
+                const nextOrder = (maxOrder.maxOrder || 0) + 1;
+                const catInfo = db.prepare('INSERT INTO categories (name, sort_order, is_active) VALUES (?, ?, 0)').run('Пополнение копилки', nextOrder);
+                savingsCategory = { id: catInfo.lastInsertRowid };
+            }
+            
+            // Get goal name for comment
+            const goal = db.prepare('SELECT name FROM savings_goals WHERE id = ?').get(goal_id);
+            const goalName = goal ? goal.name : 'копилку';
+            
+            // Create hidden expense for the deposit amount
+            db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment) VALUES (?, ?, ?, ?, ?)').run(
+                month_id,
+                savingsCategory.id,
+                amount,
+                date,
+                `Пополнение копилки "${goalName}"`
+            );
+        }
+        
         return info;
     });
 

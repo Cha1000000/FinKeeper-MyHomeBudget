@@ -31,16 +31,16 @@ const Layout: React.FC = () => {
                 const monthRes = await ensureMonth(now.getFullYear(), now.getMonth() + 1);
                 const summaryRes = await getMonthSummary(monthRes.data.id);
                 
-                // Доступный остаток (доходы - расходы за месяц)
-                const balance = summaryRes.data.income - summaryRes.data.expenses;
-                setAvailableBalance(balance);
-
                 // Сумма всех копилок
                 const goalsRes = await getSavingsGoals();
                 const savingsTotal = goalsRes.data.reduce((sum: number, goal: any) => sum + (goal.current_amount || 0), 0);
 
-                // Общая сумма = баланс + копилки
-                setTotalAssets(balance + savingsTotal);
+                // Доступный остаток = доходы - расходы
+                const available = summaryRes.data.income - summaryRes.data.expenses;
+                setAvailableBalance(available);
+
+                // Всего активов = доступно + накопления
+                setTotalAssets(available + savingsTotal);
 
             } catch (e) {
                 console.error('Error fetching financial data:', e);
@@ -48,9 +48,18 @@ const Layout: React.FC = () => {
         };
 
         fetchFinancialData();
+        
         // Обновлять каждые 60 секунд
         const interval = setInterval(fetchFinancialData, 60000);
-        return () => clearInterval(interval);
+        
+        // Listen for savings updates
+        const handleSavingsUpdate = () => fetchFinancialData();
+        window.addEventListener('savingsUpdated', handleSavingsUpdate);
+        
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('savingsUpdated', handleSavingsUpdate);
+        };
     }, []);
 
     return (

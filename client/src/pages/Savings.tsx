@@ -43,6 +43,7 @@ const Savings: React.FC = () => {
             setNewGoalName('');
             setNewGoalTarget('');
             loadData();
+            window.dispatchEvent(new Event('savingsUpdated'));
         } catch (e) { console.error(e); }
     };
 
@@ -69,6 +70,7 @@ const Savings: React.FC = () => {
             setEditGoalTarget('');
             setEditGoalCurrent('');
             loadData();
+            window.dispatchEvent(new Event('savingsUpdated'));
         } catch (e) { console.error(e); }
     };
 
@@ -83,6 +85,7 @@ const Savings: React.FC = () => {
             setEditGoalTarget('');
             setEditGoalCurrent('');
             loadData();
+            window.dispatchEvent(new Event('savingsUpdated'));
         } catch (e) { console.error(e); }
     };
 
@@ -113,6 +116,7 @@ const Savings: React.FC = () => {
             setIsTransModalOpen(false);
             setTransAmount('');
             loadData();
+            window.dispatchEvent(new Event('savingsUpdated'));
         } catch (e) { console.error(e); }
     };
 

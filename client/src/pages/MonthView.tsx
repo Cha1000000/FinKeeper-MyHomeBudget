@@ -152,7 +152,9 @@ const MonthView: React.FC = () => {
             ]);
 
             setIncomes(incRes.data);
-            setExpenses(expRes.data);
+            // Filter out hidden expenses (savings deposits) - category "Пополнение копилки"
+            const visibleExpenses = expRes.data.filter((e: Expense) => e.category_name !== 'Пополнение копилки');
+            setExpenses(visibleExpenses);
             setCategories(catRes.data);
             setBudgets(budRes.data);
             setIncomeSources(srcRes.data);
