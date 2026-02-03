@@ -87,8 +87,8 @@ const Layout: React.FC = () => {
                                     'flex items-center rounded-lg transition-all duration-200 group font-medium text-sm',
                                     isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3',
                                     isActive
-                                        ? 'bg-brand text-white shadow-md shadow-brand/20'
-                                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                                        ? 'bg-white/20 text-white shadow-lg shadow-emerald-900/20 backdrop-blur-sm'
+                                        : 'text-emerald-100 hover:bg-white/10 hover:text-white'
                                 )
                             }
                         >

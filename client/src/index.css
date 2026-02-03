@@ -11,7 +11,7 @@
   /* --- Основные цвета --- */
 
   /* Цвет боковой панели (сайдбара) */
-  --color-primary: #4a5d4b;
+  --color-primary: #1b905bff;
 
   /* Акцентный цвет (кнопки, активные элементы навигации) */
   --color-brand: #6b8e23;
@@ -55,7 +55,7 @@
 }
 
 body {
-  /* Мягкий градиентный фон как на референсе */
+  /* Мягкий градиентный фон */
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
   color: var(--color-text-main);
   font-family: var(--font-sans);

@@ -59,44 +59,44 @@ const Dashboard: React.FC = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow hover:shadow-md">
+                <div className="bg-emerald-50 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow hover:shadow-md">
                     <div className="flex justify-between items-start mb-3">
                         <div className="p-2.5 bg-brand/10 rounded-xl text-brand">
                             <TrendingUp className="w-5 h-5" />
                         </div>
                     </div>
-                    <p className="text-xs font-medium text-slate-500">Доходы</p>
+                    <p className="text-s font-medium text-slate-500">Доходы</p>
                     <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(currentSummary?.income || 0)}</p>
                 </div>
 
-                <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow hover:shadow-md">
+                <div className="bg-rose-50 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow hover:shadow-md">
                     <div className="flex justify-between items-start mb-3">
                         <div className="p-2.5 bg-red-50 rounded-xl text-red-600">
                             <TrendingDown className="w-5 h-5" />
                         </div>
                     </div>
-                    <p className="text-xs font-medium text-slate-500">Расходы</p>
+                    <p className="text-s font-medium text-slate-500">Расходы</p>
                     <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(currentSummary?.expenses || 0)}</p>
                 </div>
 
-                <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow hover:shadow-md">
+                <div className="bg-teal-100 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow hover:shadow-md">
                     <div className="flex justify-between items-start mb-3">
                         <div className="p-2.5 bg-warning/10 rounded-xl text-warning">
                             <PiggyBank className="w-5 h-5" />
                         </div>
                     </div>
-                    <p className="text-xs font-medium text-slate-500">Накопления</p>
+                    <p className="text-s font-medium text-slate-500">Накопления</p>
                     <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(currentSummary?.savings || 0)}</p>
                 </div>
 
                 {/* Доступный баланс = Доходы - Расходы */}
-                <div className={`${((currentSummary?.income || 0) - (currentSummary?.expenses || 0)) >= 0 ? 'bg-yellow-50 border-yellow-100' : 'bg-red-50 border-red-100'} p-3 rounded-2xl shadow-sm border transition-shadow hover:shadow-md`}>
+                <div className={`${((currentSummary?.income || 0) - (currentSummary?.expenses || 0)) >= 0 ? 'bg-yellow-50 border-yellow-100' : 'bg-red-100 border-red-100'} p-3 rounded-2xl shadow-sm border transition-shadow hover:shadow-md`}>
                     <div className="flex justify-between items-start mb-3">
                         <div className="p-2.5 bg-white/50 rounded-xl text-brand">
                             <Wallet className="w-5 h-5" />
                         </div>
                     </div>
-                    <p className="text-xs font-medium text-slate-500">Доступно</p>
+                    <p className="text-s font-medium text-slate-500">Доступно</p>
                     <p className={`text-xl font-bold mt-1 ${((currentSummary?.income || 0) - (currentSummary?.expenses || 0)) >= 0 ? 'text-slate-900' : 'text-red-600'}`}>
                         {formatCurrency((currentSummary?.income || 0) - (currentSummary?.expenses || 0))}
                     </p>
@@ -110,7 +110,7 @@ const Dashboard: React.FC = () => {
                                 <Wallet className="w-5 h-5" />
                             </div>
                         </div>
-                        <p className="text-xs font-medium text-slate-100/80">Всего активов</p>
+                        <p className="text-s font-medium text-slate-100/80">Всего активов</p>
                         <p className="text-xl font-bold text-white mt-1">
                             {formatCurrency((currentSummary?.income || 0) - (currentSummary?.expenses || 0) + (currentSummary?.savings || 0))}
                         </p>
