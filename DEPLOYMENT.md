@@ -28,8 +28,8 @@ npm start
 ```
 
 После запуска:
-- Frontend доступен по адресу: http://localhost:5173
-- Backend API доступен по адресу: http://localhost:3001
+- Frontend доступен по адресу: http://localhost:5174
+- Backend API доступен по адресу: http://localhost:3002
 
 ## Запуск на production-сервере
 
@@ -41,19 +41,19 @@ npm run start:prod
 
 Эта команда:
 1. Соберёт клиентскую часть приложения (`npm run build` в папке `client`)
-2. Запустит Node.js сервер на порту 3001
+2. Запустит Node.js сервер на порту 3002
 
 После успешного запуска приложение будет доступно по адресу:
 ```
-http://<IP-адрес-вашего-сервера>:3001
+http://<IP-адрес-вашего-сервера>:3002
 ```
 
 ## Структура портов
 
 | Порт | Назначение |
 |------|------------|
-| 3001 | Основной порт приложения (API + статика) |
-| 5173 | Порт для разработки (только frontend) |
+| 3002 | Основной порт приложения (API + статика) |
+| 5174 | Порт для разработки (только frontend) |
 
 ## Управление сервером
 
@@ -63,6 +63,47 @@ http://<IP-адрес-вашего-сервера>:3001
 - **pm2**: `pm2 start npm --name "home-budget" -- run start:prod`
 - **systemd**: создать service-файл для автозапуска
 
+## Установка и запуск на Ubuntu
+
+1. Подключитесь к серверу по SSH:
+```bash
+ssh username@your-server-ip
+```
+
+2. Установите Node.js (если не установлен):
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+3. Клонируйте проект (или перенесите папку проекта на сервер):
+```bash
+git clone <ваш-репозиторий> /home/username/home-budget
+cd /home/username/home-budget
+```
+
+4. Установите зависимости:
+```bash
+npm install
+cd client && npm install && cd ..
+```
+
+5. Разрешите порты в firewall (ufw):
+```bash
+sudo ufw allow 3002/tcp
+sudo ufw reload
+```
+
+6. Запустите приложение через pm2 (для постоянной работы):
+```bash
+sudo npm install -g pm2
+pm2 start npm --name "home-budget" -- run start:prod
+pm2 startup
+pm2 save
+```
+
+7. Приложение будет доступно по адресу `http://<IP-сервера>:3002`
+
 ## База данных
 
 Данные приложения хранятся в файле `server/database.sqlite`. При первом запуске автоматически создаются необходимые таблицы и добавляются начальные данные (категории расходов, источники доходов).
@@ -70,11 +111,11 @@ http://<IP-адрес-вашего-сервера>:3001
 ## Решение проблем
 
 1. **Ошибка "EADDRINUSE: Port in use"**
-   - Убедитесь, что порты 3001 и 5173 свободны
+   - Убедитесь, что порты 3002 и 5174 свободны
    - В Linux/macOS можно освободить порты командами:
      ```bash
-     lsof -ti:3001 | xargs kill -9
-     lsof -ti:5173 | xargs kill -9
+     lsof -ti:3002 | xargs kill -9
+     lsof -ti:5174 | xargs kill -9
      ```
 
 2. **Изменение порта**
