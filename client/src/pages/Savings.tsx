@@ -161,13 +161,13 @@ const Savings: React.FC = () => {
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
-                                        onClick={() => openTransaction(goal.id, 'deposit')}
+                                        onClick={(e) => { e.stopPropagation(); openTransaction(goal.id, 'deposit'); }}
                                         className="flex items-center justify-center gap-1 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg font-medium transition-colors text-sm"
                                     >
                                         <ArrowUp className="w-4 h-4" /> Пополнить
                                     </button>
                                     <button
-                                        onClick={() => openTransaction(goal.id, 'withdraw')}
+                                        onClick={(e) => { e.stopPropagation(); openTransaction(goal.id, 'withdraw'); }}
                                         className="flex items-center justify-center gap-1 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors text-sm"
                                     >
                                         <ArrowDown className="w-4 h-4" /> Снять
