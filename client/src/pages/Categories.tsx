@@ -212,7 +212,7 @@ const Categories: React.FC = () => {
                 title="Подтверждение удаления"
             >
                 <div className="space-y-4">
-                    <p className="text-gray-600">Вы уверены, что хотите удалить (скрыть) {itemName}?</p>
+                    <p className="text-gray-600">Вы уверены, что хотите удалить {itemName}?</p>
                     <div className="flex gap-3">
                         <button
                             onClick={confirmDelete}
