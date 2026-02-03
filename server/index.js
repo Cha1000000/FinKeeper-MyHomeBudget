@@ -64,6 +64,46 @@ app.put('/api/categories/:id', (req, res) => {
     res.json({ success: true });
 });
 
+// Income Sources
+app.get('/api/income_sources', (req, res) => {
+    const sources = db.prepare('SELECT * FROM income_sources WHERE is_active = 1 ORDER BY id').all();
+    res.json(sources);
+});
+
+app.post('/api/income_sources', (req, res) => {
+    const { name } = req.body;
+    try {
+        const stmt = db.prepare('INSERT INTO income_sources (name) VALUES (?)');
+        const result = stmt.run(name);
+        res.json({ id: result.lastInsertRowid, name, is_active: 1 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/income_sources/:id', (req, res) => {
+    const { name, is_active } = req.body;
+    const { id } = req.params;
+    try {
+        const stmt = db.prepare('UPDATE income_sources SET name = ?, is_active = ? WHERE id = ?');
+        stmt.run(name, is_active ?? 1, id);
+        res.json({ id, name, is_active: is_active ?? 1 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/income_sources/:id', (req, res) => {
+    const { id } = req.params;
+    try {
+        const stmt = db.prepare('UPDATE income_sources SET is_active = 0 WHERE id = ?');
+        stmt.run(id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Months
 app.get('/api/months', (req, res) => {
     // Return list of months that have data

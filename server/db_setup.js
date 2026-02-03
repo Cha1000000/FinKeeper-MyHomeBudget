@@ -66,6 +66,13 @@ CREATE TABLE IF NOT EXISTS savings_transactions (
   FOREIGN KEY (goal_id) REFERENCES savings_goals(id),
   FOREIGN KEY (month_id) REFERENCES months(id)
 );
+
+CREATE TABLE IF NOT EXISTS income_sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  is_active INTEGER DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 db.exec(schema);
@@ -117,6 +124,24 @@ if (checkSavings.count === 0) {
     for (const goal of goals) insert.run(goal);
   });
   insertMany(initialSavings);
+}
+
+// Seed Income Sources
+const initialIncomeSources = [
+  '💸 Зарплата',
+  '💸 Аванс',
+  '🪙 Кешбэк',
+  '💲 Процент на остаток'
+];
+
+const checkIncomeSources = db.prepare('SELECT count(*) as count FROM income_sources').get();
+if (checkIncomeSources.count === 0) {
+  console.log('Seeding income sources...');
+  const insert = db.prepare('INSERT INTO income_sources (name) VALUES (?)');
+  const insertMany = db.transaction((sources) => {
+    for (const source of sources) insert.run(source);
+  });
+  insertMany(initialIncomeSources);
 }
 
 console.log('Database setup complete.');

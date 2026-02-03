@@ -1,26 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Check, X } from 'lucide-react';
-import api, { getCategories } from '../api';
-import type { Category } from '../api';
+import api, { getCategories, getIncomeSources } from '../api';
+import type { Category, IncomeSource } from '../api';
 import Modal from '../components/Modal';
 
+type TabType = 'expenses' | 'income';
+
 const Categories: React.FC = () => {
+    const [activeTab, setActiveTab] = useState<TabType>('expenses');
     const [categories, setCategories] = useState<Category[]>([]);
+    const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newCategoryName, setNewCategoryName] = useState('');
+    const [newName, setNewName] = useState('');
 
     // Editing state
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editName, setEditName] = useState('');
 
     useEffect(() => {
-        fetchCategories();
-    }, []);
+        fetchData();
+    }, [activeTab]);
 
-    const fetchCategories = async () => {
+    const fetchData = async () => {
         try {
-            const res = await getCategories();
-            setCategories(res.data);
+            if (activeTab === 'expenses') {
+                const res = await getCategories();
+                setCategories(res.data);
+            } else {
+                const res = await getIncomeSources();
+                setIncomeSources(res.data);
+            }
         } catch (e) {
             console.error(e);
         }
@@ -29,26 +38,34 @@ const Categories: React.FC = () => {
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await api.post('/categories', { name: newCategoryName });
+            if (activeTab === 'expenses') {
+                await api.post('/categories', { name: newName });
+            } else {
+                await api.post('/income_sources', { name: newName });
+            }
             setIsModalOpen(false);
-            setNewCategoryName('');
-            fetchCategories();
+            setNewName('');
+            fetchData();
         } catch (e) {
             console.error(e);
         }
     };
 
-    const startEdit = (cat: Category) => {
-        setEditingId(cat.id);
-        setEditName(cat.name);
+    const startEdit = (item: Category | IncomeSource) => {
+        setEditingId(item.id);
+        setEditName(item.name);
     };
 
     const saveEdit = async () => {
         if (!editingId) return;
         try {
-            await api.put(`/categories/${editingId}`, { name: editName, is_active: 1 });
+            if (activeTab === 'expenses') {
+                await api.put(`/categories/${editingId}`, { name: editName, is_active: 1 });
+            } else {
+                await api.put(`/income_sources/${editingId}`, { name: editName, is_active: 1 });
+            }
             setEditingId(null);
-            fetchCategories();
+            fetchData();
         } catch (e) {
             console.error(e);
         }
@@ -60,14 +77,27 @@ const Categories: React.FC = () => {
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Вы уверены, что хотите удалить (скрыть) эту категорию?')) return;
+        const message = activeTab === 'expenses' 
+            ? 'Вы уверены, что хотите удалить (скрыть) эту категорию?'
+            : 'Вы уверены, что хотите удалить (скрыть) этот источник дохода?';
+        if (!confirm(message)) return;
         try {
-            await api.delete(`/categories/${id}`);
-            fetchCategories();
+            if (activeTab === 'expenses') {
+                await api.delete(`/categories/${id}`);
+            } else {
+                await api.delete(`/income_sources/${id}`);
+            }
+            fetchData();
         } catch (e) {
             console.error(e);
         }
     };
+
+    const currentList = activeTab === 'expenses' ? categories : incomeSources;
+    const itemName = activeTab === 'expenses' ? 'категорию' : 'источник дохода';
+    const listEmpty = activeTab === 'expenses' ? 'Список категорий пуст' : 'Список источников дохода пуст';
+    const modalTitle = activeTab === 'expenses' ? 'Добавить категорию' : 'Добавить источник дохода';
+    const buttonTitle = activeTab === 'expenses' ? 'Новая категория' : 'Новый источник';
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -78,18 +108,42 @@ const Categories: React.FC = () => {
                     className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors shadow-sm"
                 >
                     <Plus className="w-5 h-5" />
-                    Новая категория
+                    {buttonTitle}
+                </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 border-b border-gray-200">
+                <button
+                    onClick={() => setActiveTab('expenses')}
+                    className={`px-4 py-2 font-medium transition-colors border-b-2 -mb-px ${
+                        activeTab === 'expenses'
+                            ? 'text-blue-600 border-blue-600'
+                            : 'text-gray-500 border-transparent hover:text-gray-700'
+                    }`}
+                >
+                    Категории расходов
+                </button>
+                <button
+                    onClick={() => setActiveTab('income')}
+                    className={`px-4 py-2 font-medium transition-colors border-b-2 -mb-px ${
+                        activeTab === 'income'
+                            ? 'text-blue-600 border-blue-600'
+                            : 'text-gray-500 border-transparent hover:text-gray-700'
+                    }`}
+                >
+                    Источники дохода
                 </button>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <ul className="divide-y divide-gray-100">
-                    {categories.length === 0 && (
-                        <li className="p-8 text-center text-gray-400">Список категорий пуст</li>
+                    {currentList.length === 0 && (
+                        <li className="p-8 text-center text-gray-400">{listEmpty}</li>
                     )}
-                    {categories.map((cat) => (
-                        <li key={cat.id} className="p-4 hover:bg-gray-50 flex items-center justify-between group">
-                            {editingId === cat.id ? (
+                    {currentList.map((item) => (
+                        <li key={item.id} className="p-4 hover:bg-gray-50 flex items-center justify-between group">
+                            {editingId === item.id ? (
                                 <div className="flex items-center gap-2 w-full">
                                     <input
                                         type="text"
@@ -107,12 +161,12 @@ const Categories: React.FC = () => {
                                 </div>
                             ) : (
                                 <>
-                                    <span className="font-medium text-gray-700">{cat.name}</span>
+                                    <span className="font-medium text-gray-700">{item.name}</span>
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => startEdit(cat)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                                        <button onClick={() => startEdit(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
                                             <Edit2 className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => handleDelete(cat.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                                        <button onClick={() => handleDelete(item.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -126,7 +180,7 @@ const Categories: React.FC = () => {
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                title="Добавить категорию"
+                title={modalTitle}
             >
                 <form onSubmit={handleAdd} className="space-y-4">
                     <div className="space-y-2">
@@ -134,8 +188,8 @@ const Categories: React.FC = () => {
                         <input
                             type="text"
                             required
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
                             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                             placeholder="Введите название..."
                         />

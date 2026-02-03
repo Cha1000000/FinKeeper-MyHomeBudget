@@ -8,9 +8,9 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
     ensureMonth, getIncomes, getExpenses, getCategories, getBudgets, setBudget,
-    addIncome, addExpense, deleteIncome, deleteExpense, updateExpense, updateIncome, reorderCategories
+    addIncome, addExpense, deleteIncome, deleteExpense, updateExpense, updateIncome, reorderCategories, getIncomeSources
 } from '../api';
-import type { Month, Income, Expense, Category, Budget } from '../api';
+import type { Month, Income, Expense, Category, Budget, IncomeSource } from '../api';
 import { formatCurrency, formatDate } from '../utils';
 import Modal from '../components/Modal';
 
@@ -83,6 +83,7 @@ const MonthView: React.FC = () => {
     const [incomes, setIncomes] = useState<Income[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
     const [budgets, setBudgets] = useState<Budget[]>([]);
 
     const [activeTab, setActiveTab] = useState<'income' | 'expense'>('expense');
@@ -91,7 +92,7 @@ const MonthView: React.FC = () => {
 
     // Form State
     const [formData, setFormData] = useState({
-        source: '',
+        sourceId: '',
         amount: '',
         categoryId: '',
         comment: ''
@@ -123,7 +124,7 @@ const MonthView: React.FC = () => {
     const openAddModal = (type: 'income' | 'expense', categoryId?: number) => {
         setActiveTab(type);
         setFormData({
-            source: '',
+            sourceId: '',
             amount: '',
             categoryId: categoryId ? categoryId.toString() : '',
             comment: ''
@@ -139,17 +140,19 @@ const MonthView: React.FC = () => {
             const mRes = await ensureMonth(year, month);
             setMonthData(mRes.data);
 
-            const [incRes, expRes, catRes, budRes] = await Promise.all([
+            const [incRes, expRes, catRes, budRes, srcRes] = await Promise.all([
                 getIncomes(mRes.data.id),
                 getExpenses(mRes.data.id),
                 getCategories(),
-                getBudgets(mRes.data.id)
+                getBudgets(mRes.data.id),
+                getIncomeSources()
             ]);
 
             setIncomes(incRes.data);
             setExpenses(expRes.data);
             setCategories(catRes.data);
             setBudgets(budRes.data);
+            setIncomeSources(srcRes.data);
             
         } catch (e) {
             console.error("Error loading data", e);
@@ -174,9 +177,10 @@ const MonthView: React.FC = () => {
 
         try {
             if (activeTab === 'income') {
+                const source = incomeSources.find(s => s.id === parseInt(formData.sourceId))?.name || '';
                 await addIncome({
                     month_id: monthData.id,
-                    source: formData.source,
+                    source,
                     amount: parseFloat(formData.amount),
                     date: new Date().toISOString()
                 });
@@ -195,7 +199,7 @@ const MonthView: React.FC = () => {
                 }
             }
             setIsModalOpen(false);
-            setFormData({ source: '', amount: '', categoryId: '', comment: '' });
+            setFormData({ sourceId: '', amount: '', categoryId: '', comment: '' });
             loadData();
         } catch (err) {
             console.error(err);
@@ -588,14 +592,17 @@ const MonthView: React.FC = () => {
                     {activeTab === 'income' ? (
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700">Источник</label>
-                            <input
-                                type="text"
+                            <select
                                 required
-                                value={formData.source}
-                                onChange={e => setFormData({ ...formData, source: e.target.value })}
+                                value={formData.sourceId}
+                                onChange={e => setFormData({ ...formData, sourceId: e.target.value })}
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                placeholder="Например: Зарплата"
-                            />
+                            >
+                                <option value="">Выберите источник</option>
+                                {incomeSources.map(source => (
+                                    <option key={source.id} value={source.id}>{source.name}</option>
+                                ))}
+                            </select>
                         </div>
                     ) : (
                         <>

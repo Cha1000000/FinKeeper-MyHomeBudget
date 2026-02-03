@@ -10,6 +10,12 @@ export interface Category {
     is_active: number;
 }
 
+export interface IncomeSource {
+    id: number;
+    name: string;
+    is_active: number;
+}
+
 export interface Month {
     id: number;
     year: number;
@@ -44,6 +50,12 @@ export interface Budget {
 
 export const getCategories = () => api.get<Category[]>('/categories');
 export const reorderCategories = (ids: number[]) => api.put('/categories/reorder', { ids });
+
+export const getIncomeSources = () => api.get<IncomeSource[]>('/income_sources');
+export const addIncomeSource = (data: { name: string }) => api.post<IncomeSource>('/income_sources', data);
+export const updateIncomeSource = (id: number, data: { name?: string, is_active?: number }) => api.put(`/income_sources/${id}`, data);
+export const deleteIncomeSource = (id: number) => api.delete(`/income_sources/${id}`);
+
 export const getMonths = () => api.get<Month[]>('/months');
 export const ensureMonth = (year: number, month: number) => api.post<Month>('/months/ensure', { year, month });
 
