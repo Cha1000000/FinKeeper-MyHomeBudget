@@ -55,7 +55,7 @@ const Layout: React.FC = () => {
     return (
         <div className="flex h-screen overflow-hidden bg-background">
             {/* Sidebar Desktop */}
-            <aside className="w-64 bg-primary text-white shadow-xl flex-shrink-0 hidden md:flex flex-col relative z-20">
+            <aside className="w-58 bg-primary text-white shadow-xl flex-shrink-0 hidden md:flex flex-col relative z-20">
                 <div className="p-6 flex items-center gap-3 border-b border-white/10">
                     <div className="bg-brand p-2 rounded-lg">
                         <Wallet className="w-6 h-6 text-white" />

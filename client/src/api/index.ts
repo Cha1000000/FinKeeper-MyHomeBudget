@@ -69,6 +69,8 @@ export interface SavingsGoal {
 
 export const getSavingsGoals = () => api.get<SavingsGoal[]>('/savings_goals');
 export const addSavingsGoal = (data: { name: string, target_amount: number }) => api.post<SavingsGoal>('/savings_goals', data);
+export const updateSavingsGoal = (id: number, data: { name?: string, target_amount?: number, current_amount?: number }) => api.put(`/savings_goals/${id}`, data);
+export const deleteSavingsGoal = (id: number) => api.delete(`/savings_goals/${id}`);
 export const addSavingsTransaction = (data: { goal_id: number, amount: number, date: string, month_id?: number }) => api.post('/savings_transactions', data);
 export const getSavingsTransactions = (goalId: number) => api.get<any[]>(`/savings_transactions/${goalId}`);
 

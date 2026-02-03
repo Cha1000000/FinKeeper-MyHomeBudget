@@ -166,6 +166,41 @@ app.post('/api/savings_goals', (req, res) => {
     res.json({ id: info.lastInsertRowid, name, target_amount, current_amount: 0 });
 });
 
+app.put('/api/savings_goals/:id', (req, res) => {
+    const { name, target_amount, current_amount } = req.body;
+    const updates = [];
+    const values = [];
+    
+    if (name !== undefined) {
+        updates.push('name = ?');
+        values.push(name);
+    }
+    if (target_amount !== undefined) {
+        updates.push('target_amount = ?');
+        values.push(target_amount);
+    }
+    if (current_amount !== undefined) {
+        updates.push('current_amount = ?');
+        values.push(current_amount);
+    }
+    
+    if (updates.length === 0) {
+        return res.json({ success: true });
+    }
+    
+    const sql = `UPDATE savings_goals SET ${updates.join(', ')} WHERE id = ?`;
+    db.prepare(sql).run(...values, req.params.id);
+    res.json({ success: true });
+});
+
+app.delete('/api/savings_goals/:id', (req, res) => {
+    // First delete all transactions for this goal
+    db.prepare('DELETE FROM savings_transactions WHERE goal_id = ?').run(req.params.id);
+    // Then delete the goal
+    db.prepare('DELETE FROM savings_goals WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
 app.post('/api/savings_transactions', (req, res) => {
     const { goal_id, amount, date, month_id } = req.body;
 

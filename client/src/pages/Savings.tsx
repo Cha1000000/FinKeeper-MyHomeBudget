@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, PiggyBank, ArrowDown, ArrowUp } from 'lucide-react';
+import { Plus, PiggyBank, ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 import classNames from 'classnames';
-import { getSavingsGoals, addSavingsGoal, addSavingsTransaction, ensureMonth } from '../api';
+import { getSavingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, addSavingsTransaction, ensureMonth } from '../api';
 import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
 import Modal from '../components/Modal';
@@ -10,11 +10,17 @@ const Savings: React.FC = () => {
     const [goals, setGoals] = useState<SavingsGoal[]>([]);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
     const [isTransModalOpen, setIsTransModalOpen] = useState(false);
-
+    
     // New Goal State
     const [newGoalName, setNewGoalName] = useState('');
     const [newGoalTarget, setNewGoalTarget] = useState('');
-
+    
+    // Edit Goal State
+    const [editingGoalId, setEditingGoalId] = useState<number | null>(null);
+    const [editGoalName, setEditGoalName] = useState('');
+    const [editGoalTarget, setEditGoalTarget] = useState('');
+    const [editGoalCurrent, setEditGoalCurrent] = useState('');
+    
     // Transaction State
     const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
     const [transAmount, setTransAmount] = useState('');
@@ -36,6 +42,46 @@ const Savings: React.FC = () => {
             setIsGoalModalOpen(false);
             setNewGoalName('');
             setNewGoalTarget('');
+            loadData();
+        } catch (e) { console.error(e); }
+    };
+
+    const openEditGoal = (goal: SavingsGoal) => {
+        setEditingGoalId(goal.id);
+        setEditGoalName(goal.name);
+        setEditGoalTarget(goal.target_amount.toString());
+        setEditGoalCurrent(goal.current_amount.toString());
+        setIsGoalModalOpen(true);
+    };
+
+    const handleUpdateGoal = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingGoalId) return;
+        try {
+            await updateSavingsGoal(editingGoalId, {
+                name: editGoalName,
+                target_amount: parseFloat(editGoalTarget) || 0,
+                current_amount: parseFloat(editGoalCurrent) || 0
+            });
+            setIsGoalModalOpen(false);
+            setEditingGoalId(null);
+            setEditGoalName('');
+            setEditGoalTarget('');
+            setEditGoalCurrent('');
+            loadData();
+        } catch (e) { console.error(e); }
+    };
+
+    const handleDeleteGoal = async () => {
+        if (!editingGoalId) return;
+        if (!confirm('Вы уверены, что хотите удалить эту копилку?')) return;
+        try {
+            await deleteSavingsGoal(editingGoalId);
+            setIsGoalModalOpen(false);
+            setEditingGoalId(null);
+            setEditGoalName('');
+            setEditGoalTarget('');
+            setEditGoalCurrent('');
             loadData();
         } catch (e) { console.error(e); }
     };
@@ -91,9 +137,9 @@ const Savings: React.FC = () => {
                     const progress = goal.target_amount > 0
                         ? Math.min((goal.current_amount / goal.target_amount) * 100, 100)
                         : 0;
-
+                    
                     return (
-                        <div key={goal.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between h-full">
+                        <div key={goal.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between h-full cursor-pointer hover:shadow-md transition-shadow" onClick={() => openEditGoal(goal)}>
                             <div className="mb-4">
                                 <div className="flex justify-between items-start mb-2">
                                     <h3 className="text-lg font-bold text-gray-800">{goal.name}</h3>
@@ -133,19 +179,25 @@ const Savings: React.FC = () => {
                 })}
             </div>
 
-            {/* Create Goal Modal */}
+            {/* Create/Edit Goal Modal */}
             <Modal
                 isOpen={isGoalModalOpen}
-                onClose={() => setIsGoalModalOpen(false)}
-                title="Создать новую копилку"
+                onClose={() => {
+                    setIsGoalModalOpen(false);
+                    setEditingGoalId(null);
+                    setEditGoalName('');
+                    setEditGoalTarget('');
+                    setEditGoalCurrent('');
+                }}
+                title={editingGoalId ? "Редактировать копилку" : "Создать новую копилку"}
             >
-                <form onSubmit={handleCreateGoal} className="space-y-4">
+                <form onSubmit={editingGoalId ? handleUpdateGoal : handleCreateGoal} className="space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Название цели</label>
                         <input
                             type="text" required
-                            value={newGoalName}
-                            onChange={e => setNewGoalName(e.target.value)}
+                            value={editingGoalId ? editGoalName : newGoalName}
+                            onChange={e => editingGoalId ? setEditGoalName(e.target.value) : setNewGoalName(e.target.value)}
                             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                             placeholder="Например: На отпуск"
                         />
@@ -154,15 +206,41 @@ const Savings: React.FC = () => {
                         <label className="text-sm font-medium text-gray-700">Целевая сумма</label>
                         <input
                             type="number" required
-                            value={newGoalTarget}
-                            onChange={e => setNewGoalTarget(e.target.value)}
+                            value={editingGoalId ? editGoalTarget : newGoalTarget}
+                            onChange={e => editingGoalId ? setEditGoalTarget(e.target.value) : setNewGoalTarget(e.target.value)}
                             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                             placeholder="100000"
                         />
                     </div>
-                    <button type="submit" className="w-full bg-primary text-white py-3 rounded-lg font-medium mt-2">
-                        Создать
-                    </button>
+                    {editingGoalId && (
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Текущий баланс</label>
+                            <input
+                                type="number" required
+                                value={editGoalCurrent}
+                                onChange={e => setEditGoalCurrent(e.target.value)}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                placeholder="0"
+                            />
+                        </div>
+                    )}
+                    <div className="flex gap-3 mt-4">
+                        <button
+                            type="submit"
+                            className="flex-1 bg-primary text-white py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                        >
+                            {editingGoalId ? 'Сохранить' : 'Создать'}
+                        </button>
+                        {editingGoalId && (
+                            <button
+                                type="button"
+                                onClick={handleDeleteGoal}
+                                className="flex-1 bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                            >
+                                Удалить копилку
+                            </button>
+                        )}
+                    </div>
                 </form>
             </Modal>
 
