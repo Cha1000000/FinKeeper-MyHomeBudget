@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu } from 'lucide-react';
 import classNames from 'classnames';
 import { ensureMonth, getMonthSummary, getSavingsGoals } from '../api';
 import { formatCurrency } from '../utils';
@@ -11,6 +11,7 @@ const Layout: React.FC = () => {
     const [currentMonth, setCurrentMonth] = useState('');
     const [availableBalance, setAvailableBalance] = useState(0);
     const [totalAssets, setTotalAssets] = useState(0);
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     const navItems = [
         { name: 'Обзор', path: '/', icon: LayoutDashboard },
@@ -55,22 +56,36 @@ const Layout: React.FC = () => {
     return (
         <div className="flex h-screen overflow-hidden bg-background">
             {/* Sidebar Desktop */}
-            <aside className="w-58 bg-primary text-white shadow-xl flex-shrink-0 hidden md:flex flex-col relative z-20">
-                <div className="p-6 flex items-center gap-3 border-b border-white/10">
-                    <div className="bg-brand p-2 rounded-lg">
-                        <Wallet className="w-6 h-6 text-white" />
-                    </div>
-                    <h1 className="text-xl font-bold tracking-tight">FinKeeper</h1>
+            <aside className={classNames(
+            "bg-primary text-white shadow-xl flex-shrink-0 hidden md:flex flex-col relative z-20 transition-all duration-300",
+            isCollapsed ? "w-16" : "w-58"
+        )}>
+                <div className={classNames("flex items-center border-b border-white/10", isCollapsed ? "justify-center p-4" : "p-6 gap-3")}>
+                    <button 
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className={classNames(
+                            "rounded-lg transition-all duration-200",
+                            isCollapsed ? "bg-brand p-2" : "bg-brand p-2"
+                        )}
+                    >
+                        {isCollapsed ? (
+                            <Menu className="w-6 h-6 text-white" />
+                        ) : (
+                            <Wallet className="w-6 h-6 text-white" />
+                        )}
+                    </button>
+                    {!isCollapsed && <h1 className="text-xl font-bold tracking-tight">FinKeeper</h1>}
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2 mt-2">
+                <nav className={classNames("flex-1 p-4 space-y-2 mt-2", isCollapsed ? "justify-center" : "")}>
                     {navItems.map((item) => (
                         <NavLink
                             key={item.path}
                             to={item.path}
                             className={({ isActive }) =>
                                 classNames(
-                                    'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group font-medium text-sm',
+                                    'flex items-center rounded-lg transition-all duration-200 group font-medium text-sm',
+                                    isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3',
                                     isActive
                                         ? 'bg-brand text-white shadow-md shadow-brand/20'
                                         : 'text-slate-300 hover:bg-white/5 hover:text-white'
@@ -78,12 +93,13 @@ const Layout: React.FC = () => {
                             }
                         >
                             <item.icon className={classNames("w-5 h-5 transition-colors", ({ isActive }: { isActive: boolean }) => isActive ? 'text-white' : 'text-slate-400 group-hover:text-white')} />
-                            {item.name}
+                            {!isCollapsed && <span>{item.name}</span>}
                         </NavLink>
                     ))}
                 </nav>
 
                 {/* Финансовая сводка */}
+                {!isCollapsed && (
                 <div className="p-4 border-t border-white/10 space-y-3">
                     <p className="text-xs text-slate-400 uppercase tracking-wider px-2">{currentMonth}</p>
                     
@@ -102,6 +118,7 @@ const Layout: React.FC = () => {
                     
                     <p className="text-[10px] text-slate-500 text-center">Домашняя бухгалтерия v1.0</p>
                 </div>
+                )}
             </aside>
 
             {/* Mobile Nav (Bottom) */}
@@ -125,7 +142,10 @@ const Layout: React.FC = () => {
 
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8">
+            <main 
+                    className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8"
+                    onClick={() => !isCollapsed && setIsCollapsed(true)}
+                >
                 <Outlet />
             </main>
         </div>
