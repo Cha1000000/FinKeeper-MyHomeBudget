@@ -16,6 +16,7 @@ const Categories: React.FC = () => {
     // Editing state
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editName, setEditName] = useState('');
+    const [pendingDelete, setPendingDelete] = useState<number | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -76,17 +77,19 @@ const Categories: React.FC = () => {
         setEditName('');
     };
 
-    const handleDelete = async (id: number) => {
-        const message = activeTab === 'expenses' 
-            ? 'Вы уверены, что хотите удалить (скрыть) эту категорию?'
-            : 'Вы уверены, что хотите удалить (скрыть) этот источник дохода?';
-        if (!confirm(message)) return;
+    const handleDelete = (id: number) => {
+        setPendingDelete(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!pendingDelete) return;
         try {
             if (activeTab === 'expenses') {
-                await api.delete(`/categories/${id}`);
+                await api.delete(`/categories/${pendingDelete}`);
             } else {
-                await api.delete(`/income_sources/${id}`);
+                await api.delete(`/income_sources/${pendingDelete}`);
             }
+            setPendingDelete(null);
             fetchData();
         } catch (e) {
             console.error(e);
@@ -201,6 +204,30 @@ const Categories: React.FC = () => {
                         Создать
                     </button>
                 </form>
+            </Modal>
+
+            <Modal
+                isOpen={!!pendingDelete}
+                onClose={() => setPendingDelete(null)}
+                title="Подтверждение удаления"
+            >
+                <div className="space-y-4">
+                    <p className="text-gray-600">Вы уверены, что хотите удалить (скрыть) {itemName}?</p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={confirmDelete}
+                            className="flex-1 bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                        >
+                            Удалить
+                        </button>
+                        <button
+                            onClick={() => setPendingDelete(null)}
+                            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                        >
+                            Отмена
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </div>
     );
