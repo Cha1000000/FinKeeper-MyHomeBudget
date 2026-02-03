@@ -97,7 +97,7 @@ const Categories: React.FC = () => {
     };
 
     const currentList = activeTab === 'expenses' ? categories : incomeSources;
-    const itemName = activeTab === 'expenses' ? 'категорию' : 'источник дохода';
+    const itemName = activeTab === 'expenses' ? 'эту категорию' : 'этот источник дохода';
     const listEmpty = activeTab === 'expenses' ? 'Список категорий пуст' : 'Список источников дохода пуст';
     const modalTitle = activeTab === 'expenses' ? 'Добавить категорию' : 'Добавить источник дохода';
     const buttonTitle = activeTab === 'expenses' ? 'Новая категория' : 'Новый источник';
@@ -212,7 +212,7 @@ const Categories: React.FC = () => {
                 title="Подтверждение удаления"
             >
                 <div className="space-y-4">
-                    <p className="text-gray-600">Вы уверены, что хотите удалить {itemName}?</p>
+                    <p className="text-gray-600">Уверены, что хотите удалить {itemName}?</p>
                     <div className="flex gap-3">
                         <button
                             onClick={confirmDelete}
