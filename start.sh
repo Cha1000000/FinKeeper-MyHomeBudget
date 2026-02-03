@@ -25,7 +25,7 @@ sleep 1
 
 echo "🌐 Запуск Frontend (порт 5174)..."
 cd "$PROJECT_ROOT/client"
-npm run dev &
+npm run dev -- --port 5174 &
 FRONTEND_PID=$!
 
 echo ""
