@@ -22,6 +22,15 @@ const Layout: React.FC = () => {
         { name: 'Копилки', path: '/savings', icon: PiggyBank },
     ];
 
+    // Sync sidebar state with settings changes
+    useEffect(() => {
+        if (uiSettings?.autoCollapseSidebar !== undefined) {
+            // If auto-collapse is enabled, collapse it initially (or when toggled to true)
+            // If disabled, expand it (or when toggled to false)
+            setIsCollapsed(uiSettings.autoCollapseSidebar);
+        }
+    }, [uiSettings?.autoCollapseSidebar]);
+
     useEffect(() => {
         const fetchFinancialData = async () => {
             try {
@@ -190,7 +199,6 @@ const Layout: React.FC = () => {
             <main 
                     className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-slate-50 to-slate-100"
                     onClick={() => {
-                        console.log('Main clicked. Setting:', uiSettings?.autoCollapseSidebar, 'Collapsed:', isCollapsed);
                         if (uiSettings?.autoCollapseSidebar && !isCollapsed) {
                             setIsCollapsed(true);
                         }
