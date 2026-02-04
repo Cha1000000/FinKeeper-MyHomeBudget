@@ -4,6 +4,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { initialCategories, initialSavings, initialIncomeSources } = require('./default_data');
 
 const app = express();
 const PORT = 3002;
@@ -15,11 +16,17 @@ app.use(cors());
 app.use(express.json());
 
 // --- Helper Functions ---
-function getOrCreateMonth(year, month) {
-    const row = db.prepare('SELECT id FROM months WHERE year = ? AND month = ?').get(year, month);
+function getOrCreateMonth(userId, year, month) {
+    const row = db.prepare('SELECT id FROM months WHERE user_id = ? AND year = ? AND month = ?').get(userId, year, month);
     if (row) return row.id;
-    const info = db.prepare('INSERT INTO months (year, month) VALUES (?, ?)').run(year, month);
+    const info = db.prepare('INSERT INTO months (user_id, year, month) VALUES (?, ?, ?)').run(userId, year, month);
     return info.lastInsertRowid;
+}
+
+// Helper to check if month belongs to user
+function checkMonthAccess(userId, monthId) {
+    const month = db.prepare('SELECT id FROM months WHERE id = ? AND user_id = ?').get(monthId, userId);
+    return !!month;
 }
 
 // --- Middleware ---
@@ -45,10 +52,30 @@ app.post('/api/auth/register', (req, res) => {
 
     try {
         const hashedPassword = bcrypt.hashSync(password, 8);
-        const info = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hashedPassword);
+
+        const registerTransaction = db.transaction(() => {
+            const info = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hashedPassword);
+            const userId = info.lastInsertRowid;
+
+            // Seed Categories
+            const insertCat = db.prepare('INSERT INTO categories (user_id, name, sort_order) VALUES (?, ?, ?)');
+            initialCategories.forEach((cat, index) => insertCat.run(userId, cat, index + 1));
+
+            // Seed Income Sources
+            const insertSource = db.prepare('INSERT INTO income_sources (user_id, name) VALUES (?, ?)');
+            initialIncomeSources.forEach(source => insertSource.run(userId, source));
+
+            // Seed Savings Goals
+            const insertGoal = db.prepare('INSERT INTO savings_goals (user_id, name) VALUES (?, ?)');
+            initialSavings.forEach(goal => insertGoal.run(userId, goal));
+
+            return { id: userId, username };
+        });
+
+        const user = registerTransaction();
         
-        const token = jwt.sign({ id: info.lastInsertRowid, username }, JWT_SECRET, { expiresIn: '365d' }); // Valid for 1 year
-        res.json({ token, user: { id: info.lastInsertRowid, username } });
+        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '365d' }); // Valid for 1 year
+        res.json({ token, user });
     } catch (err) {
         if (err.message.includes('UNIQUE constraint failed')) {
             return res.status(409).json({ error: 'Username already exists' });
@@ -81,32 +108,20 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 
 // Protect all subsequent API routes
 app.use('/api', authenticateToken); 
-// Note: This applies 'authenticateToken' to all routes starting with /api defined BELOW this line.
-// Since /api/auth/* are defined ABOVE, they are public.
-// But wait, the routes below are like '/api/categories'. 
-// Express matches sequentially.
-// Actually, it's safer to apply it specifically or organize routes better.
-// However, since I am editing this file in place, I need to be careful.
-// The routes below are defined as app.get('/api/categories'...). 
-// If I put app.use('/api', authenticateToken) here, it will intercept requests to /api/categories defined below.
-// BUT, it would also intercept /api/auth defined above if I wasn't careful with ordering.
-// Since /api/auth routes are defined ABOVE this line, they will be matched first and executed.
-// Routes defined BELOW will pass through this middleware.
-
 
 // Categories
 app.get('/api/categories', (req, res) => {
-    const categories = db.prepare('SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC').all();
+    const categories = db.prepare('SELECT * FROM categories WHERE user_id = ? AND is_active = 1 ORDER BY sort_order ASC, name ASC').all(req.user.id);
     res.json(categories);
 });
 
 app.post('/api/categories', (req, res) => {
     const { name } = req.body;
     // Get max sort_order
-    const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories').get();
+    const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
     const nextOrder = (result.maxOrder || 0) + 1;
     
-    const info = db.prepare('INSERT INTO categories (name, sort_order) VALUES (?, ?)').run(name, nextOrder);
+    const info = db.prepare('INSERT INTO categories (user_id, name, sort_order) VALUES (?, ?, ?)').run(req.user.id, name, nextOrder);
     res.json({ id: info.lastInsertRowid, name, is_active: 1, sort_order: nextOrder });
 });
 
@@ -114,11 +129,15 @@ app.put('/api/categories/reorder', (req, res) => {
     const { ids } = req.body;
     if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids array required' });
 
-    const updateStmt = db.prepare('UPDATE categories SET sort_order = ? WHERE id = ?');
+    // Ensure all categories belong to user
+    // Optimization: Just update where id IN (...) AND user_id = ?
+    // But sort order update is per row.
+    
+    const updateStmt = db.prepare('UPDATE categories SET sort_order = ? WHERE id = ? AND user_id = ?');
     
     const transact = db.transaction((idList) => {
         idList.forEach((id, index) => {
-            updateStmt.run(index, Number(id));
+            updateStmt.run(index, Number(id), req.user.id);
         });
     });
 
@@ -133,21 +152,22 @@ app.put('/api/categories/reorder', (req, res) => {
 
 app.put('/api/categories/:id', (req, res) => {
     const { name, is_active } = req.body;
-    db.prepare('UPDATE categories SET name = ?, is_active = ? WHERE id = ?').run(name, is_active, req.params.id);
+    const result = db.prepare('UPDATE categories SET name = ?, is_active = ? WHERE id = ? AND user_id = ?').run(name, is_active, req.params.id, req.user.id);
+    if (result.changes === 0) return res.status(404).json({error: 'Category not found'});
     res.json({ success: true });
 });
 
 // Income Sources
 app.get('/api/income_sources', (req, res) => {
-    const sources = db.prepare('SELECT * FROM income_sources WHERE is_active = 1 ORDER BY id').all();
+    const sources = db.prepare('SELECT * FROM income_sources WHERE user_id = ? AND is_active = 1 ORDER BY id').all(req.user.id);
     res.json(sources);
 });
 
 app.post('/api/income_sources', (req, res) => {
     const { name } = req.body;
     try {
-        const stmt = db.prepare('INSERT INTO income_sources (name) VALUES (?)');
-        const result = stmt.run(name);
+        const stmt = db.prepare('INSERT INTO income_sources (user_id, name) VALUES (?, ?)');
+        const result = stmt.run(req.user.id, name);
         res.json({ id: result.lastInsertRowid, name, is_active: 1 });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -158,8 +178,9 @@ app.put('/api/income_sources/:id', (req, res) => {
     const { name, is_active } = req.body;
     const { id } = req.params;
     try {
-        const stmt = db.prepare('UPDATE income_sources SET name = ?, is_active = ? WHERE id = ?');
-        stmt.run(name, is_active ?? 1, id);
+        const stmt = db.prepare('UPDATE income_sources SET name = ?, is_active = ? WHERE id = ? AND user_id = ?');
+        const result = stmt.run(name, is_active ?? 1, id, req.user.id);
+        if (result.changes === 0) return res.status(404).json({error: 'Income source not found'});
         res.json({ id, name, is_active: is_active ?? 1 });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -169,8 +190,9 @@ app.put('/api/income_sources/:id', (req, res) => {
 app.delete('/api/income_sources/:id', (req, res) => {
     const { id } = req.params;
     try {
-        const stmt = db.prepare('UPDATE income_sources SET is_active = 0 WHERE id = ?');
-        stmt.run(id);
+        const stmt = db.prepare('UPDATE income_sources SET is_active = 0 WHERE id = ? AND user_id = ?');
+        const result = stmt.run(id, req.user.id);
+        if (result.changes === 0) return res.status(404).json({error: 'Income source not found'});
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -180,41 +202,58 @@ app.delete('/api/income_sources/:id', (req, res) => {
 // Months
 app.get('/api/months', (req, res) => {
     // Return list of months that have data
-    const months = db.prepare('SELECT * FROM months ORDER BY year DESC, month DESC').all();
+    const months = db.prepare('SELECT * FROM months WHERE user_id = ? ORDER BY year DESC, month DESC').all(req.user.id);
     res.json(months);
 });
 
 app.post('/api/months/ensure', (req, res) => {
     const { year, month } = req.body;
-    const id = getOrCreateMonth(year, month);
+    const id = getOrCreateMonth(req.user.id, year, month);
     res.json({ id, year, month });
 });
 
 // Incomes
 app.get('/api/months/:monthId/incomes', (req, res) => {
+    // Check access
+    if (!checkMonthAccess(req.user.id, req.params.monthId)) return res.status(403).json({ error: 'Access denied' });
+    
     const incomes = db.prepare('SELECT * FROM incomes WHERE month_id = ?').all(req.params.monthId);
     res.json(incomes);
 });
 
 app.post('/api/incomes', (req, res) => {
     const { month_id, source, amount, date } = req.body;
+    
+    if (!checkMonthAccess(req.user.id, month_id)) return res.status(403).json({ error: 'Access denied' });
+
     const info = db.prepare('INSERT INTO incomes (month_id, source, amount, date) VALUES (?, ?, ?, ?)').run(month_id, source, amount, date);
     res.json({ id: info.lastInsertRowid, ...req.body });
 });
 
 app.put('/api/incomes/:id', (req, res) => {
     const { amount } = req.body;
+    // Need to verify ownership via month_id
+    const income = db.prepare('SELECT month_id FROM incomes WHERE id = ?').get(req.params.id);
+    if (!income) return res.status(404).json({ error: 'Income not found' });
+    if (!checkMonthAccess(req.user.id, income.month_id)) return res.status(403).json({ error: 'Access denied' });
+
     db.prepare('UPDATE incomes SET amount = ? WHERE id = ?').run(amount, req.params.id);
     res.json({ success: true });
 });
 
 app.delete('/api/incomes/:id', (req, res) => {
+    const income = db.prepare('SELECT month_id FROM incomes WHERE id = ?').get(req.params.id);
+    if (!income) return res.status(404).json({ error: 'Income not found' });
+    if (!checkMonthAccess(req.user.id, income.month_id)) return res.status(403).json({ error: 'Access denied' });
+
     db.prepare('DELETE FROM incomes WHERE id = ?').run(req.params.id);
     res.json({ success: true });
 });
 
 // Expenses
 app.get('/api/months/:monthId/expenses', (req, res) => {
+    if (!checkMonthAccess(req.user.id, req.params.monthId)) return res.status(403).json({ error: 'Access denied' });
+
     const expenses = db.prepare(`
     SELECT e.*, c.name as category_name 
     FROM expenses e 
@@ -226,23 +265,41 @@ app.get('/api/months/:monthId/expenses', (req, res) => {
 
 app.post('/api/expenses', (req, res) => {
     const { month_id, category_id, amount, date, comment } = req.body;
+    
+    if (!checkMonthAccess(req.user.id, month_id)) return res.status(403).json({ error: 'Access denied' });
+    
+    // Verify category ownership
+    const category = db.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').get(category_id, req.user.id);
+    if (!category) return res.status(400).json({ error: 'Invalid category' });
+
     const info = db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment) VALUES (?, ?, ?, ?, ?)').run(month_id, category_id, amount, date, comment || '');
     res.json({ id: info.lastInsertRowid, ...req.body });
 });
 
 app.put('/api/expenses/:id', (req, res) => {
     const { amount } = req.body;
+    
+    const expense = db.prepare('SELECT month_id FROM expenses WHERE id = ?').get(req.params.id);
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+    if (!checkMonthAccess(req.user.id, expense.month_id)) return res.status(403).json({ error: 'Access denied' });
+
     db.prepare('UPDATE expenses SET amount = ? WHERE id = ?').run(amount, req.params.id);
     res.json({ success: true });
 });
 
 app.delete('/api/expenses/:id', (req, res) => {
+    const expense = db.prepare('SELECT month_id FROM expenses WHERE id = ?').get(req.params.id);
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+    if (!checkMonthAccess(req.user.id, expense.month_id)) return res.status(403).json({ error: 'Access denied' });
+
     db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);
     res.json({ success: true });
 });
 
 // Budgets (Limits)
 app.get('/api/months/:monthId/budgets', (req, res) => {
+    if (!checkMonthAccess(req.user.id, req.params.monthId)) return res.status(403).json({ error: 'Access denied' });
+
     const budgets = db.prepare(`
     SELECT b.*, c.name as category_name 
     FROM budgets b 
@@ -254,6 +311,8 @@ app.get('/api/months/:monthId/budgets', (req, res) => {
 
 app.post('/api/budgets', (req, res) => {
     const { month_id, category_id, limit_amount } = req.body;
+    
+    if (!checkMonthAccess(req.user.id, month_id)) return res.status(403).json({ error: 'Access denied' });
 
     // Check if exists
     const existing = db.prepare('SELECT id FROM budgets WHERE month_id = ? AND category_id = ?').get(month_id, category_id);
@@ -269,13 +328,13 @@ app.post('/api/budgets', (req, res) => {
 
 // Savings
 app.get('/api/savings_goals', (req, res) => {
-    const goals = db.prepare('SELECT * FROM savings_goals').all();
+    const goals = db.prepare('SELECT * FROM savings_goals WHERE user_id = ?').all(req.user.id);
     res.json(goals);
 });
 
 app.post('/api/savings_goals', (req, res) => {
     const { name, target_amount } = req.body;
-    const info = db.prepare('INSERT INTO savings_goals (name, target_amount, current_amount) VALUES (?, ?, 0)').run(name, target_amount || 0);
+    const info = db.prepare('INSERT INTO savings_goals (user_id, name, target_amount, current_amount) VALUES (?, ?, ?, 0)').run(req.user.id, name, target_amount || 0);
     res.json({ id: info.lastInsertRowid, name, target_amount, current_amount: 0 });
 });
 
@@ -301,12 +360,19 @@ app.put('/api/savings_goals/:id', (req, res) => {
         return res.json({ success: true });
     }
     
+    // Check ownership
+    const goal = db.prepare('SELECT id FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    if (!goal) return res.status(404).json({ error: 'Goal not found' });
+
     const sql = `UPDATE savings_goals SET ${updates.join(', ')} WHERE id = ?`;
     db.prepare(sql).run(...values, req.params.id);
     res.json({ success: true });
 });
 
 app.delete('/api/savings_goals/:id', (req, res) => {
+    const goal = db.prepare('SELECT id FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    if (!goal) return res.status(404).json({ error: 'Goal not found' });
+
     // First delete all transactions for this goal
     db.prepare('DELETE FROM savings_transactions WHERE goal_id = ?').run(req.params.id);
     // Then delete the goal
@@ -316,6 +382,14 @@ app.delete('/api/savings_goals/:id', (req, res) => {
 
 app.post('/api/savings_transactions', (req, res) => {
     const { goal_id, amount, date, month_id } = req.body;
+    
+    // Verify goal ownership
+    const goal = db.prepare('SELECT id, name FROM savings_goals WHERE id = ? AND user_id = ?').get(goal_id, req.user.id);
+    if (!goal) return res.status(404).json({ error: 'Goal not found' });
+    
+    if (month_id) {
+        if (!checkMonthAccess(req.user.id, month_id)) return res.status(403).json({ error: 'Access denied to month' });
+    }
 
     const transact = db.transaction(() => {
         const info = db.prepare('INSERT INTO savings_transactions (goal_id, amount, date, month_id) VALUES (?, ?, ?, ?)').run(goal_id, amount, date, month_id);
@@ -325,18 +399,14 @@ app.post('/api/savings_transactions', (req, res) => {
         
         // If deposit (positive amount), create a hidden expense to reduce available balance
         if (amount > 0 && month_id) {
-            // Get or create "Пополнение копилки" category (hidden)
-            let savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ?').get('Пополнение копилки');
+            // Get or create "Пополнение копилки" category (hidden) for THIS USER
+            let savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
             if (!savingsCategory) {
-                const maxOrder = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories').get();
+                const maxOrder = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
                 const nextOrder = (maxOrder.maxOrder || 0) + 1;
-                const catInfo = db.prepare('INSERT INTO categories (name, sort_order, is_active) VALUES (?, ?, 0)').run('Пополнение копилки', nextOrder);
+                const catInfo = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_active) VALUES (?, ?, ?, 0)').run(req.user.id, 'Пополнение копилки', nextOrder);
                 savingsCategory = { id: catInfo.lastInsertRowid };
             }
-            
-            // Get goal name for comment
-            const goal = db.prepare('SELECT name FROM savings_goals WHERE id = ?').get(goal_id);
-            const goalName = goal ? goal.name : 'копилку';
             
             // Create hidden expense for the deposit amount
             db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment) VALUES (?, ?, ?, ?, ?)').run(
@@ -344,7 +414,7 @@ app.post('/api/savings_transactions', (req, res) => {
                 savingsCategory.id,
                 amount,
                 date,
-                `Пополнение копилки "${goalName}"`
+                `Пополнение копилки "${goal.name}"`
             );
         }
         
@@ -356,6 +426,9 @@ app.post('/api/savings_transactions', (req, res) => {
 });
 
 app.get('/api/savings_transactions/:goalId', (req, res) => {
+    const goal = db.prepare('SELECT id FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.goalId, req.user.id);
+    if (!goal) return res.status(404).json({ error: 'Goal not found' });
+
     const transactions = db.prepare('SELECT * FROM savings_transactions WHERE goal_id = ? ORDER BY date DESC').all(req.params.goalId);
     res.json(transactions);
 });
@@ -363,13 +436,12 @@ app.get('/api/savings_transactions/:goalId', (req, res) => {
 // Summary / Dashboard Data
 app.get('/api/months/:monthId/summary', (req, res) => {
     const monthId = req.params.monthId;
+    if (!checkMonthAccess(req.user.id, monthId)) return res.status(403).json({ error: 'Access denied' });
 
     const totalIncome = db.prepare('SELECT SUM(amount) as total FROM incomes WHERE month_id = ?').get(monthId).total || 0;
     const totalExpenses = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE month_id = ?').get(monthId).total || 0;
 
     // Savings contributions (positive amounts in transactions linked to this month)
-    // Actually savings transactions could be withdrawals too.
-    // Usually "Savings" in budget means money put INTO savings.
     const totalSavings = db.prepare('SELECT SUM(amount) as total FROM savings_transactions WHERE month_id = ? AND amount > 0').get(monthId).total || 0;
 
     res.json({
@@ -381,8 +453,8 @@ app.get('/api/months/:monthId/summary', (req, res) => {
 });
 
 app.get('/api/analytics/trend', (req, res) => {
-    // Get last 6 months
-    const months = db.prepare('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 6').all().reverse();
+    // Get last 6 months for THIS USER
+    const months = db.prepare('SELECT * FROM months WHERE user_id = ? ORDER BY year DESC, month DESC LIMIT 6').all(req.user.id).reverse();
 
     const data = months.map(m => {
         const income = db.prepare('SELECT SUM(amount) as total FROM incomes WHERE month_id = ?').get(m.id).total || 0;

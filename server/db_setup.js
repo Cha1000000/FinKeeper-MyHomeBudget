@@ -1,6 +1,5 @@
 const Database = require('better-sqlite3');
 const path = require('path');
-const fs = require('fs');
 
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
@@ -8,17 +7,29 @@ const db = new Database(dbPath);
 console.log('Setting up database at', dbPath);
 
 const schema = `
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
   name TEXT NOT NULL,
-  is_active INTEGER DEFAULT 1
+  sort_order INTEGER DEFAULT 0,
+  is_active INTEGER DEFAULT 1,
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS months (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
   year INTEGER NOT NULL,
   month INTEGER NOT NULL,
-  UNIQUE(year, month)
+  UNIQUE(year, month, user_id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS incomes (
@@ -52,9 +63,11 @@ CREATE TABLE IF NOT EXISTS budgets (
 
 CREATE TABLE IF NOT EXISTS savings_goals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   target_amount REAL DEFAULT 0,
-  current_amount REAL DEFAULT 0
+  current_amount REAL DEFAULT 0,
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS savings_transactions (
@@ -69,87 +82,15 @@ CREATE TABLE IF NOT EXISTS savings_transactions (
 
 CREATE TABLE IF NOT EXISTS income_sources (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   is_active INTEGER DEFAULT 1,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 `;
 
 db.exec(schema);
-
-// Seed Categories
-const initialCategories = [
-  'Комуналка/связь/подписки',
-  '🎓 Садик Кирюши',
-  '🏠💰 Ипотека',
-  'Необходимое в квартиру',
-  '🚙🅿️ Аренда парковки',
-  '👩🏼‍🤝‍👩🏻 Помощь родителям',
-  '🍔 Питание',
-  '🛒 Бытовые расходы',
-  '🎁 Подарки/Ништяки',
-  '🏆🤸🏼‍♀️ Здоровье/спорт/красота',
-  '🚕 Проезд по городу (+ бензин)',
-  '🚘 Автомобиль (обслуживание)',
-  '🎈🥂🍸 Отдых и развлечения',
-  'Алине',
-  'Олегу',
-  'Кирюше',
-  '🧺 Другое/непредвиденное'
-];
-
-const checkCategories = db.prepare('SELECT count(*) as count FROM categories').get();
-if (checkCategories.count === 0) {
-  console.log('Seeding categories...');
-  const insert = db.prepare('INSERT INTO categories (name) VALUES (?)');
-  const insertMany = db.transaction((cats) => {
-    for (const cat of cats) insert.run(cat);
-  });
-  insertMany(initialCategories);
-}
-
-// Seed Savings Goals (Копилки)
-const initialSavings = [
-  'Подушка безопасности',
-  'Отпуск/поездки',
-  'Фонд Кирюши',
-  'Ремонт'
-];
-
-const checkSavings = db.prepare('SELECT count(*) as count FROM savings_goals').get();
-if (checkSavings.count === 0) {
-  console.log('Seeding savings goals...');
-  const insert = db.prepare('INSERT INTO savings_goals (name) VALUES (?)');
-  const insertMany = db.transaction((goals) => {
-    for (const goal of goals) insert.run(goal);
-  });
-  insertMany(initialSavings);
-}
-
-// Seed Income Sources
-const initialIncomeSources = [
-  '💸 Зарплата',
-  '💸 Аванс',
-  '🪙 Кешбэк',
-  '💲 Процент на остаток'
-];
-
-const checkIncomeSources = db.prepare('SELECT count(*) as count FROM income_sources').get();
-if (checkIncomeSources.count === 0) {
-  console.log('Seeding income sources...');
-  const insert = db.prepare('INSERT INTO income_sources (name) VALUES (?)');
-  const insertMany = db.transaction((sources) => {
-    for (const source of sources) insert.run(source);
-  });
-  insertMany(initialIncomeSources);
-}
 
 console.log('Database setup complete.');
 db.close();
