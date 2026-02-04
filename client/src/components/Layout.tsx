@@ -197,7 +197,7 @@ const Layout: React.FC = () => {
 
             {/* Main Content */}
             <main 
-                    className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-slate-50 to-slate-100"
+                    className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100"
                     onClick={() => {
                         if (uiSettings?.autoCollapseSidebar && !isCollapsed) {
                             setIsCollapsed(true);
