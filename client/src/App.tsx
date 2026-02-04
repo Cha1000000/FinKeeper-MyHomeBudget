@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import MonthView from './pages/MonthView';
 import Categories from './pages/Categories';
 import Savings from './pages/Savings';
+import Settings from './pages/Settings';
 import Login from './pages/Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -37,6 +38,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="month" element={<MonthView />} />
                 <Route path="categories" element={<Categories />} />
                 <Route path="savings" element={<Savings />} />
+                <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>

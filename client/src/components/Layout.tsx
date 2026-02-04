@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut, Settings } from 'lucide-react';
 import classNames from 'classnames';
 import { ensureMonth, getMonthSummary, getSavingsGoals } from '../api';
 import { formatCurrency } from '../utils';
@@ -51,8 +51,8 @@ const Layout: React.FC = () => {
 
         fetchFinancialData();
         
-        // Обновлять каждые 60 секунд
-        const interval = setInterval(fetchFinancialData, 60000);
+        // Обновлять каждые 30 секунд
+        const interval = setInterval(fetchFinancialData, 30000);
         
         // Listen for savings updates
         const handleSavingsUpdate = () => fetchFinancialData();
@@ -113,10 +113,15 @@ const Layout: React.FC = () => {
                 {!isCollapsed && (
                 <div className="p-4 border-t border-white/10 space-y-3">
                      <div className="flex justify-between items-center px-2">
-                        <span className="text-sm font-medium text-emerald-100">{user?.username}</span>
-                        <button onClick={logout} className="text-emerald-200 hover:text-white transition-colors" title="Выйти">
-                            <LogOut className="w-4 h-4" />
-                        </button>
+                        <span className="text-sm font-medium text-emerald-100 truncate max-w-[100px]">{user?.username}</span>
+                        <div className="flex gap-1">
+                            <NavLink to="/settings" className="text-emerald-200 hover:text-white transition-colors p-1 rounded hover:bg-white/10" title="Настройки">
+                                <Settings className="w-4 h-4" />
+                            </NavLink>
+                            <button onClick={logout} className="text-emerald-200 hover:text-white transition-colors p-1 rounded hover:bg-white/10" title="Выйти">
+                                <LogOut className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                     <p className="text-xs text-slate-400 uppercase tracking-wider px-2 pt-2 border-t border-white/10">{currentMonth}</p>
@@ -134,11 +139,14 @@ const Layout: React.FC = () => {
                         </div>
                     </div>
                     
-                    <p className="text-[10px] text-slate-500 text-center">Домашняя бухгалтерия v1.0</p>
+                    <p className="text-[10px] text-slate-500 text-center">Домашняя бухгалтерия v1.1.0</p>
                 </div>
                 )}
                 {isCollapsed && (
-                    <div className="p-4 border-t border-white/10 flex justify-center">
+                    <div className="p-4 border-t border-white/10 flex flex-col items-center gap-3">
+                        <NavLink to="/settings" className="text-emerald-200 hover:text-white transition-colors" title="Настройки">
+                            <Settings className="w-5 h-5" />
+                        </NavLink>
                         <button onClick={logout} className="text-emerald-200 hover:text-white transition-colors" title="Выйти">
                             <LogOut className="w-5 h-5" />
                         </button>
@@ -163,13 +171,18 @@ const Layout: React.FC = () => {
                         <span className="text-[10px] mt-1 font-medium">{item.name}</span>
                     </NavLink>
                 ))}
-                <button
-                    onClick={logout}
-                    className="flex flex-col items-center justify-center p-2 rounded-xl text-slate-400"
+                <NavLink
+                    to="/settings"
+                    className={({ isActive }) =>
+                        classNames(
+                            'flex flex-col items-center justify-center p-2 rounded-xl transition-all',
+                            isActive ? 'text-brand bg-blue-50' : 'text-slate-400'
+                        )
+                    }
                 >
-                    <LogOut className="w-6 h-6" />
-                    <span className="text-[10px] mt-1 font-medium">Выход</span>
-                </button>
+                    <Settings className="w-6 h-6" />
+                    <span className="text-[10px] mt-1 font-medium">Настр.</span>
+                </NavLink>
             </nav>
 
 

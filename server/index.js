@@ -15,6 +15,8 @@ const db = new Database(dbPath);
 app.use(cors());
 app.use(express.json());
 
+const MAX_BACKUPS = 5;
+
 // --- Helper Functions ---
 function getOrCreateMonth(userId, year, month) {
     const row = db.prepare('SELECT id FROM months WHERE user_id = ? AND year = ? AND month = ?').get(userId, year, month);
@@ -27,6 +29,62 @@ function getOrCreateMonth(userId, year, month) {
 function checkMonthAccess(userId, monthId) {
     const month = db.prepare('SELECT id FROM months WHERE id = ? AND user_id = ?').get(monthId, userId);
     return !!month;
+}
+
+function createBackup(userId) {
+    try {
+        // Collect all data
+        const categories = db.prepare('SELECT * FROM categories WHERE user_id = ?').all(userId);
+        const income_sources = db.prepare('SELECT * FROM income_sources WHERE user_id = ?').all(userId);
+        const savings_goals = db.prepare('SELECT * FROM savings_goals WHERE user_id = ?').all(userId);
+        
+        // Months and nested data
+        const months = db.prepare('SELECT * FROM months WHERE user_id = ?').all(userId);
+        const monthIds = months.map(m => m.id);
+        
+        let incomes = [];
+        let expenses = [];
+        let budgets = [];
+        
+        if (monthIds.length > 0) {
+            const placeholders = monthIds.map(() => '?').join(',');
+            incomes = db.prepare(`SELECT * FROM incomes WHERE month_id IN (${placeholders})`).all(monthIds);
+            expenses = db.prepare(`SELECT * FROM expenses WHERE month_id IN (${placeholders})`).all(monthIds);
+            budgets = db.prepare(`SELECT * FROM budgets WHERE month_id IN (${placeholders})`).all(monthIds);
+        }
+
+        // Savings transactions link to goal_id primarily.
+        let savings_transactions = [];
+        const goalIds = savings_goals.map(g => g.id);
+        if (goalIds.length > 0) {
+             const placeholders = goalIds.map(() => '?').join(',');
+             savings_transactions = db.prepare(`SELECT * FROM savings_transactions WHERE goal_id IN (${placeholders})`).all(goalIds);
+        }
+
+        const backupData = JSON.stringify({
+            categories,
+            income_sources,
+            savings_goals,
+            months,
+            incomes,
+            expenses,
+            budgets,
+            savings_transactions
+        });
+
+        db.prepare('INSERT INTO user_backups (user_id, data) VALUES (?, ?)').run(userId, backupData);
+
+        // Cleanup old backups
+        const backups = db.prepare('SELECT id FROM user_backups WHERE user_id = ? ORDER BY created_at DESC').all(userId);
+        if (backups.length > MAX_BACKUPS) {
+            const toDelete = backups.slice(MAX_BACKUPS).map(b => b.id);
+            const placeholders = toDelete.map(() => '?').join(',');
+            db.prepare(`DELETE FROM user_backups WHERE id IN (${placeholders})`).run(toDelete);
+        }
+        console.log(`Backup created for user ${userId}`);
+    } catch (e) {
+        console.error("Backup failed", e);
+    }
 }
 
 // --- Middleware ---
@@ -74,6 +132,9 @@ app.post('/api/auth/register', (req, res) => {
 
         const user = registerTransaction();
         
+        // Create initial backup
+        createBackup(user.id);
+
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '365d' }); // Valid for 1 year
         res.json({ token, user });
     } catch (err) {
@@ -94,6 +155,9 @@ app.post('/api/auth/login', (req, res) => {
     const passwordIsValid = bcrypt.compareSync(password, user.password_hash);
     if (!passwordIsValid) return res.status(401).json({ error: 'Invalid credentials' });
 
+    // Create backup on login
+    createBackup(user.id);
+
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '365d' }); // Valid for 1 year
     res.json({ token, user: { id: user.id, username: user.username } });
 });
@@ -102,12 +166,142 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
     // Just return the user info from the token/db to confirm validity
     const user = db.prepare('SELECT id, username, created_at FROM users WHERE id = ?').get(req.user.id);
     if (!user) return res.sendStatus(404);
+
+    // Check last backup time to avoid spamming backups on reload
+    const lastBackup = db.prepare('SELECT created_at FROM user_backups WHERE user_id = ? ORDER BY created_at DESC LIMIT 1').get(req.user.id);
+    const shouldBackup = !lastBackup || (new Date() - new Date(lastBackup.created_at + 'Z')) > 60 * 60 * 1000; // 1 hour
+
+    if (shouldBackup) {
+        createBackup(req.user.id);
+    }
+
     res.json(user);
 });
 
 
 // Protect all subsequent API routes
 app.use('/api', authenticateToken); 
+
+// --- User Management & Backup ---
+
+app.put('/api/user/rename', (req, res) => {
+    const { newUsername } = req.body;
+    if (!newUsername) return res.status(400).json({ error: 'New username required' });
+    
+    try {
+        db.prepare('UPDATE users SET username = ? WHERE id = ?').run(newUsername, req.user.id);
+        res.json({ success: true, username: newUsername });
+    } catch (err) {
+        if (err.message.includes('UNIQUE constraint failed')) {
+            return res.status(409).json({ error: 'Username already exists' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/user/password', (req, res) => {
+    const { newPassword } = req.body;
+    if (!newPassword) return res.status(400).json({ error: 'New password required' });
+    
+    const hashedPassword = bcrypt.hashSync(newPassword, 8);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashedPassword, req.user.id);
+    res.json({ success: true });
+});
+
+app.post('/api/user/backup', (req, res) => {
+    try {
+        createBackup(req.user.id);
+        res.json({ success: true });
+    } catch (e) {
+        console.error("Manual backup failed", e);
+        res.status(500).json({ error: "Backup creation failed" });
+    }
+});
+
+app.post('/api/user/restore', (req, res) => {
+    const backup = db.prepare('SELECT data FROM user_backups WHERE user_id = ? ORDER BY created_at DESC LIMIT 1').get(req.user.id);
+    
+    if (!backup) return res.status(404).json({ error: 'No backup found' });
+    
+    const data = JSON.parse(backup.data);
+    const userId = req.user.id;
+    
+    const restoreTransact = db.transaction(() => {
+        // 1. Delete all current user data (order matters due to foreign keys)
+        // Note: DELETE with WHERE foreign_key IN (SELECT ...) might be needed if cascade delete is not set (it is not set in our schema)
+        
+        // Helper to delete by ID list
+        const deleteByIds = (table, ids) => {
+             if (ids.length > 0) {
+                 const ph = ids.map(() => '?').join(',');
+                 db.prepare(`DELETE FROM ${table} WHERE id IN (${ph})`).run(ids);
+             }
+        };
+
+        // We need to fetch current IDs to delete them? 
+        // Or just delete by user_id for root tables, and by join for child tables.
+        
+        // Delete child tables first
+        // savings_transactions
+        db.prepare('DELETE FROM savings_transactions WHERE goal_id IN (SELECT id FROM savings_goals WHERE user_id = ?)').run(userId);
+        
+        // budgets
+        db.prepare('DELETE FROM budgets WHERE category_id IN (SELECT id FROM categories WHERE user_id = ?)').run(userId);
+        
+        // expenses
+        db.prepare('DELETE FROM expenses WHERE category_id IN (SELECT id FROM categories WHERE user_id = ?)').run(userId);
+        
+        // incomes
+        db.prepare('DELETE FROM incomes WHERE month_id IN (SELECT id FROM months WHERE user_id = ?)').run(userId);
+        
+        // Delete root tables
+        db.prepare('DELETE FROM months WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM categories WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM income_sources WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM savings_goals WHERE user_id = ?').run(userId);
+        
+        // 2. Insert backup data
+        // We MUST preserve IDs to maintain relationships in the backup data.
+        
+        // Categories
+        const insertCat = db.prepare('INSERT INTO categories (id, user_id, name, sort_order, is_active) VALUES (?, ?, ?, ?, ?)');
+        data.categories.forEach(row => insertCat.run(row.id, userId, row.name, row.sort_order, row.is_active));
+        
+        // Income Sources
+        const insertSource = db.prepare('INSERT INTO income_sources (id, user_id, name, is_active, created_at) VALUES (?, ?, ?, ?, ?)');
+        data.income_sources.forEach(row => insertSource.run(row.id, userId, row.name, row.is_active, row.created_at || new Date().toISOString()));
+        
+        // Savings Goals
+        const insertGoal = db.prepare('INSERT INTO savings_goals (id, user_id, name, target_amount, current_amount) VALUES (?, ?, ?, ?, ?)');
+        data.savings_goals.forEach(row => insertGoal.run(row.id, userId, row.name, row.target_amount, row.current_amount));
+        
+        // Months
+        const insertMonth = db.prepare('INSERT INTO months (id, user_id, year, month) VALUES (?, ?, ?, ?)');
+        data.months.forEach(row => insertMonth.run(row.id, userId, row.year, row.month));
+        
+        // Child tables
+        const insertIncome = db.prepare('INSERT INTO incomes (id, month_id, source, amount, date) VALUES (?, ?, ?, ?, ?)');
+        data.incomes.forEach(row => insertIncome.run(row.id, row.month_id, row.source, row.amount, row.date));
+        
+        const insertExpense = db.prepare('INSERT INTO expenses (id, month_id, category_id, amount, date, comment) VALUES (?, ?, ?, ?, ?, ?)');
+        data.expenses.forEach(row => insertExpense.run(row.id, row.month_id, row.category_id, row.amount, row.date, row.comment));
+        
+        const insertBudget = db.prepare('INSERT INTO budgets (id, month_id, category_id, limit_amount) VALUES (?, ?, ?, ?)');
+        data.budgets.forEach(row => insertBudget.run(row.id, row.month_id, row.category_id, row.limit_amount));
+        
+        const insertTrans = db.prepare('INSERT INTO savings_transactions (id, goal_id, amount, date, month_id) VALUES (?, ?, ?, ?, ?)');
+        data.savings_transactions.forEach(row => insertTrans.run(row.id, row.goal_id, row.amount, row.date, row.month_id));
+    });
+
+    try {
+        restoreTransact();
+        res.json({ success: true });
+    } catch (e) {
+        console.error("Restore failed", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 
 // Categories
 app.get('/api/categories', (req, res) => {

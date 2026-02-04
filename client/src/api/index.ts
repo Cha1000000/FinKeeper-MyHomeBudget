@@ -23,6 +23,12 @@ export const loginUser = (data: any) => api.post('/auth/login', data);
 export const registerUser = (data: any) => api.post('/auth/register', data);
 export const getMe = () => api.get('/auth/me');
 
+// User Settings
+export const updateUsername = (newUsername: string) => api.put('/user/rename', { newUsername });
+export const updatePassword = (newPassword: string) => api.put('/user/password', { newPassword });
+export const restoreBackup = () => api.post('/user/restore');
+export const createManualBackup = () => api.post('/user/backup');
+
 export interface Category {
     id: number;
     name: string;
