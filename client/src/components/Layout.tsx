@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut } from 'lucide-react';
 import classNames from 'classnames';
 import { ensureMonth, getMonthSummary, getSavingsGoals } from '../api';
 import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { useAuth } from '../context/AuthContext';
 
 const Layout: React.FC = () => {
     const [currentMonth, setCurrentMonth] = useState('');
     const [availableBalance, setAvailableBalance] = useState(0);
     const [totalAssets, setTotalAssets] = useState(0);
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const { user, logout } = useAuth();
 
     const navItems = [
         { name: 'Обзор', path: '/', icon: LayoutDashboard },
@@ -107,10 +109,17 @@ const Layout: React.FC = () => {
                     ))}
                 </nav>
 
-                {/* Финансовая сводка */}
+                {/* Финансовая сводка и юзер */}
                 {!isCollapsed && (
                 <div className="p-4 border-t border-white/10 space-y-3">
-                    <p className="text-xs text-slate-400 uppercase tracking-wider px-2">{currentMonth}</p>
+                     <div className="flex justify-between items-center px-2">
+                        <span className="text-sm font-medium text-emerald-100">{user?.username}</span>
+                        <button onClick={logout} className="text-emerald-200 hover:text-white transition-colors" title="Выйти">
+                            <LogOut className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <p className="text-xs text-slate-400 uppercase tracking-wider px-2 pt-2 border-t border-white/10">{currentMonth}</p>
                     
                     <div className="bg-white/5 rounded-lg p-3 space-y-2">
                         <div className="flex justify-between items-center">
@@ -127,6 +136,13 @@ const Layout: React.FC = () => {
                     
                     <p className="text-[10px] text-slate-500 text-center">Домашняя бухгалтерия v1.0</p>
                 </div>
+                )}
+                {isCollapsed && (
+                    <div className="p-4 border-t border-white/10 flex justify-center">
+                        <button onClick={logout} className="text-emerald-200 hover:text-white transition-colors" title="Выйти">
+                            <LogOut className="w-5 h-5" />
+                        </button>
+                    </div>
                 )}
             </aside>
 
@@ -147,6 +163,13 @@ const Layout: React.FC = () => {
                         <span className="text-[10px] mt-1 font-medium">{item.name}</span>
                     </NavLink>
                 ))}
+                <button
+                    onClick={logout}
+                    className="flex flex-col items-center justify-center p-2 rounded-xl text-slate-400"
+                >
+                    <LogOut className="w-6 h-6" />
+                    <span className="text-[10px] mt-1 font-medium">Выход</span>
+                </button>
             </nav>
 
 

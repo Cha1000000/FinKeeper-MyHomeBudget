@@ -2,9 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const Database = require('better-sqlite3');
 const path = require('path');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = 3002;
+const JWT_SECRET = 'my-home-budget-secret-key-change-this'; // In production, use environment variable
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
 
@@ -19,7 +22,77 @@ function getOrCreateMonth(year, month) {
     return info.lastInsertRowid;
 }
 
+// --- Middleware ---
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (token == null) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
+
 // --- API Endpoints ---
+
+// Auth Routes (Public)
+app.post('/api/auth/register', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+    try {
+        const hashedPassword = bcrypt.hashSync(password, 8);
+        const info = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hashedPassword);
+        
+        const token = jwt.sign({ id: info.lastInsertRowid, username }, JWT_SECRET, { expiresIn: '365d' }); // Valid for 1 year
+        res.json({ token, user: { id: info.lastInsertRowid, username } });
+    } catch (err) {
+        if (err.message.includes('UNIQUE constraint failed')) {
+            return res.status(409).json({ error: 'Username already exists' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/auth/login', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const passwordIsValid = bcrypt.compareSync(password, user.password_hash);
+    if (!passwordIsValid) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '365d' }); // Valid for 1 year
+    res.json({ token, user: { id: user.id, username: user.username } });
+});
+
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+    // Just return the user info from the token/db to confirm validity
+    const user = db.prepare('SELECT id, username, created_at FROM users WHERE id = ?').get(req.user.id);
+    if (!user) return res.sendStatus(404);
+    res.json(user);
+});
+
+
+// Protect all subsequent API routes
+app.use('/api', authenticateToken); 
+// Note: This applies 'authenticateToken' to all routes starting with /api defined BELOW this line.
+// Since /api/auth/* are defined ABOVE, they are public.
+// But wait, the routes below are like '/api/categories'. 
+// Express matches sequentially.
+// Actually, it's safer to apply it specifically or organize routes better.
+// However, since I am editing this file in place, I need to be careful.
+// The routes below are defined as app.get('/api/categories'...). 
+// If I put app.use('/api', authenticateToken) here, it will intercept requests to /api/categories defined below.
+// BUT, it would also intercept /api/auth defined above if I wasn't careful with ordering.
+// Since /api/auth routes are defined ABOVE this line, they will be matched first and executed.
+// Routes defined BELOW will pass through this middleware.
+
 
 // Categories
 app.get('/api/categories', (req, res) => {

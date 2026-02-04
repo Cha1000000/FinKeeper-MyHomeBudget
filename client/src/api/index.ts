@@ -4,6 +4,25 @@ const api = axios.create({
     baseURL: '/api',
 });
 
+// Add a request interceptor
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = 'Bearer ' + token;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Auth Endpoints
+export const loginUser = (data: any) => api.post('/auth/login', data);
+export const registerUser = (data: any) => api.post('/auth/register', data);
+export const getMe = () => api.get('/auth/me');
+
 export interface Category {
     id: number;
     name: string;
