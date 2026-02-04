@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 
 const Settings: React.FC = () => {
-    const { user, login } = useAuth(); // Need login or some way to refresh user
+    const { user, login, updateUser } = useAuth(); // Need login or some way to refresh user
     const [username, setUsername] = useState(user?.username || '');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -64,7 +64,8 @@ const Settings: React.FC = () => {
         setModalError(null);
         try {
             await updateUsername(username);
-            setStatusMessage({ type: 'success', text: 'Имя пользователя обновлено. Пожалуйста, перезайдите.' });
+            updateUser({ username });
+            setStatusMessage({ type: 'success', text: 'Имя пользователя успешно обновлено.' });
             setModalType(null);
         } catch (e: any) {
             const msg = e.response?.data?.error || 'Ошибка обновления имени.';
