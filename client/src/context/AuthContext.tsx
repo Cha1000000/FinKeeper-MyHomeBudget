@@ -6,6 +6,10 @@ interface User {
   username: string;
 }
 
+interface UiSettings {
+  autoCollapseSidebar: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -13,6 +17,8 @@ interface AuthContextType {
   register: (data: any) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
+  uiSettings: UiSettings;
+  updateUiSettings: (settings: Partial<UiSettings>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,6 +26,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [uiSettings, setUiSettings] = useState<UiSettings>(() => {
+      const saved = localStorage.getItem('uiSettings');
+      return saved ? JSON.parse(saved) : { autoCollapseSidebar: false };
+  });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -61,8 +71,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(prev => prev ? { ...prev, ...data } : null);
   };
 
+  const updateUiSettings = (newSettings: Partial<UiSettings>) => {
+    setUiSettings(prev => {
+        const updated = { ...prev, ...newSettings };
+        localStorage.setItem('uiSettings', JSON.stringify(updated));
+        return updated;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, updateUser, uiSettings, updateUiSettings }}>
       {children}
     </AuthContext.Provider>
   );

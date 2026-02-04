@@ -13,7 +13,7 @@ const Layout: React.FC = () => {
     const [availableBalance, setAvailableBalance] = useState(0);
     const [totalAssets, setTotalAssets] = useState(0);
     const [isCollapsed, setIsCollapsed] = useState(false);
-    const { user, logout } = useAuth();
+    const { user, logout, uiSettings } = useAuth();
 
     const navItems = [
         { name: 'Обзор', path: '/', icon: LayoutDashboard },
@@ -189,7 +189,12 @@ const Layout: React.FC = () => {
             {/* Main Content */}
             <main 
                     className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-slate-50 to-slate-100"
-                    onClick={() => !isCollapsed && setIsCollapsed(true)}
+                    onClick={() => {
+                        console.log('Main clicked. Setting:', uiSettings?.autoCollapseSidebar, 'Collapsed:', isCollapsed);
+                        if (uiSettings?.autoCollapseSidebar && !isCollapsed) {
+                            setIsCollapsed(true);
+                        }
+                    }}
                 >
                 <Outlet />
             </main>

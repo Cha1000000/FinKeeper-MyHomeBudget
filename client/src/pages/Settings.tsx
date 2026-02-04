@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Save, RotateCcw, Key, User, ShieldAlert, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RotateCcw, Key, User, ShieldAlert, Loader2, Layout as LayoutIcon } from 'lucide-react';
 import { updateUsername, updatePassword, restoreBackup, createManualBackup } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 
 const Settings: React.FC = () => {
-    const { user, login, updateUser } = useAuth(); // Need login or some way to refresh user
+    const { user, login, updateUser, uiSettings, updateUiSettings } = useAuth(); // Need login or some way to refresh user
     const [username, setUsername] = useState(user?.username || '');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -188,6 +188,36 @@ const Settings: React.FC = () => {
                                     Сменить пароль
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* UI Settings */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+                        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <LayoutIcon className="w-5 h-5 text-indigo-500" />
+                            Интерфейс
+                        </h2>
+                    </div>
+                    
+                    <div className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="font-medium text-gray-800">Автоматически сворачивать боковую панель</h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Сворачивать меню при клике на основную область контента
+                                </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    className="sr-only peer"
+                                    checked={uiSettings.autoCollapseSidebar}
+                                    onChange={(e) => updateUiSettings({ autoCollapseSidebar: e.target.checked })}
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
                         </div>
                     </div>
                 </div>
