@@ -80,3 +80,27 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #8aa08a;
 }
+
+/* Specific scrollbar for Dashboard table */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin-top: 40px; /* Offset from header */
+  margin-bottom: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: #aab5aa;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #8aa08a;
+}

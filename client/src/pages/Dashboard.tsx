@@ -74,7 +74,7 @@ const Dashboard: React.FC = () => {
             </header>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 <div className="bg-emerald-50 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow">
                     <div className="flex justify-between items-start mb-3">
                         <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/30 rounded-xl text-brand">
@@ -103,6 +103,22 @@ const Dashboard: React.FC = () => {
                     </div>
                     <p className="text-s font-medium text-slate-500">Накопления</p>
                     <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(totalSavings)}</p>
+                </div>
+
+                {/* Savings Share Card */}
+                <div className="bg-blue-50 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/30 rounded-xl text-blue-600">
+                            <PiggyBank className="w-5 h-5" />
+                        </div>
+                    </div>
+                    <p className="text-s font-medium text-slate-500">% в копилку</p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                        <p className="text-xl font-bold text-slate-900">
+                            {currentSummary?.income ? ((currentSummary.savings / currentSummary.income) * 100).toFixed(1) : '0.0'}%
+                        </p>
+                        <span className="text-xs text-slate-500">от дохода</span>
+                    </div>
                 </div>
 
                 {/* Доступный баланс = Доходы - Расходы */}
@@ -136,10 +152,10 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-                {/* Trend Chart (Wider) */}
-                <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                {/* Trend Chart */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-bold text-slate-800">Динамика финансов</h3>
                         <span className="text-xs font-medium text-slate-400 bg-slate-50 px-3 py-1 rounded-full">6 месяцев</span>
@@ -167,63 +183,92 @@ const Dashboard: React.FC = () => {
                                     }}
                                 />
                                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                <Bar dataKey="income" name="Доход" fill="#6b8e23" radius={[4, 4, 0, 0]} barSize={20} />
-                                <Bar dataKey="expense" name="Расход" fill="#c62828" radius={[4, 4, 0, 0]} barSize={20} />
+                                <Bar dataKey="income" name="Доход" fill="#6b8e23" radius={[4, 4, 0, 0]} barSize={12} />
+                                <Bar dataKey="expense" name="Расход" fill="#c62828" radius={[4, 4, 0, 0]} barSize={12} />
+                                <Bar dataKey="savings" name="Накопления" fill="#d4a017" radius={[4, 4, 0, 0]} barSize={12} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-                {/* Breakdown Chart */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                {/* Breakdown Chart & Table */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
                     <h3 className="text-lg font-bold text-slate-800 mb-6">Структура расходов</h3>
-                    <div className="h-64 flex items-center justify-center relative">
-                        {expenseStructure.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={expenseStructure}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        stroke="none"
-                                    >
-                                        {expenseStructure.map((_entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="text-center">
-                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-300">
-                                    <Wallet className="w-8 h-8" />
+                    
+                    <div className="flex flex-col xl:flex-row items-center gap-6 h-full">
+                        {/* Chart */}
+                        <div className="w-full xl:flex-1 h-64 relative min-w-0">
+                            {expenseStructure.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={expenseStructure}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            stroke="none"
+                                        >
+                                            {expenseStructure.map((_entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="text-center h-full flex flex-col justify-center">
+                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-300">
+                                        <Wallet className="w-8 h-8" />
+                                    </div>
+                                    <p className="text-slate-400 text-sm">Нет расходов</p>
                                 </div>
-                                <p className="text-slate-400 text-sm">Нет расходов</p>
-                            </div>
-                        )}
-                        {/* Center Text overlay */}
-                        {expenseStructure.length > 0 && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <span className="text-xs font-bold text-slate-400">Total</span>
-                            </div>
-                        )}
-                    </div>
-                    {/* Legend List */}
-                    <div className="mt-4 space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                        {expenseStructure.slice(0, 5).map((entry, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-sm">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
-                                    <span className="text-slate-600 truncate max-w-[120px]">{entry.name}</span>
+                            )}
+                            {/* Center Text overlay */}
+                            {expenseStructure.length > 0 && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <span className="text-xs font-bold text-slate-400">Total</span>
                                 </div>
-                                <span className="font-medium text-slate-800">{formatCurrency(entry.value)}</span>
-                            </div>
-                        ))}
+                            )}
+                        </div>
+
+                        {/* Detailed Table */}
+                        <div className="w-full xl:flex-1 overflow-auto max-h-80 custom-scrollbar min-w-0">
+                            <table className="w-full text-sm relative border-separate border-spacing-0 table-fixed">
+                                <thead className="text-xs text-slate-400 font-medium uppercase border-b border-slate-100 sticky top-0 bg-white z-10 shadow-sm">
+                                    <tr>
+                                        <th className="text-left py-3 font-medium bg-white w-[55%]">Категория</th>
+                                        <th className="text-right py-3 font-medium bg-white w-[30%]">Сумма</th>
+                                        <th className="text-right py-3 pr-4 font-medium bg-white w-[15%]">%</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {expenseStructure.map((entry, idx) => {
+                                        const totalExp = currentSummary?.expenses || 1; // avoid div by zero
+                                        const share = (entry.value / totalExp) * 100;
+                                        
+                                        return (
+                                            <tr key={idx} className="group hover:bg-slate-50 transition-colors">
+                                                <td className="py-2.5 pr-2 truncate max-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
+                                                        <span className="text-slate-700 truncate font-medium">{entry.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-2.5 px-2 text-right text-slate-600 tabular-nums whitespace-nowrap">
+                                                    {formatCurrency(entry.value)}
+                                                </td>
+                                                <td className="py-2.5 pl-2 pr-4 text-right text-slate-400 tabular-nums text-xs">
+                                                    {share.toFixed(1)}%
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 

@@ -635,8 +635,8 @@ app.get('/api/months/:monthId/summary', (req, res) => {
     const totalIncome = db.prepare('SELECT SUM(amount) as total FROM incomes WHERE month_id = ?').get(monthId).total || 0;
     const totalExpenses = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE month_id = ?').get(monthId).total || 0;
 
-    // Savings contributions (positive amounts in transactions linked to this month)
-    const totalSavings = db.prepare('SELECT SUM(amount) as total FROM savings_transactions WHERE month_id = ? AND amount > 0').get(monthId).total || 0;
+    // Savings contributions (positive amounts in transactions linked to this month, EXCLUDING adjustments)
+    const totalSavings = db.prepare('SELECT SUM(amount) as total FROM savings_transactions WHERE month_id = ? AND amount > 0 AND (is_adjustment = 0 OR is_adjustment IS NULL)').get(monthId).total || 0;
 
     res.json({
         income: totalIncome,
@@ -653,10 +653,14 @@ app.get('/api/analytics/trend', (req, res) => {
     const data = months.map(m => {
         const income = db.prepare('SELECT SUM(amount) as total FROM incomes WHERE month_id = ?').get(m.id).total || 0;
         const expense = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE month_id = ?').get(m.id).total || 0;
+        // Savings contributions (positive amounts only, EXCLUDING adjustments)
+        const savings = db.prepare('SELECT SUM(amount) as total FROM savings_transactions WHERE month_id = ? AND amount > 0 AND (is_adjustment = 0 OR is_adjustment IS NULL)').get(m.id).total || 0;
+        
         return {
             month: `${m.month}/${m.year}`,
             income,
-            expense
+            expense,
+            savings
         };
     });
 
