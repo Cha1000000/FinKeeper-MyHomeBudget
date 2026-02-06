@@ -196,7 +196,7 @@ const Dashboard: React.FC = () => {
                                 <YAxis hide />
                                 <Tooltip
                                     cursor={{ fill: '#f8fafc' }}
-                                    formatter={(value: number) => formatCurrency(value)}
+                                    formatter={(value: number | undefined) => formatCurrency(value ?? 0)}
                                     contentStyle={{
                                         borderRadius: '12px',
                                         border: 'none',
@@ -237,7 +237,7 @@ const Dashboard: React.FC = () => {
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                                        <Tooltip formatter={(value: number | undefined) => formatCurrency(value ?? 0)} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             ) : (

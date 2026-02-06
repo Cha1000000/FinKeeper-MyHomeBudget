@@ -35,10 +35,8 @@ FRONTEND_PID=$!
 
 echo ""
 echo "✅ Приложение запущено!"
-echo "   Frontend: http://217.114.8.82:5174"
-echo "   Backend:  http://217.114.8.82:3002"
-echo ""
-echo "⚠️ ВНИМАНИЕ: Это режим для разработки. Для реального использования соберите проект командой 'npm run start:prod'."
+echo "   Frontend: http://localhost:5174"
+echo "   Backend:  http://localhost:3002"
 echo ""
 echo "Для остановки нажмите Ctrl+C"
 

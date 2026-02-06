@@ -9,7 +9,7 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
-const RequireAuth: React.FC<{ children: JSX.Element }> = ({ children }) => {
+const RequireAuth: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { user, isLoading } = useAuth();
     const location = useLocation();
 
