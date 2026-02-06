@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Pencil, GripVertical } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -14,8 +14,25 @@ import type { Month, Income, Expense, Category, Budget, IncomeSource } from '../
 import { formatCurrency, formatDate } from '../utils';
 import Modal from '../components/Modal';
 
+interface GroupedExpense {
+    id: number;
+    name: string;
+    items: Expense[];
+    total: number;
+    limit: number;
+    isOverLimit: boolean;
+}
+
+interface SortableGroupProps {
+    group: GroupedExpense;
+    isExpanded: boolean;
+    toggleCategory: (id: number) => void;
+    itemsContent: React.ReactNode;
+    contextAddButton?: React.ReactNode;
+}
+
 // Sortable Group Component
-const SortableGroup = ({ group, isExpanded, toggleCategory, itemsContent, contextAddButton }: any) => {
+const SortableGroup: React.FC<SortableGroupProps> = ({ group, isExpanded, toggleCategory, itemsContent, contextAddButton }) => {
     const {
         attributes,
         listeners,
@@ -135,7 +152,7 @@ const MonthView: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth() + 1;
@@ -162,11 +179,11 @@ const MonthView: React.FC = () => {
         } catch (e) {
             console.error("Error loading data", e);
         }
-    };
+    }, [currentDate]);
 
     useEffect(() => {
         loadData();
-    }, [currentDate]);
+    }, [loadData]);
 
     const handlePrevMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));

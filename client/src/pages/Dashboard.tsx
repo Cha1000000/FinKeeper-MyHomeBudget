@@ -5,14 +5,34 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
 import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals } from '../api';
+import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
 
 const COLORS = ['#6b8e23', '#2f3e30', '#d4a017', '#8fbc8f', '#a0522d', '#556b2f', '#c0c0c0', '#bdb76b'];
 
+interface TrendItem {
+    month: string;
+    income: number;
+    expense: number;
+    savings: number;
+}
+
+interface SummaryData {
+    income: number;
+    expenses: number;
+    savings: number;
+    balance: number;
+}
+
+interface ExpenseStructureItem {
+    name: string;
+    value: number;
+}
+
 const Dashboard: React.FC = () => {
-    const [trendData, setTrendData] = useState<any[]>([]);
-    const [currentSummary, setCurrentSummary] = useState<any>(null);
-    const [expenseStructure, setExpenseStructure] = useState<any[]>([]);
+    const [trendData, setTrendData] = useState<TrendItem[]>([]);
+    const [currentSummary, setCurrentSummary] = useState<SummaryData | null>(null);
+    const [expenseStructure, setExpenseStructure] = useState<ExpenseStructureItem[]>([]);
     const [totalSavings, setTotalSavings] = useState<number>(0);
 
     useEffect(() => {
@@ -33,11 +53,13 @@ const Dashboard: React.FC = () => {
 
                 // Group expenses by category (exclude hidden savings expenses)
                 const catMap: Record<string, number> = {};
-                expRes.data.forEach((e: any) => {
+                expRes.data.forEach((e) => {
                     // Skip hidden savings-related expenses
                     if (e.category_name === 'Пополнение копилки') return;
-                    if (!catMap[e.category_name]) catMap[e.category_name] = 0;
-                    catMap[e.category_name] += e.amount;
+                    if (e.category_name) {
+                        if (!catMap[e.category_name]) catMap[e.category_name] = 0;
+                        catMap[e.category_name] += e.amount;
+                    }
                 });
 
                 const pieData = Object.keys(catMap).map(name => ({
@@ -48,7 +70,7 @@ const Dashboard: React.FC = () => {
 
                 // 4. Total Savings from all goals
                 const savingsRes = await getSavingsGoals();
-                const totalSavingsAmount = savingsRes.data.reduce((sum: number, goal: any) => sum + goal.current_amount, 0);
+                const totalSavingsAmount = savingsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + goal.current_amount, 0);
                 setTotalSavings(totalSavingsAmount);
 
             } catch (e) {
@@ -174,7 +196,7 @@ const Dashboard: React.FC = () => {
                                 <YAxis hide />
                                 <Tooltip
                                     cursor={{ fill: '#f8fafc' }}
-                                    formatter={(value: any) => formatCurrency(value)}
+                                    formatter={(value: number) => formatCurrency(value)}
                                     contentStyle={{
                                         borderRadius: '12px',
                                         border: 'none',
@@ -215,7 +237,7 @@ const Dashboard: React.FC = () => {
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             ) : (

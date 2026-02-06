@@ -19,8 +19,18 @@ api.interceptors.request.use(
 );
 
 // Auth Endpoints
-export const loginUser = (data: any) => api.post('/auth/login', data);
-export const registerUser = (data: any) => api.post('/auth/register', data);
+export interface AuthData {
+    username: string;
+    password?: string;
+}
+
+export interface User {
+    id: number;
+    username: string;
+}
+
+export const loginUser = (data: AuthData) => api.post('/auth/login', data);
+export const registerUser = (data: AuthData) => api.post('/auth/register', data);
 export const getMe = () => api.get('/auth/me');
 
 // User Settings
@@ -104,14 +114,22 @@ export interface SavingsGoal {
     current_amount: number;
 }
 
+export interface SavingsTransaction {
+    id: number;
+    goal_id: number;
+    amount: number;
+    date: string;
+    month_id: number;
+}
+
 export const getSavingsGoals = () => api.get<SavingsGoal[]>('/savings_goals');
 export const addSavingsGoal = (data: { name: string, target_amount: number }) => api.post<SavingsGoal>('/savings_goals', data);
 export const updateSavingsGoal = (id: number, data: { name?: string, target_amount?: number, current_amount?: number }) => api.put(`/savings_goals/${id}`, data);
 export const deleteSavingsGoal = (id: number) => api.delete(`/savings_goals/${id}`);
 export const addSavingsTransaction = (data: { goal_id: number, amount: number, date: string, month_id?: number }) => api.post('/savings_transactions', data);
-export const getSavingsTransactions = (goalId: number) => api.get<any[]>(`/savings_transactions/${goalId}`);
+export const getSavingsTransactions = (goalId: number) => api.get<SavingsTransaction[]>(`/savings_transactions/${goalId}`);
 
-export const getAnalyticsTrend = () => api.get<{ month: string, income: number, expense: number }[]>('/analytics/trend');
+export const getAnalyticsTrend = () => api.get<{ month: string, income: number, expense: number, savings: number }[]>('/analytics/trend');
 export const getMonthSummary = (monthId: number) => api.get<{ income: number, expenses: number, savings: number, balance: number }>(`/months/${monthId}/summary`);
 
 export default api;

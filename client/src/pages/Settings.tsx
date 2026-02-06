@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 
 const Settings: React.FC = () => {
-    const { user, login, updateUser, uiSettings, updateUiSettings } = useAuth(); // Need login or some way to refresh user
+    const { user, updateUser, uiSettings, updateUiSettings } = useAuth(); // Need login or some way to refresh user
     const [username, setUsername] = useState(user?.username || '');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -51,7 +51,9 @@ const Settings: React.FC = () => {
             
             // Reload page to reflect data changes
             setTimeout(() => window.location.reload(), 1000);
-        } catch (e: any) {
+        } catch (error: unknown) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const e = error as any;
             const msg = e.response?.data?.error || 'Ошибка восстановления данных.';
             setModalError(msg);
             console.error(e);
@@ -67,7 +69,9 @@ const Settings: React.FC = () => {
             updateUser({ username });
             setStatusMessage({ type: 'success', text: 'Имя пользователя успешно обновлено.' });
             setModalType(null);
-        } catch (e: any) {
+        } catch (error: unknown) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const e = error as any;
             const msg = e.response?.data?.error || 'Ошибка обновления имени.';
             setModalError(msg);
         } finally {
@@ -88,7 +92,9 @@ const Settings: React.FC = () => {
             setModalType(null);
             setNewPassword('');
             setConfirmPassword('');
-        } catch (e: any) {
+        } catch (error: unknown) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const e = error as any;
             const msg = e.response?.data?.error || 'Ошибка смены пароля.';
             setModalError(msg);
         } finally {

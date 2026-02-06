@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, PiggyBank, ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
+import { Plus, PiggyBank, ArrowDown, ArrowUp } from 'lucide-react';
 import classNames from 'classnames';
 import { getSavingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, addSavingsTransaction, ensureMonth } from '../api';
 import type { SavingsGoal } from '../api';
@@ -33,7 +33,10 @@ const Savings: React.FC = () => {
         } catch (e) { console.error(e); }
     };
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => { 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        loadData(); 
+    }, []);
 
     const handleCreateGoal = async (e: React.FormEvent) => {
         e.preventDefault();

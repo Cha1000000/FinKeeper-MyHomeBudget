@@ -3,6 +3,7 @@ import { Outlet, NavLink } from 'react-router-dom';
 import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut, Settings } from 'lucide-react';
 import classNames from 'classnames';
 import { ensureMonth, getMonthSummary, getSavingsGoals } from '../api';
+import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -24,10 +25,11 @@ const Layout: React.FC = () => {
 
     // Sync sidebar state with settings changes
     useEffect(() => {
-        if (uiSettings?.autoCollapseSidebar !== undefined) {
+        if (uiSettings?.autoCollapseSidebar !== undefined && uiSettings.autoCollapseSidebar !== isCollapsed) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsCollapsed(uiSettings.autoCollapseSidebar);
         }
-    }, [uiSettings?.autoCollapseSidebar]);
+    }, [uiSettings?.autoCollapseSidebar, isCollapsed]);
 
     useEffect(() => {
         const fetchFinancialData = async () => {
@@ -42,7 +44,7 @@ const Layout: React.FC = () => {
                 
                 // Сумма всех копилок
                 const goalsRes = await getSavingsGoals();
-                const savingsTotal = goalsRes.data.reduce((sum: number, goal: any) => sum + (goal.current_amount || 0), 0);
+                const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
 
                 // Доступный остаток = доходы - расходы
                 const available = summaryRes.data.income - summaryRes.data.expenses;

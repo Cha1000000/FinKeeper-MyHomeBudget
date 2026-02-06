@@ -1,10 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getMe, loginUser, registerUser } from '../api';
-
-interface User {
-  id: number;
-  username: string;
-}
+import type { User, AuthData } from '../api';
 
 interface UiSettings {
   autoCollapseSidebar: boolean;
@@ -13,8 +10,8 @@ interface UiSettings {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (data: any) => Promise<void>;
-  register: (data: any) => Promise<void>;
+  login: (data: AuthData) => Promise<void>;
+  register: (data: AuthData) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
   uiSettings: UiSettings;
@@ -50,13 +47,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  const login = async (formData: any) => {
+  const login = async (formData: AuthData) => {
     const { data } = await loginUser(formData);
     localStorage.setItem('token', data.token);
     setUser(data.user);
   };
 
-  const register = async (formData: any) => {
+  const register = async (formData: AuthData) => {
     const { data } = await registerUser(formData);
     localStorage.setItem('token', data.token);
     setUser(data.user);

@@ -13,14 +13,17 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const trimmedUsername = username.trim();
     try {
       if (isLogin) {
-        await login({ username, password });
+        await login({ username: trimmedUsername, password });
       } else {
-        await register({ username, password });
+        await register({ username: trimmedUsername, password });
       }
       navigate('/');
-    } catch (err: any) {
+    } catch (error: unknown) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const err = error as any;
         const msg = err.response?.data?.error || err.message || 'Ошибка авторизации';
         setError(msg);
     }

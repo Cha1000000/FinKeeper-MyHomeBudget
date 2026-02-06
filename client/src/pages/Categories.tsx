@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Check, X } from 'lucide-react';
 import api, { getCategories, getIncomeSources } from '../api';
 import type { Category, IncomeSource } from '../api';
@@ -18,11 +18,7 @@ const Categories: React.FC = () => {
     const [editName, setEditName] = useState('');
     const [pendingDelete, setPendingDelete] = useState<number | null>(null);
 
-    useEffect(() => {
-        fetchData();
-    }, [activeTab]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             if (activeTab === 'expenses') {
                 const res = await getCategories();
@@ -34,7 +30,12 @@ const Categories: React.FC = () => {
         } catch (e) {
             console.error(e);
         }
-    };
+    }, [activeTab]);
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchData();
+    }, [fetchData]);
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
