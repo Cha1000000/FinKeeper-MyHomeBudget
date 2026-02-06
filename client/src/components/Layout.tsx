@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut, Settings } from 'lucide-react';
 import classNames from 'classnames';
@@ -15,6 +15,8 @@ const Layout: React.FC = () => {
     const [totalAssets, setTotalAssets] = useState(0);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const { user, logout, uiSettings } = useAuth();
+    const mainRef = useRef<HTMLElement>(null);
+    const scrollTimeout = useRef<any>(null);
 
     const navItems = [
         { name: 'Обзор', path: '/', icon: LayoutDashboard },
@@ -22,6 +24,30 @@ const Layout: React.FC = () => {
         { name: 'Категории', path: '/categories', icon: Receipt },
         { name: 'Копилки', path: '/savings', icon: PiggyBank },
     ];
+
+    // Scrollbar auto-hide logic
+    useEffect(() => {
+        const mainEl = mainRef.current;
+        if (!mainEl) return;
+
+        const handleScroll = () => {
+            mainEl.classList.add('scrolling');
+            
+            if (scrollTimeout.current) {
+                clearTimeout(scrollTimeout.current);
+            }
+
+            scrollTimeout.current = setTimeout(() => {
+                mainEl.classList.remove('scrolling');
+            }, 2000);
+        };
+
+        mainEl.addEventListener('scroll', handleScroll);
+        return () => {
+            mainEl.removeEventListener('scroll', handleScroll);
+            if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+        };
+    }, []);
 
     // Sync sidebar state with settings changes
     useEffect(() => {
@@ -164,40 +190,54 @@ const Layout: React.FC = () => {
             </aside>
 
             {/* Mobile Nav (Bottom) */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-200 flex justify-around p-3 z-50 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)]">
-                {navItems.map((item) => (
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-emerald-900/90 via-emerald-700/90 to-teal-900/90 backdrop-blur-2xl border-t border-white/20 flex overflow-x-auto no-scrollbar p-3 z-50 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.3)]">
+                <div className="flex justify-around min-w-full gap-2">
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            className={({ isActive }) =>
+                                classNames(
+                                    'flex flex-col items-center justify-center p-2 rounded-xl transition-all min-w-[70px]',
+                                    isActive 
+                                        ? 'bg-white/20 text-white shadow-lg backdrop-blur-md border border-white/10' 
+                                        : 'text-emerald-100/70 hover:text-white'
+                                )
+                            }
+                        >
+                            <item.icon className="w-6 h-6" />
+                            <span className="text-[10px] mt-1 font-medium">{item.name}</span>
+                        </NavLink>
+                    ))}
                     <NavLink
-                        key={item.path}
-                        to={item.path}
+                        to="/settings"
                         className={({ isActive }) =>
                             classNames(
-                                'flex flex-col items-center justify-center p-2 rounded-xl transition-all',
-                                isActive ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'
+                                'flex flex-col items-center justify-center p-2 rounded-xl transition-all min-w-[70px]',
+                                isActive 
+                                    ? 'bg-white/20 text-white shadow-lg backdrop-blur-md border border-white/10' 
+                                    : 'text-emerald-100/70 hover:text-white'
                             )
                         }
                     >
-                        <item.icon className="w-6 h-6" />
-                        <span className="text-[10px] mt-1 font-medium">{item.name}</span>
+                        <Settings className="w-6 h-6" />
+                        <span className="text-[10px] mt-1 font-medium">Настр.</span>
                     </NavLink>
-                ))}
-                <NavLink
-                    to="/settings"
-                    className={({ isActive }) =>
-                        classNames(
-                            'flex flex-col items-center justify-center p-2 rounded-xl transition-all',
-                            isActive ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'
-                        )
-                    }
-                >
-                    <Settings className="w-6 h-6" />
-                    <span className="text-[10px] mt-1 font-medium">Настр.</span>
-                </NavLink>
+                    <button
+                        onClick={logout}
+                        className="flex flex-col items-center justify-center p-2 rounded-xl transition-all min-w-[70px] text-emerald-100/70 hover:text-white hover:bg-white/10"
+                    >
+                        <LogOut className="w-6 h-6" />
+                        <span className="text-[10px] mt-1 font-medium">Выход</span>
+                    </button>
+                </div>
             </nav>
 
 
             {/* Main Content with Gradient and Inner Glow */}
             <main 
-                    className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-green-50/20 via-emerald-50 to-teal-100 shadow-[inset_0_0_80px_rgba(16,185,129,0.3)]"
+                    ref={mainRef}
+                    className="smart-scrollbar flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-green-50/20 via-emerald-50 to-teal-100 shadow-[inset_0_0_80px_rgba(16,185,129,0.3)]"
                     onClick={() => {
                         if (uiSettings?.autoCollapseSidebar && !isCollapsed) {
                             setIsCollapsed(true);

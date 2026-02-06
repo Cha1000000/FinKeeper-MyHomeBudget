@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Save, RotateCcw, Key, User, ShieldAlert, Loader2, Layout as LayoutIcon } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RotateCcw, Key, User, ShieldAlert, Loader2, Layout as LayoutIcon, LogOut } from 'lucide-react';
 import { updateUsername, updatePassword, restoreBackup, createManualBackup } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 
 const Settings: React.FC = () => {
-    const { user, updateUser, uiSettings, updateUiSettings } = useAuth(); // Need login or some way to refresh user
+    const { user, updateUser, uiSettings, updateUiSettings, logout } = useAuth(); // Need login or some way to refresh user
     const [username, setUsername] = useState(user?.username || '');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -127,24 +127,33 @@ const Settings: React.FC = () => {
                         </h2>
                     </div>
                     
-                    <div className="p-6 space-y-6">
+                    <div className="p-6">
                         <div className="grid md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Имя пользователя</label>
-                                <div className="flex gap-2">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700">Имя пользователя</label>
                                     <input 
                                         type="text" 
                                         value={username} 
                                         onChange={(e) => setUsername(e.target.value)}
-                                        className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                         disabled={isLoading}
                                     />
+                                </div>
+                                <div className="flex flex-wrap gap-3">
                                     <button 
                                         onClick={() => openModal('rename')}
                                         disabled={username === user?.username || isLoading}
-                                        className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="bg-primary text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors w-full md:w-auto shadow-sm"
                                     >
                                         Сохранить
+                                    </button>
+                                    <button 
+                                        onClick={logout}
+                                        className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-medium hover:bg-red-100 transition-colors w-full md:w-auto flex items-center justify-center gap-2"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        Выйти из системы
                                     </button>
                                 </div>
                             </div>
@@ -189,7 +198,7 @@ const Settings: React.FC = () => {
                                 <button 
                                     onClick={() => openModal('password')}
                                     disabled={!newPassword || !confirmPassword || isLoading}
-                                    className="bg-amber-50 text-amber-600 px-4 py-2 rounded-lg font-medium hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors w-full md:w-auto"
+                                    className="bg-primary text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors w-full md:w-auto shadow-sm"
                                 >
                                     Сменить пароль
                                 </button>

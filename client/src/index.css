@@ -81,6 +81,24 @@ body {
   background: #8aa08a;
 }
 
+/* Smart Scrollbar - hidden by default, visible when scrolling or hovering */
+.smart-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+.smart-scrollbar.scrolling::-webkit-scrollbar-thumb {
+  background-color: #aab5aa;
+}
+
+.smart-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: #aab5aa;
+}
+
+.smart-scrollbar.scrolling::-webkit-scrollbar-thumb:hover,
+.smart-scrollbar:hover::-webkit-scrollbar-thumb:hover {
+  background-color: #8aa08a;
+}
+
 /* Specific scrollbar for Dashboard table */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -103,4 +121,15 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #8aa08a;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
