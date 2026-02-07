@@ -88,19 +88,18 @@ data class SavingsTransaction(
 
 @Serializable
 data class MonthSummary(
-    @SerialName("total_income") val totalIncome: Double = 0.0,
-    @SerialName("total_expense") val totalExpense: Double = 0.0,
-    @SerialName("total_savings") val totalSavings: Double = 0.0
+    val income: Double = 0.0,
+    val expenses: Double = 0.0,
+    val savings: Double = 0.0,
+    val balance: Double = 0.0
 )
 
 @Serializable
 data class TrendItem(
-    val year: Int,
-    val month: Int,
+    val month: String,
     val income: Double = 0.0,
     val expense: Double = 0.0,
-    val savings: Double = 0.0,
-    val label: String? = null
+    val savings: Double = 0.0
 )
 
 // Request bodies
@@ -195,12 +194,12 @@ data class ReorderCategoriesRequest(
 
 @Serializable
 data class UpdateUsernameRequest(
-    val username: String
+    @SerialName("newUsername") val newUsername: String
 )
 
 @Serializable
 data class UpdatePasswordRequest(
-    val password: String
+    @SerialName("newPassword") val newPassword: String
 )
 
 @Serializable

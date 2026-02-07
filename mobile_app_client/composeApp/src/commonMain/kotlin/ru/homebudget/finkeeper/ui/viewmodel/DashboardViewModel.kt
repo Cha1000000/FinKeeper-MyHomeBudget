@@ -53,10 +53,10 @@ class DashboardViewModel(
                 val expenses = apiClient.getExpenses(monthData.id)
 
                 val totalSavings = savingsGoals.sumOf { it.currentAmount }
-                val available = summary.totalIncome - summary.totalExpense
+                val available = summary.income - summary.expenses
                 val totalAssets = available + totalSavings
-                val savingsPercent = if (summary.totalIncome > 0) {
-                    (summary.totalSavings / summary.totalIncome) * 100
+                val savingsPercent = if (summary.income > 0) {
+                    (summary.savings / summary.income) * 100
                 } else 0.0
 
                 // Build expense breakdown (excluding hidden savings category)
@@ -74,8 +74,8 @@ class DashboardViewModel(
 
                 _state.value = DashboardState(
                     isLoading = false,
-                    totalIncome = summary.totalIncome,
-                    totalExpense = summary.totalExpense,
+                    totalIncome = summary.income,
+                    totalExpense = summary.expenses,
                     totalSavings = totalSavings,
                     savingsPercent = savingsPercent,
                     available = available,

@@ -185,43 +185,43 @@ class ModelsSerializationTest {
 
     @Test
     fun monthSummary_deserialize() {
-        val raw = """{"total_income":100000.0,"total_expense":60000.0,"total_savings":5000.0}"""
+        val raw = """{"income":100000.0,"expenses":60000.0,"savings":5000.0,"balance":35000.0}"""
         val result = json.decodeFromString<MonthSummary>(raw)
-        assertEquals(100000.0, result.totalIncome)
-        assertEquals(60000.0, result.totalExpense)
-        assertEquals(5000.0, result.totalSavings)
+        assertEquals(100000.0, result.income)
+        assertEquals(60000.0, result.expenses)
+        assertEquals(5000.0, result.savings)
+        assertEquals(35000.0, result.balance)
     }
 
     @Test
     fun monthSummary_defaults() {
         val raw = """{}"""
         val result = json.decodeFromString<MonthSummary>(raw)
-        assertEquals(0.0, result.totalIncome)
-        assertEquals(0.0, result.totalExpense)
-        assertEquals(0.0, result.totalSavings)
+        assertEquals(0.0, result.income)
+        assertEquals(0.0, result.expenses)
+        assertEquals(0.0, result.savings)
+        assertEquals(0.0, result.balance)
     }
 
     // ── TrendItem ──
 
     @Test
     fun trendItem_deserialize() {
-        val raw = """{"year":2025,"month":1,"income":100000.0,"expense":50000.0,"savings":10000.0,"label":"Янв"}"""
+        val raw = """{"month":"1/2025","income":100000.0,"expense":50000.0,"savings":10000.0}"""
         val result = json.decodeFromString<TrendItem>(raw)
-        assertEquals(2025, result.year)
-        assertEquals(1, result.month)
+        assertEquals("1/2025", result.month)
         assertEquals(100000.0, result.income)
         assertEquals(50000.0, result.expense)
-        assertEquals("Янв", result.label)
+        assertEquals(10000.0, result.savings)
     }
 
     @Test
     fun trendItem_defaults() {
-        val raw = """{"year":2025,"month":6}"""
+        val raw = """{"month":"6/2025"}"""
         val result = json.decodeFromString<TrendItem>(raw)
         assertEquals(0.0, result.income)
         assertEquals(0.0, result.expense)
         assertEquals(0.0, result.savings)
-        assertNull(result.label)
     }
 
     // ── Request bodies ──

@@ -29,7 +29,7 @@ class ApiClient(private val tokenStorage: TokenStorage) {
         }
         install(HttpTimeout) {
             requestTimeoutMillis = 30_000
-            connectTimeoutMillis = 15_000
+            connectTimeoutMillis = 10_000
         }
         defaultRequest {
             contentType(ContentType.Application.Json)
@@ -68,16 +68,16 @@ class ApiClient(private val tokenStorage: TokenStorage) {
 
     // ── User ──
 
-    suspend fun updateUsername(username: String) {
+    suspend fun updateUsername(newUsername: String) {
         val response = client.put("$baseUrl/user/rename") {
-            setBody(UpdateUsernameRequest(username))
+            setBody(UpdateUsernameRequest(newUsername))
         }
         checkResponse(response)
     }
 
-    suspend fun updatePassword(password: String) {
+    suspend fun updatePassword(newPassword: String) {
         val response = client.put("$baseUrl/user/password") {
-            setBody(UpdatePasswordRequest(password))
+            setBody(UpdatePasswordRequest(newPassword))
         }
         checkResponse(response)
     }
@@ -125,13 +125,13 @@ class ApiClient(private val tokenStorage: TokenStorage) {
     // ── Income Sources ──
 
     suspend fun getIncomeSources(): List<IncomeSource> {
-        val response = client.get("$baseUrl/income-sources")
+        val response = client.get("$baseUrl/income_sources")
         checkResponse(response)
         return response.body()
     }
 
     suspend fun createIncomeSource(name: String): IncomeSource {
-        val response = client.post("$baseUrl/income-sources") {
+        val response = client.post("$baseUrl/income_sources") {
             setBody(CreateIncomeSourceRequest(name))
         }
         checkResponse(response)
@@ -139,14 +139,14 @@ class ApiClient(private val tokenStorage: TokenStorage) {
     }
 
     suspend fun updateIncomeSource(id: Int, request: UpdateIncomeSourceRequest) {
-        val response = client.put("$baseUrl/income-sources/$id") {
+        val response = client.put("$baseUrl/income_sources/$id") {
             setBody(request)
         }
         checkResponse(response)
     }
 
     suspend fun deleteIncomeSource(id: Int) {
-        val response = client.delete("$baseUrl/income-sources/$id")
+        val response = client.delete("$baseUrl/income_sources/$id")
         checkResponse(response)
     }
 

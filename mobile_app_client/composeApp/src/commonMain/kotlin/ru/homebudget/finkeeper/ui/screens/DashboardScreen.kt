@@ -163,8 +163,11 @@ private fun TrendCard(state: DashboardState) {
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val parts = item.month.split("/")
+                    val monthNum = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                    val yearNum = parts.getOrNull(1)?.toIntOrNull() ?: 0
                     Text(
-                        text = "${shortMonthName(item.month)}\n${item.year % 100}",
+                        text = "${shortMonthName(monthNum)}\n${yearNum % 100}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(32.dp)

@@ -28,6 +28,6 @@ class TokenStorage {
     companion object {
         private const val KEY_TOKEN = "auth_token"
         private const val KEY_SERVER_URL = "server_url"
-        private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3002"
+        private const val DEFAULT_SERVER_URL = "http://217.114.8.82:3002"
     }
 }
