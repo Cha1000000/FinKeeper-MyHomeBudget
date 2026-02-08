@@ -45,58 +45,58 @@ val TealColorLight = Color(0xFF0D9488)        // teal-600 for Накоплени
 val AvailableColorLight = Color(0xFF6B8E23)   // brand color for Доступно
 
 // Card backgrounds for light
-val IncomeCardBgLight = Color(0xFFECFDF5)     // emerald-50
+val IncomeCardBgLight = Color(0xFFD1FAE5)     // emerald-100 (darker than bg for contrast)
 val ExpenseCardBgLight = Color(0xFFFEF2F2)    // red-50
 val SavingsCardBgLight = Color(0xFFEFF6FF)    // blue-50 (for % в копилку)
 val WarningCardBgLight = Color(0xFFFFFBEB)    // amber-50
 val TealCardBgLight = Color(0xFFCCFBF1)       // teal-100 (for Накопления)
 val AvailableCardBgLight = Color(0xFFFEFCE8)  // yellow-50 (for Доступно)
 
-// ── Dark Theme Colors (futuristic neon-tech style) ──
+// ── Dark Theme Colors (futuristic neon-tech style with emerald branding) ──
 val PrimaryDark = Color(0xFF00E676)           // Neon emerald green
 val OnPrimaryDark = Color(0xFF003919)
-val PrimaryContainerDark = Color(0xFF003D20)
+val PrimaryContainerDark = Color(0xFF00522A)
 val OnPrimaryContainerDark = Color(0xFF69FFB0)
 
-val SecondaryDark = Color(0xFF76FF03)         // Electric lime
+val SecondaryDark = Color(0xFFB2FF59)         // Light lime
 val OnSecondaryDark = Color(0xFF1A3300)
-val SecondaryContainerDark = Color(0xFF1B4400)
-val OnSecondaryContainerDark = Color(0xFFA8FF60)
+val SecondaryContainerDark = Color(0xFF2B5200)
+val OnSecondaryContainerDark = Color(0xFFCFFF90)
 
-val TertiaryDark = Color(0xFF00BFA5)          // Teal neon
+val TertiaryDark = Color(0xFF4DB6AC)          // Muted teal
 val OnTertiaryDark = Color(0xFF003028)
 
-val ErrorDark = Color(0xFFFF5252)             // Bright neon red
+val ErrorDark = Color(0xFFFF8A80)             // Soft neon red
 val OnErrorDark = Color(0xFF690005)
-val ErrorContainerDark = Color(0xFF5C0011)
-val OnErrorContainerDark = Color(0xFFFFB4AB)
+val ErrorContainerDark = Color(0xFF93000A)
+val OnErrorContainerDark = Color(0xFFFFDAD6)
 
-val BackgroundDark = Color(0xFF0A0E14)        // Deep space black with blue tint
-val OnBackgroundDark = Color(0xFFE0E6ED)
-val SurfaceDark = Color(0xFF111923)           // Dark navy card with subtle glow feel
-val OnSurfaceDark = Color(0xFFE0E6ED)
-val SurfaceVariantDark = Color(0xFF182230)    // Slightly lighter navy
-val OnSurfaceVariantDark = Color(0xFF8899AA)
-val OutlineDark = Color(0xFF263545)           // Subtle border
-val OutlineVariantDark = Color(0xFF152030)
+val BackgroundDark = Color(0xFF050806)        // Deepest emerald black
+val OnBackgroundDark = Color(0xFFE0E6E2)
+val SurfaceDark = Color(0xFF0F1411)           // Dark charcoal with subtle green tint
+val OnSurfaceDark = Color(0xFFE0E6E2)
+val SurfaceVariantDark = Color(0xFF1A211D)    // Slightly lighter dark green-grey
+val OnSurfaceVariantDark = Color(0xFF8DA396)  // Muted sage text
+val OutlineDark = Color(0xFF2D3B33)           // Subtle green-grey border
+val OutlineVariantDark = Color(0xFF1F2924)
 
 // Navigation bar for dark theme
-val NavBarDark = Color(0xFF0D1520)            // Deep navy for nav
+val NavBarDark = Color(0xFF080C0A)            // Almost black with green hint
 val NavBarContentDark = Color(0xFF00E676)     // Neon green active
-val NavBarContentInactiveDark = Color(0xFF4A6070) // Muted steel
+val NavBarContentInactiveDark = Color(0xFF4F665C) // Muted sage
 
 // Specific semantic colors for dark theme (neon/glow style)
 val IncomeColorDark = Color(0xFF00E676)       // Neon green
 val ExpenseColorDark = Color(0xFFFF5252)      // Neon red
-val SavingsColorDark = Color(0xFF448AFF)      // Electric blue
+val SavingsColorDark = Color(0xFF00E5FF)      // Cyan/Electric Blue (more futuristic than standard blue)
 val WarningDark = Color(0xFFFFD740)           // Bright amber
-val TealColorDark = Color(0xFF00BFA5)         // Neon teal
+val TealColorDark = Color(0xFF1DE9B6)         // Neon Teal
 val AvailableColorDark = Color(0xFF76FF03)    // Electric lime
 
 // Card backgrounds for dark (deep with subtle color tints)
 val IncomeCardBgDark = Color(0xFF0A1F14)      // Deep emerald-black
 val ExpenseCardBgDark = Color(0xFF1F0A0E)     // Deep red-black
-val SavingsCardBgDark = Color(0xFF0A1428)     // Deep blue-black
+val SavingsCardBgDark = Color(0xFF0A1A22)     // Deep cyan-black
 val WarningCardBgDark = Color(0xFF1F1A08)     // Deep amber-black
 val TealCardBgDark = Color(0xFF0A1F1C)        // Deep teal-black
 val AvailableCardBgDark = Color(0xFF141F08)   // Deep lime-black

@@ -12,6 +12,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.data.model.SavingsGoal
 import ru.homebudget.finkeeper.ui.components.*
+import ru.homebudget.finkeeper.ui.components.neonGlow
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsState
 import ru.homebudget.finkeeper.util.formatCurrency
@@ -138,7 +139,9 @@ private fun SavingsGoalCard(
     val progress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .neonGlow(semantic.savingsColor, radius = 12.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {

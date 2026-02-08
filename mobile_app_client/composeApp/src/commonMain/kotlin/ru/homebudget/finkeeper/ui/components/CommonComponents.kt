@@ -11,15 +11,44 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+fun Modifier.neonGlow(
+    color: Color,
+    radius: Dp = 12.dp,
+    shape: Shape = RoundedCornerShape(16.dp)
+): Modifier = composed {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    if (isDark) {
+        this.shadow(
+            elevation = radius,
+            shape = shape,
+            spotColor = color,
+            ambientColor = color
+        )
+    } else {
+        // Subtle shadow for light theme
+        this.shadow(
+            elevation = 4.dp,
+            shape = shape,
+            spotColor = color.copy(alpha = 0.3f),
+            ambientColor = color.copy(alpha = 0.3f)
+        )
+    }
+}
 
 @Composable
 fun SummaryCard(
@@ -34,6 +63,7 @@ fun SummaryCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .neonGlow(contentColor, shape = RoundedCornerShape(16.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor)
@@ -85,6 +115,7 @@ fun ProgressBar(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .neonGlow(color, radius = 8.dp, shape = RoundedCornerShape(height.dp / 2))
                 .clip(RoundedCornerShape(height.dp / 2))
                 .background(color)
         )

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
+import ru.homebudget.finkeeper.ui.components.neonGlow
 import ru.homebudget.finkeeper.ui.viewmodel.AuthState
 
 @Composable
@@ -70,7 +71,9 @@ fun LoginScreen(
 
             // Form card
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), radius = 16.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -178,7 +181,9 @@ fun LoginScreen(
 
             AnimatedVisibility(visible = showServerSettings) {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .neonGlow(MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), radius = 12.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)

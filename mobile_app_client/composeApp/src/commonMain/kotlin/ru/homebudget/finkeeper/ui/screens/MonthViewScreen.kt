@@ -22,6 +22,8 @@ import ru.homebudget.finkeeper.util.formatCurrency
 import ru.homebudget.finkeeper.util.formatDate
 import ru.homebudget.finkeeper.util.monthName
 
+import ru.homebudget.finkeeper.ui.components.neonGlow
+
 @Composable
 fun MonthViewScreen(
     state: MonthViewState,
@@ -57,7 +59,8 @@ fun MonthViewScreen(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 8.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
@@ -105,7 +108,8 @@ fun MonthViewScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .neonGlow(semantic.warningColor, radius = 10.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = semantic.warningCardBg)
             ) {
@@ -279,10 +283,12 @@ private fun ExpenseGroupCard(
     onUpdateExpense: (Int, Double) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val glowColor = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .neonGlow(glowColor, radius = 12.dp)
             .clickable { expanded = !expanded },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -394,7 +400,9 @@ private fun IncomeItemCard(
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .neonGlow(AppTheme.semanticColors.incomeColor, radius = 12.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {

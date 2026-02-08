@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ProgressBar
 import ru.homebudget.finkeeper.ui.components.SummaryCard
+import ru.homebudget.finkeeper.ui.components.neonGlow
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.theme.ChartColors
 import ru.homebudget.finkeeper.ui.viewmodel.DashboardState
@@ -142,7 +143,9 @@ private fun TrendCard(state: DashboardState) {
     val semantic = AppTheme.semanticColors
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), radius = 16.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -217,6 +220,7 @@ private fun LegendItem(label: String, color: androidx.compose.ui.graphics.Color)
                 .size(8.dp)
                 .clip(CircleShape)
                 .background(color)
+                .neonGlow(color, radius = 4.dp, shape = CircleShape)
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
@@ -230,7 +234,9 @@ private fun LegendItem(label: String, color: androidx.compose.ui.graphics.Color)
 @Composable
 private fun ExpenseBreakdownCard(breakdown: List<ExpenseCategoryBreakdown>) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -255,6 +261,7 @@ private fun ExpenseBreakdownCard(breakdown: List<ExpenseCategoryBreakdown>) {
                             .size(12.dp)
                             .clip(CircleShape)
                             .background(color)
+                            .neonGlow(color, radius = 6.dp, shape = CircleShape)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
