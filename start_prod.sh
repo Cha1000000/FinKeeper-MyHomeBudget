@@ -27,7 +27,7 @@ fi
 
 echo "🚀 Запуск Backend (prod, порт 3002)..."
 cd "$PROJECT_ROOT/server"
-node index.js &
+nohup node index.js > backend.log 2>&1 &
 BACKEND_PID=$!
 
 echo ""

@@ -23,14 +23,14 @@ sleep 1
 
 echo "🚀 Запуск Backend (порт 3002)..."
 cd "$PROJECT_ROOT/server"
-node index.js &
+nohup node index.js > backend.log 2>&1 &
 BACKEND_PID=$!
 
 sleep 1
 
 echo "🌐 Запуск Frontend (порт 5174)..."
 cd "$PROJECT_ROOT/client"
-npm run dev -- --host 0.0.0.0 --port 5174 &
+nohup npm run dev -- --host 0.0.0.0 --port 5174 > frontend.log 2>&1 &
 FRONTEND_PID=$!
 
 echo ""
