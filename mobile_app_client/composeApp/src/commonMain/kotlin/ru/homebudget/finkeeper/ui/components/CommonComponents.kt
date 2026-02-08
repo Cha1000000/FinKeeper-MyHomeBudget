@@ -136,6 +136,9 @@ fun AppTextField(
     enabled: Boolean = true,
     placeholder: String? = null
 ) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val containerColor = if (isDark) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -149,6 +152,11 @@ fun AppTextField(
         keyboardActions = KeyboardActions(
             onDone = { onImeAction() },
             onNext = { onImeAction() }
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = containerColor,
+            unfocusedContainerColor = containerColor,
+            disabledContainerColor = containerColor.copy(alpha = 0.2f),
         ),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         singleLine = singleLine,
