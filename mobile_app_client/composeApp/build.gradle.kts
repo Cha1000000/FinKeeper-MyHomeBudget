@@ -120,6 +120,13 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "FinKeeper-mobileApp-v${variant.versionName}-${variant.name}.apk"
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
