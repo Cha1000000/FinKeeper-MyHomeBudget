@@ -23,7 +23,7 @@ class TokenStorage {
 
     // Theme mode: "light", "dark", "system"
     var themeMode: String
-        get() = settings.getString(KEY_THEME_MODE, "system")
+        get() = settings.getString(KEY_THEME_MODE, "light")
         set(value) {
             settings.putString(KEY_THEME_MODE, value)
         }
