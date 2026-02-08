@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role.Companion.RadioButton
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.*
 import ru.homebudget.finkeeper.ui.theme.AppTheme
@@ -23,6 +26,11 @@ import ru.homebudget.finkeeper.util.formatDate
 import ru.homebudget.finkeeper.util.monthName
 
 import ru.homebudget.finkeeper.ui.components.neonGlow
+import kotlin.collections.filter
+import kotlin.collections.find
+import kotlin.collections.firstOrNull
+import kotlin.collections.forEach
+import kotlin.collections.last
 
 @Composable
 fun MonthViewScreen(
@@ -41,9 +49,11 @@ fun MonthViewScreen(
     onRefresh: () -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
+    var showAddExpenseForCategory by remember { mutableStateOf<Int?>(null) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var deleteIncomeId by remember { mutableStateOf<Int?>(null) }
     var deleteExpenseId by remember { mutableStateOf<Int?>(null) }
+    var editingExpense by remember { mutableStateOf<Pair<Int, Double>?>(null) }
 
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -190,7 +200,8 @@ fun MonthViewScreen(
                         ExpenseGroupCard(
                             group = group,
                             onDeleteExpense = { deleteExpenseId = it },
-                            onUpdateExpense = onUpdateExpense
+                            onEditExpense = { id, amount -> editingExpense = Pair(id, amount) },
+                            onAddExpenseInCategory = { showAddExpenseForCategory = group.categoryId }
                         )
                     }
                 }
@@ -244,6 +255,31 @@ fun MonthViewScreen(
         )
     }
 
+    // Add expense for specific category dialog
+    showAddExpenseForCategory?.let { categoryId ->
+        val catName = state.categories.find { it.id == categoryId }?.name ?: ""
+        AddExpenseForCategoryDialog(
+            categoryName = catName,
+            onDismiss = { showAddExpenseForCategory = null },
+            onAdd = { amount, comment ->
+                onAddExpense(categoryId, amount, comment)
+                showAddExpenseForCategory = null
+            }
+        )
+    }
+
+    // Edit expense dialog
+    editingExpense?.let { (expenseId, currentAmount) ->
+        EditExpenseDialog(
+            currentAmount = currentAmount,
+            onDismiss = { editingExpense = null },
+            onSave = { newAmount ->
+                onUpdateExpense(expenseId, newAmount)
+                editingExpense = null
+            }
+        )
+    }
+
     // Budget dialog
     if (showBudgetDialog) {
         BudgetDialog(
@@ -280,7 +316,8 @@ fun MonthViewScreen(
 private fun ExpenseGroupCard(
     group: GroupedExpense,
     onDeleteExpense: (Int) -> Unit,
-    onUpdateExpense: (Int, Double) -> Unit
+    onEditExpense: (Int, Double) -> Unit,
+    onAddExpenseInCategory: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val glowColor = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
@@ -345,6 +382,19 @@ private fun ExpenseGroupCard(
 
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
+                    // Add expense button pinned after header
+                    TextButton(
+                        onClick = onAddExpenseInCategory,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "+ Добавить расход в \"${group.categoryName}\"",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
                     group.items.forEach { expense ->
                         Row(
                             modifier = Modifier
@@ -371,13 +421,29 @@ private fun ExpenseGroupCard(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            TextButton(
-                                onClick = { onDeleteExpense(expense.id) },
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
-                                Text("✕", style = MaterialTheme.typography.labelMedium)
+                                TextButton(
+                                    onClick = { onEditExpense(expense.id, expense.amount) },
+                                    modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
+                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                                    colors = ButtonDefaults.textButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Text("✎", style = MaterialTheme.typography.labelMedium)
+                                }
+                                TextButton(
+                                    onClick = { onDeleteExpense(expense.id) },
+                                    modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
+                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                                    colors = ButtonDefaults.textButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    )
+                                ) {
+                                    Text("✕", style = MaterialTheme.typography.labelMedium)
+                                }
                             }
                         }
                         if (expense != group.items.last()) {
@@ -459,55 +525,67 @@ private fun AddEntryDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isExpense) "Добавить расход" else "Добавить доход") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 if (isExpense) {
-                    // Category selector
+                    // Category selector with limited height
                     Text("Категория", style = MaterialTheme.typography.labelMedium)
-                    categories.forEach { cat ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedCategoryId = cat.id }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = selectedCategoryId == cat.id,
-                                onClick = { selectedCategoryId = cat.id }
-                            )
-                            Text(cat.name, modifier = Modifier.padding(start = 8.dp))
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 200.dp)
+                    ) {
+                        items(categories, key = { it.id }) { cat ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedCategoryId = cat.id }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedCategoryId == cat.id,
+                                    onClick = { selectedCategoryId = cat.id }
+                                )
+                                Text(cat.name, modifier = Modifier.padding(start = 8.dp))
+                            }
                         }
                     }
                 } else {
-                    // Source selector
+                    // Source selector with limited height
                     Text("Источник", style = MaterialTheme.typography.labelMedium)
-                    incomeSources.forEach { src ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedSource = src.name; useCustomSource = false }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = !useCustomSource && selectedSource == src.name,
-                                onClick = { selectedSource = src.name; useCustomSource = false }
-                            )
-                            Text(src.name, modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { useCustomSource = true }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 200.dp)
                     ) {
-                        RadioButton(
-                            selected = useCustomSource,
-                            onClick = { useCustomSource = true }
-                        )
-                        Text("Другой:", modifier = Modifier.padding(start = 8.dp))
+                        items(incomeSources, key = { it.name }) { src ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedSource = src.name; useCustomSource = false }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = !useCustomSource && selectedSource == src.name,
+                                    onClick = { selectedSource = src.name; useCustomSource = false }
+                                )
+                                Text(src.name, modifier = Modifier.padding(start = 8.dp))
+                            }
+                        }
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { useCustomSource = true }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = useCustomSource,
+                                    onClick = { useCustomSource = true }
+                                )
+                                Text("Другой:", modifier = Modifier.padding(start = 8.dp))
+                            }
+                        }
                     }
                     if (useCustomSource) {
                         AppTextField(
@@ -581,7 +659,10 @@ private fun BudgetDialog(
         onDismissRequest = onDismiss,
         title = { Text("Настройка бюджета") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 categories.forEach { cat ->
                     AppTextField(
                         value = budgetValues[cat.id] ?: "",
@@ -600,6 +681,88 @@ private fun BudgetDialog(
                 }
                 onDismiss()
             }) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
+}
+
+@Composable
+private fun AddExpenseForCategoryDialog(
+    categoryName: String,
+    onDismiss: () -> Unit,
+    onAdd: (Double, String?) -> Unit
+) {
+    var amount by remember { mutableStateOf("") }
+    var comment by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Добавить расход в \"$categoryName\"") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = "Сумма",
+                    keyboardType = KeyboardType.Decimal
+                )
+                AppTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = "Комментарий (необязательно)"
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
+                    onAdd(amountVal, comment.ifBlank { null })
+                },
+                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0
+            ) {
+                Text("Добавить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
+}
+
+@Composable
+private fun EditExpenseDialog(
+    currentAmount: Double,
+    onDismiss: () -> Unit,
+    onSave: (Double) -> Unit
+) {
+    var amount by remember { mutableStateOf(currentAmount.toLong().toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Редактировать расход") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = "Сумма",
+                    keyboardType = KeyboardType.Decimal
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
+                    onSave(amountVal)
+                },
+                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0
+            ) {
                 Text("Сохранить")
             }
         },

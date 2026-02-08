@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.data.model.SavingsGoal
@@ -141,7 +142,7 @@ private fun SavingsGoalCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .neonGlow(semantic.savingsColor, radius = 12.dp),
+            .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -170,7 +171,7 @@ private fun SavingsGoalCard(
                 Text(
                     text = formatCurrency(goal.currentAmount),
                     style = MaterialTheme.typography.headlineSmall,
-                    color = semantic.savingsColor
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "из ${formatCurrency(goal.targetAmount)}",
@@ -183,7 +184,7 @@ private fun SavingsGoalCard(
 
             ProgressBar(
                 progress = progress,
-                color = semantic.savingsColor,
+                color = MaterialTheme.colorScheme.primary,
                 height = 8
             )
 
@@ -205,15 +206,20 @@ private fun SavingsGoalCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = semantic.savingsColor
+                        containerColor = semantic.incomeColor,
+                        contentColor = Color.White
                     )
                 ) {
                     Text("Пополнить")
                 }
-                OutlinedButton(
+                Button(
                     onClick = onWithdraw,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = semantic.expenseColor,
+                        contentColor = Color.White
+                    )
                 ) {
                     Text("Снять")
                 }

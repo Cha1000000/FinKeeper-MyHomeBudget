@@ -19,6 +19,7 @@ import ru.homebudget.finkeeper.ui.components.*
 import ru.homebudget.finkeeper.ui.screens.*
 import ru.homebudget.finkeeper.ui.theme.*
 import ru.homebudget.finkeeper.ui.viewmodel.*
+import kotlin.collections.listOf
 
 enum class Screen(val title: String) {
     Dashboard("Обзор"),
@@ -165,16 +166,19 @@ private fun GradientBottomBar(
     val activeColor = if (isDark) Color(0xFF00E676) else Color.White
     val inactiveColor = if (isDark) Color(0xFF4A6070) else Color(0xBBD1FAE5)
 
+    val navigationBarInsets = WindowInsets.navigationBars
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(gradientBrush)
+            .windowInsetsPadding(navigationBarInsets)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = 8.dp)
+                .padding(top = 6.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Screen.entries.forEach { screen ->
