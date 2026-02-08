@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.*
 import ru.homebudget.finkeeper.ui.theme.AppTheme
@@ -125,6 +126,12 @@ fun MonthViewScreen(
                         progress = if (state.totalLimit > 0) (state.totalExpense / state.totalLimit).toFloat() else 0f,
                         color = if (state.totalExpense > state.totalLimit) MaterialTheme.colorScheme.error else semantic.warningColor
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Остаток: ${formatCurrency(maxOf(0.0, state.totalLimit - state.totalExpense))}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = semantic.warningColor.copy(alpha = 0.8f)
+                    )
                 }
             }
         }
@@ -133,7 +140,7 @@ fun MonthViewScreen(
         TabRow(
             selectedTabIndex = state.activeTab,
             modifier = Modifier.padding(horizontal = 16.dp),
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.primary
         ) {
             Tab(selected = state.activeTab == 0, onClick = { onSetActiveTab(0) }) {

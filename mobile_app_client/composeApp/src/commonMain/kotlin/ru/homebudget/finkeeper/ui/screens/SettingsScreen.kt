@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
@@ -24,7 +25,9 @@ fun SettingsScreen(
     onCreateBackup: () -> Unit,
     onRestoreBackup: (() -> Unit) -> Unit,
     onLogout: () -> Unit,
-    onClearStatus: () -> Unit
+    onClearStatus: () -> Unit,
+    currentThemeMode: String = "system",
+    onThemeModeChange: (String) -> Unit = {}
 ) {
     var newUsername by remember { mutableStateOf(username) }
     var newPassword by remember { mutableStateOf("") }
@@ -164,6 +167,46 @@ fun SettingsScreen(
                     containerColor = MaterialTheme.colorScheme.tertiary,
                     contentColor = MaterialTheme.colorScheme.onTertiary
                 )
+            }
+        }
+
+        // Theme section
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Оформление",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                val themeOptions = listOf(
+                    "system" to "Как в системе",
+                    "light" to "Светлая",
+                    "dark" to "Тёмная"
+                )
+                themeOptions.forEach { (mode, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentThemeMode == mode,
+                            onClick = { onThemeModeChange(mode) }
+                        )
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
             }
         }
 

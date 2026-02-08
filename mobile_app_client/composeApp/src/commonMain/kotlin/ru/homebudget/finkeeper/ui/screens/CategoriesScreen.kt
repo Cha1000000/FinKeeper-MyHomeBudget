@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.*
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesState
@@ -47,7 +48,7 @@ fun CategoriesScreen(
         TabRow(
             selectedTabIndex = state.activeTab,
             modifier = Modifier.padding(horizontal = 16.dp),
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.primary
         ) {
             Tab(selected = state.activeTab == 0, onClick = { onSetActiveTab(0) }) {

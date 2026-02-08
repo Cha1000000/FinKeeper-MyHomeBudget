@@ -67,10 +67,17 @@ data class AppSemanticColors(
     val expenseColor: androidx.compose.ui.graphics.Color,
     val savingsColor: androidx.compose.ui.graphics.Color,
     val warningColor: androidx.compose.ui.graphics.Color,
+    val tealColor: androidx.compose.ui.graphics.Color,
+    val availableColor: androidx.compose.ui.graphics.Color,
     val incomeCardBg: androidx.compose.ui.graphics.Color,
     val expenseCardBg: androidx.compose.ui.graphics.Color,
     val savingsCardBg: androidx.compose.ui.graphics.Color,
     val warningCardBg: androidx.compose.ui.graphics.Color,
+    val tealCardBg: androidx.compose.ui.graphics.Color,
+    val availableCardBg: androidx.compose.ui.graphics.Color,
+    val navBarColor: androidx.compose.ui.graphics.Color,
+    val navBarContent: androidx.compose.ui.graphics.Color,
+    val navBarContentInactive: androidx.compose.ui.graphics.Color,
 )
 
 val LightSemanticColors = AppSemanticColors(
@@ -78,10 +85,17 @@ val LightSemanticColors = AppSemanticColors(
     expenseColor = ExpenseColorLight,
     savingsColor = SavingsColorLight,
     warningColor = WarningLight,
+    tealColor = TealColorLight,
+    availableColor = AvailableColorLight,
     incomeCardBg = IncomeCardBgLight,
     expenseCardBg = ExpenseCardBgLight,
     savingsCardBg = SavingsCardBgLight,
     warningCardBg = WarningCardBgLight,
+    tealCardBg = TealCardBgLight,
+    availableCardBg = AvailableCardBgLight,
+    navBarColor = NavBarLight,
+    navBarContent = NavBarContentLight,
+    navBarContentInactive = NavBarContentInactiveLight,
 )
 
 val DarkSemanticColors = AppSemanticColors(
@@ -89,10 +103,17 @@ val DarkSemanticColors = AppSemanticColors(
     expenseColor = ExpenseColorDark,
     savingsColor = SavingsColorDark,
     warningColor = WarningDark,
+    tealColor = TealColorDark,
+    availableColor = AvailableColorDark,
     incomeCardBg = IncomeCardBgDark,
     expenseCardBg = ExpenseCardBgDark,
     savingsCardBg = SavingsCardBgDark,
     warningCardBg = WarningCardBgDark,
+    tealCardBg = TealCardBgDark,
+    availableCardBg = AvailableCardBgDark,
+    navBarColor = NavBarDark,
+    navBarContent = NavBarContentDark,
+    navBarContentInactive = NavBarContentInactiveDark,
 )
 
 val LocalSemanticColors = staticCompositionLocalOf { LightSemanticColors }

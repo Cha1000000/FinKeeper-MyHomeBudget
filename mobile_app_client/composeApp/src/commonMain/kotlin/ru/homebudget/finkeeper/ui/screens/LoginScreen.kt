@@ -107,9 +107,13 @@ fun LoginScreen(
                         isPassword = true,
                         imeAction = ImeAction.Done,
                         onImeAction = {
-                            if (username.isNotBlank() && password.isNotBlank()) {
-                                if (isRegisterMode) onRegister(username, password)
-                                else onLogin(username, password)
+                            val u = username.trim()
+                            val p = password.trim()
+                            if (u.isNotBlank() && p.isNotBlank()) {
+                                username = u
+                                password = p
+                                if (isRegisterMode) onRegister(u, p)
+                                else onLogin(u, p)
                             }
                         }
                     )
@@ -131,8 +135,12 @@ fun LoginScreen(
                     AppButton(
                         text = if (isRegisterMode) "Зарегистрироваться" else "Войти",
                         onClick = {
-                            if (isRegisterMode) onRegister(username, password)
-                            else onLogin(username, password)
+                            val u = username.trim()
+                            val p = password.trim()
+                            username = u
+                            password = p
+                            if (isRegisterMode) onRegister(u, p)
+                            else onLogin(u, p)
                         },
                         enabled = username.isNotBlank() && password.isNotBlank(),
                         isLoading = state.isLoading

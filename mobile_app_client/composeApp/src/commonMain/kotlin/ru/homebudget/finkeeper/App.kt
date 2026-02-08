@@ -1,7 +1,9 @@
 package ru.homebudget.finkeeper
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import org.koin.compose.koinInject
+import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.navigation.AppNavigation
 import ru.homebudget.finkeeper.ui.screens.LoginScreen
@@ -10,7 +12,16 @@ import ru.homebudget.finkeeper.ui.viewmodel.*
 
 @Composable
 fun App() {
-    FinKeeperTheme {
+    val tokenStorage = koinInject<TokenStorage>()
+    var themeMode by remember { mutableStateOf(tokenStorage.themeMode) }
+
+    val isDark = when (themeMode) {
+        "light" -> false
+        "dark" -> true
+        else -> isSystemInDarkTheme()
+    }
+
+    FinKeeperTheme(darkTheme = isDark) {
         val authViewModel = koinInject<AuthViewModel>()
         val authState by authViewModel.state.collectAsState()
 
@@ -37,7 +48,12 @@ fun App() {
                     monthViewModel = monthViewModel,
                     categoriesViewModel = categoriesViewModel,
                     savingsViewModel = savingsViewModel,
-                    settingsViewModel = settingsViewModel
+                    settingsViewModel = settingsViewModel,
+                    currentThemeMode = themeMode,
+                    onThemeModeChange = { mode ->
+                        tokenStorage.themeMode = mode
+                        themeMode = mode
+                    }
                 )
             }
         }

@@ -83,15 +83,15 @@ fun DashboardScreen(
                 SummaryCard(
                     title = "Накопления",
                     value = formatCurrency(state.totalSavings),
-                    backgroundColor = semantic.savingsCardBg,
-                    contentColor = semantic.savingsColor,
+                    backgroundColor = semantic.tealCardBg,
+                    contentColor = semantic.tealColor,
                     modifier = Modifier.weight(1f)
                 )
                 SummaryCard(
                     title = "% в копилку",
                     value = "${kotlin.math.round(state.savingsPercent).toInt()}%",
-                    backgroundColor = semantic.warningCardBg,
-                    contentColor = semantic.warningColor,
+                    backgroundColor = semantic.savingsCardBg,
+                    contentColor = semantic.savingsColor,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -105,15 +105,17 @@ fun DashboardScreen(
                 SummaryCard(
                     title = "Доступно",
                     value = formatCurrency(state.available),
-                    backgroundColor = semantic.incomeCardBg,
-                    contentColor = semantic.incomeColor,
+                    backgroundColor = if (state.available >= 0) semantic.availableCardBg
+                        else semantic.expenseCardBg,
+                    contentColor = if (state.available >= 0) semantic.availableColor
+                        else semantic.expenseColor,
                     modifier = Modifier.weight(1f)
                 )
                 SummaryCard(
                     title = "Всего активов",
                     value = formatCurrency(state.totalAssets),
-                    backgroundColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    backgroundColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.weight(1f)
                 )
             }
