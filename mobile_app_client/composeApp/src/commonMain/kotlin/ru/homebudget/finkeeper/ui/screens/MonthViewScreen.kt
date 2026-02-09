@@ -157,10 +157,10 @@ fun MonthViewScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Лимит трат", style = MaterialTheme.typography.labelMedium, color = semantic.warningColor)
+                        Text("Лимит трат", style = MaterialTheme.typography.titleSmall, color = semantic.warningColor)
                         Text(
                             "${formatCurrency(state.totalExpense)} / ${formatCurrency(state.totalLimit)}",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = semantic.warningColor
                         )
                     }
@@ -172,7 +172,7 @@ fun MonthViewScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Остаток: ${formatCurrency(maxOf(0.0, state.totalLimit - state.totalExpense))}",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelMedium,
                         color = semantic.warningColor.copy(alpha = 0.8f)
                     )
                 }

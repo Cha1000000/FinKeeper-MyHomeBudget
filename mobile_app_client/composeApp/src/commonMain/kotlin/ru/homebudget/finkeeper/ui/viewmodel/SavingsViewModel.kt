@@ -12,6 +12,8 @@ import kotlinx.datetime.toLocalDateTime
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.util.currentIsoDate
+import ru.homebudget.finkeeper.util.RetryConfig
+import ru.homebudget.finkeeper.util.withRetry
 
 data class SavingsState(
     val isLoading: Boolean = true,
@@ -33,7 +35,9 @@ class SavingsViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
-                val goals = apiClient.getSavingsGoals()
+                val goals = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getSavingsGoals()
+                }
                 _state.value = _state.value.copy(isLoading = false, goals = goals)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
@@ -47,7 +51,9 @@ class SavingsViewModel(
     fun createGoal(name: String, targetAmount: Double) {
         viewModelScope.launch {
             try {
-                apiClient.createSavingsGoal(CreateSavingsGoalRequest(name, targetAmount))
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.createSavingsGoal(CreateSavingsGoalRequest(name, targetAmount))
+                }
                 loadData()
                 notifySavingsUpdated()
             } catch (e: Exception) {
@@ -59,7 +65,9 @@ class SavingsViewModel(
     fun updateGoal(id: Int, name: String?, targetAmount: Double?, currentAmount: Double?) {
         viewModelScope.launch {
             try {
-                apiClient.updateSavingsGoal(id, UpdateSavingsGoalRequest(name, targetAmount, currentAmount))
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.updateSavingsGoal(id, UpdateSavingsGoalRequest(name, targetAmount, currentAmount))
+                }
                 loadData()
                 notifySavingsUpdated()
             } catch (e: Exception) {
@@ -71,7 +79,9 @@ class SavingsViewModel(
     fun deleteGoal(id: Int) {
         viewModelScope.launch {
             try {
-                apiClient.deleteSavingsGoal(id)
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.deleteSavingsGoal(id)
+                }
                 loadData()
                 notifySavingsUpdated()
             } catch (e: Exception) {
@@ -84,13 +94,17 @@ class SavingsViewModel(
         viewModelScope.launch {
             try {
                 val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                val monthData = apiClient.ensureMonth(now.year, now.monthNumber)
-                apiClient.addSavingsTransaction(AddSavingsTransactionRequest(
-                    goalId = goalId,
-                    amount = amount,
-                    date = currentIsoDate(),
-                    monthId = monthData.id
-                ))
+                val monthData = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.ensureMonth(now.year, now.monthNumber)
+                }
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.addSavingsTransaction(AddSavingsTransactionRequest(
+                        goalId = goalId,
+                        amount = amount,
+                        date = currentIsoDate(),
+                        monthId = monthData.id
+                    ))
+                }
                 loadData()
                 notifySavingsUpdated()
             } catch (e: Exception) {

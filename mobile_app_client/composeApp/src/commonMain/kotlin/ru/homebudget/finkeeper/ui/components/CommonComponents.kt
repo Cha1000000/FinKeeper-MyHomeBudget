@@ -1,14 +1,39 @@
 package ru.homebudget.finkeeper.ui.components
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -25,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 
 fun Modifier.neonGlow(
     color: Color,
@@ -66,7 +92,7 @@ fun SummaryCard(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.titleMedium,
                 color = contentColor.copy(alpha = 0.7f)
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -127,14 +153,42 @@ fun AppTextField(
     onImeAction: () -> Unit = {},
     singleLine: Boolean = true,
     enabled: Boolean = true,
-    placeholder: String? = null
+    placeholder: String? = null,
+    debounceMs: Long? = null,
+    onImmediateValueChange: ((String) -> Unit)? = null
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val containerColor = if (isDark) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val updatedOnValueChange by rememberUpdatedState(onValueChange)
+    val updatedOnImmediateValueChange by rememberUpdatedState(onImmediateValueChange)
+    var internalValue by remember { mutableStateOf(value) }
+    var hasUserInput by remember { mutableStateOf(false) }
+
+    LaunchedEffect(value, debounceMs) {
+        if (debounceMs == null) return@LaunchedEffect
+        if (value != internalValue) {
+            internalValue = value
+            hasUserInput = false
+        }
+    }
+
+    LaunchedEffect(internalValue, debounceMs, hasUserInput) {
+        if (debounceMs == null || !hasUserInput) return@LaunchedEffect
+        delay(debounceMs)
+        updatedOnValueChange(internalValue)
+    }
 
     OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
+        value = if (debounceMs == null) value else internalValue,
+        onValueChange = { newValue ->
+            if (debounceMs == null) {
+                updatedOnValueChange(newValue)
+            } else {
+                internalValue = newValue
+                hasUserInput = true
+                updatedOnImmediateValueChange?.invoke(newValue)
+            }
+        },
         label = { Text(label) },
         placeholder = if (placeholder != null) {{ Text(placeholder) }} else null,
         modifier = modifier.fillMaxWidth(),

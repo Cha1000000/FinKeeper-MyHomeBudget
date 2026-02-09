@@ -11,6 +11,8 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.remote.ApiClient
+import ru.homebudget.finkeeper.util.RetryConfig
+import ru.homebudget.finkeeper.util.withRetry
 
 data class ExpenseCategoryBreakdown(
     val name: String,
@@ -46,11 +48,21 @@ class DashboardViewModel(
                 val year = now.year
                 val month = now.monthNumber
 
-                val monthData = apiClient.ensureMonth(year, month)
-                val summary = apiClient.getMonthSummary(monthData.id)
-                val trend = apiClient.getTrend()
-                val savingsGoals = apiClient.getSavingsGoals()
-                val expenses = apiClient.getExpenses(monthData.id)
+                val monthData = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.ensureMonth(year, month)
+                }
+                val summary = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getMonthSummary(monthData.id)
+                }
+                val trend = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getTrend()
+                }
+                val savingsGoals = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getSavingsGoals()
+                }
+                val expenses = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getExpenses(monthData.id)
+                }
 
                 val totalSavings = savingsGoals.sumOf { it.currentAmount }
                 val available = summary.income - summary.expenses

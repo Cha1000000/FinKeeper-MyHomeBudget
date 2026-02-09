@@ -239,4 +239,74 @@ class ViewModelStateTest {
         )
         assertTrue(state.statusIsError)
     }
+
+    // ── AuthViewModel Validation ──
+
+    @Test
+    fun authViewModel_login_emptyCredentials_showsError() {
+        val viewModel = createAuthViewModel()
+
+        viewModel.login("", "")
+
+        assertEquals("Введите имя пользователя и пароль", viewModel.state.value.error)
+    }
+
+    @Test
+    fun authViewModel_register_emptyCredentials_showsError() {
+        val viewModel = createAuthViewModel()
+
+        viewModel.register(" ", "")
+
+        assertEquals("Введите имя пользователя и пароль", viewModel.state.value.error)
+    }
+
+    @Test
+    fun authViewModel_login_shortPassword_showsError() {
+        val viewModel = createAuthViewModel()
+
+        viewModel.login("user", "12345")
+
+        assertEquals("Пароль должен быть не короче 6 символов", viewModel.state.value.error)
+    }
+
+    @Test
+    fun authViewModel_register_shortPassword_showsError() {
+        val viewModel = createAuthViewModel()
+
+        viewModel.register("user", "12345")
+
+        assertEquals("Пароль должен быть не короче 6 символов", viewModel.state.value.error)
+    }
+
+    @Test
+    fun authViewModel_login_validData_clearsError() {
+        val viewModel = createAuthViewModel()
+
+        viewModel.login("", "")
+        assertEquals("Введите имя пользователя и пароль", viewModel.state.value.error)
+
+        viewModel.login("user", "123456")
+
+        assertNull(viewModel.state.value.error)
+    }
+
+    @Test
+    fun authViewModel_register_validData_clearsError() {
+        val viewModel = createAuthViewModel()
+
+        viewModel.register("", "")
+        assertEquals("Введите имя пользователя и пароль", viewModel.state.value.error)
+
+        viewModel.register("user", "123456")
+
+        assertNull(viewModel.state.value.error)
+    }
+
+    private fun createAuthViewModel(): AuthViewModel {
+        val tokenStorage = ru.homebudget.finkeeper.data.remote.TokenStorage().apply {
+            clear()
+        }
+        val apiClient = ru.homebudget.finkeeper.data.remote.ApiClient(tokenStorage)
+        return AuthViewModel(apiClient, tokenStorage)
+    }
 }

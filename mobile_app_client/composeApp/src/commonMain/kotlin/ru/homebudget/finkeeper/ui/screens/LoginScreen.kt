@@ -96,19 +96,23 @@ fun LoginScreen(
 
                     AppTextField(
                         value = username,
-                        onValueChange = { username = it; onClearError() },
+                        onValueChange = { onClearError() },
                         label = "Имя пользователя",
-                        imeAction = ImeAction.Next
+                        imeAction = ImeAction.Next,
+                        debounceMs = 300L,
+                        onImmediateValueChange = { username = it }
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     AppTextField(
                         value = password,
-                        onValueChange = { password = it; onClearError() },
+                        onValueChange = { onClearError() },
                         label = "Пароль",
                         isPassword = true,
                         imeAction = ImeAction.Done,
+                        debounceMs = 300L,
+                        onImmediateValueChange = { password = it },
                         onImeAction = {
                             val u = username.trim()
                             val p = password.trim()

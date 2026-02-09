@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.ApiException
+import ru.homebudget.finkeeper.util.RetryConfig
+import ru.homebudget.finkeeper.util.withRetry
 
 data class SettingsState(
     val isLoading: Boolean = false,
@@ -27,7 +29,9 @@ class SettingsViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, statusMessage = null)
             try {
-                apiClient.updateUsername(username)
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.updateUsername(username)
+                }
                 _state.value = _state.value.copy(
                     isLoading = false,
                     statusMessage = "Имя пользователя успешно обновлено.",
@@ -54,7 +58,9 @@ class SettingsViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, statusMessage = null)
             try {
-                apiClient.updatePassword(password)
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.updatePassword(password)
+                }
                 _state.value = _state.value.copy(
                     isLoading = false,
                     statusMessage = "Пароль успешно изменен.",
@@ -80,7 +86,9 @@ class SettingsViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, statusMessage = null)
             try {
-                apiClient.createManualBackup()
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.createManualBackup()
+                }
                 _state.value = _state.value.copy(
                     isLoading = false,
                     statusMessage = "Резервная копия успешно создана.",
@@ -100,7 +108,9 @@ class SettingsViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, statusMessage = null)
             try {
-                apiClient.restoreBackup()
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.restoreBackup()
+                }
                 _state.value = _state.value.copy(
                     isLoading = false,
                     statusMessage = "Данные успешно восстановлены.",

@@ -12,6 +12,8 @@ import kotlinx.datetime.toLocalDateTime
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.util.currentIsoDate
+import ru.homebudget.finkeeper.util.RetryConfig
+import ru.homebudget.finkeeper.util.withRetry
 
 data class GroupedExpense(
     val categoryId: Int,
@@ -84,12 +86,24 @@ class MonthViewModel(
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
                 val s = _state.value
-                val monthData = apiClient.ensureMonth(s.year, s.month)
-                val incomes = apiClient.getIncomes(monthData.id)
-                val allExpenses = apiClient.getExpenses(monthData.id)
-                val categories = apiClient.getCategories()
-                val budgets = apiClient.getBudgets(monthData.id)
-                val incomeSources = apiClient.getIncomeSources()
+                val monthData = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.ensureMonth(s.year, s.month)
+                }
+                val incomes = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getIncomes(monthData.id)
+                }
+                val allExpenses = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getExpenses(monthData.id)
+                }
+                val categories = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getCategories()
+                }
+                val budgets = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getBudgets(monthData.id)
+                }
+                val incomeSources = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getIncomeSources()
+                }
 
                 val visibleExpenses = allExpenses.filter { it.categoryName != "Пополнение копилки" }
                 val totalIncome = incomes.sumOf { it.amount }
@@ -124,12 +138,14 @@ class MonthViewModel(
         val monthData = _state.value.monthData ?: return
         viewModelScope.launch {
             try {
-                apiClient.addIncome(AddIncomeRequest(
-                    monthId = monthData.id,
-                    source = source,
-                    amount = amount,
-                    date = currentIsoDate()
-                ))
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.addIncome(AddIncomeRequest(
+                        monthId = monthData.id,
+                        source = source,
+                        amount = amount,
+                        date = currentIsoDate()
+                    ))
+                }
                 loadData()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -187,13 +203,15 @@ class MonthViewModel(
         val monthData = _state.value.monthData ?: return
         viewModelScope.launch {
             try {
-                apiClient.addExpense(AddExpenseRequest(
-                    monthId = monthData.id,
-                    categoryId = categoryId,
-                    amount = amount,
-                    date = currentIsoDate(),
-                    comment = comment
-                ))
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.addExpense(AddExpenseRequest(
+                        monthId = monthData.id,
+                        categoryId = categoryId,
+                        amount = amount,
+                        date = currentIsoDate(),
+                        comment = comment
+                    ))
+                }
                 loadData()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -204,7 +222,9 @@ class MonthViewModel(
     fun updateIncome(id: Int, amount: Double) {
         viewModelScope.launch {
             try {
-                apiClient.updateIncome(id, amount)
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.updateIncome(id, amount)
+                }
                 loadData()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -215,7 +235,9 @@ class MonthViewModel(
     fun updateExpense(id: Int, amount: Double) {
         viewModelScope.launch {
             try {
-                apiClient.updateExpense(id, amount)
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.updateExpense(id, amount)
+                }
                 loadData()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -226,7 +248,9 @@ class MonthViewModel(
     fun deleteIncome(id: Int) {
         viewModelScope.launch {
             try {
-                apiClient.deleteIncome(id)
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.deleteIncome(id)
+                }
                 loadData()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -237,7 +261,9 @@ class MonthViewModel(
     fun deleteExpense(id: Int) {
         viewModelScope.launch {
             try {
-                apiClient.deleteExpense(id)
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.deleteExpense(id)
+                }
                 loadData()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -249,11 +275,13 @@ class MonthViewModel(
         val monthData = _state.value.monthData ?: return
         viewModelScope.launch {
             try {
-                apiClient.setBudget(SetBudgetRequest(
-                    monthId = monthData.id,
-                    categoryId = categoryId,
-                    limitAmount = limit
-                ))
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.setBudget(SetBudgetRequest(
+                        monthId = monthData.id,
+                        categoryId = categoryId,
+                        limitAmount = limit
+                    ))
+                }
                 loadData()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -264,7 +292,9 @@ class MonthViewModel(
     fun addIncomeSource(name: String) {
         viewModelScope.launch {
             try {
-                apiClient.createIncomeSource(name)
+                withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.createIncomeSource(name)
+                }
                 loadData()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message ?: "Ошибка добавления источника")

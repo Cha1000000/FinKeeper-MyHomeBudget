@@ -10,6 +10,8 @@ import ru.homebudget.finkeeper.data.model.User
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.ApiException
 import ru.homebudget.finkeeper.data.remote.TokenStorage
+import ru.homebudget.finkeeper.util.RetryConfig
+import ru.homebudget.finkeeper.util.withRetry
 
 data class AuthState(
     val user: User? = null,
@@ -38,7 +40,9 @@ class AuthViewModel(
         }
         viewModelScope.launch {
             try {
-                val user = apiClient.getMe()
+                val user = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.getMe()
+                }
                 _state.value = AuthState(user = user, isLoading = false, isAuthenticated = true)
             } catch (_: Exception) {
                 tokenStorage.clear()
@@ -59,7 +63,9 @@ class AuthViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
-                val authData = apiClient.login(trimmedUsername, password)
+                val authData = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.login(trimmedUsername, password)
+                }
                 tokenStorage.token = authData.token
                 _state.value = AuthState(
                     user = authData.user,
@@ -92,7 +98,9 @@ class AuthViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
-                val authData = apiClient.register(trimmedUsername, password)
+                val authData = withRetry(config = RetryConfig(maxAttempts = 3)) {
+                    apiClient.register(trimmedUsername, password)
+                }
                 tokenStorage.token = authData.token
                 _state.value = AuthState(
                     user = authData.user,
