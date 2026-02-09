@@ -3,23 +3,56 @@ package ru.homebudget.finkeeper.ui.navigation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import ru.homebudget.finkeeper.ui.components.*
-import ru.homebudget.finkeeper.ui.screens.*
-import ru.homebudget.finkeeper.ui.theme.*
-import ru.homebudget.finkeeper.ui.viewmodel.*
-import kotlin.collections.listOf
+import ru.homebudget.finkeeper.ui.components.ConfirmDialog
+import ru.homebudget.finkeeper.ui.components.IconCalendar
+import ru.homebudget.finkeeper.ui.components.IconDashboard
+import ru.homebudget.finkeeper.ui.components.IconLogOut
+import ru.homebudget.finkeeper.ui.components.IconPiggyBank
+import ru.homebudget.finkeeper.ui.components.IconReceipt
+import ru.homebudget.finkeeper.ui.components.IconSettings
+import ru.homebudget.finkeeper.ui.screens.CategoriesScreen
+import ru.homebudget.finkeeper.ui.screens.DashboardScreen
+import ru.homebudget.finkeeper.ui.screens.MonthViewScreen
+import ru.homebudget.finkeeper.ui.screens.SavingsScreen
+import ru.homebudget.finkeeper.ui.screens.SettingsScreen
+import ru.homebudget.finkeeper.ui.theme.AppSemanticColors
+import ru.homebudget.finkeeper.ui.theme.AppTheme
+import ru.homebudget.finkeeper.ui.theme.BackgroundDark
+import ru.homebudget.finkeeper.ui.viewmodel.AuthViewModel
+import ru.homebudget.finkeeper.ui.viewmodel.CategoriesViewModel
+import ru.homebudget.finkeeper.ui.viewmodel.DashboardViewModel
+import ru.homebudget.finkeeper.ui.viewmodel.MonthViewModel
+import ru.homebudget.finkeeper.ui.viewmodel.SavingsViewModel
+import ru.homebudget.finkeeper.ui.viewmodel.SettingsViewModel
 
 enum class Screen(val title: String) {
     Dashboard("Обзор"),
@@ -179,7 +212,7 @@ private fun GradientBottomBar(
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp)
                 .padding(top = 6.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Screen.entries.forEach { screen ->
                 val isSelected = currentScreen == screen
@@ -233,7 +266,7 @@ private fun NavBarItem(
                 else Modifier
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
             .widthIn(min = 56.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

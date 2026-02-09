@@ -1,6 +1,7 @@
 package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -345,18 +348,22 @@ private fun ExpenseGroupCard(
     onAddExpenseInCategory: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val glowColor = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+    // Возвращаем умеренный радиус
+    val glowRadius = if (group.isOverLimit) 16.dp else 12.dp
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .neonGlow(glowColor, radius = 12.dp)
+            .neonGlow(glowColor, radius = glowRadius)
             .clickable { expanded = !expanded },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (group.isOverLimit)
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-            else MaterialTheme.colorScheme.surface
+            // Используем семантические цвета из темы - они плотные и подобраны под фон
+            containerColor = if (group.isOverLimit) {
+                AppTheme.semanticColors.expenseCardBg
+            } else MaterialTheme.colorScheme.surface
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -457,7 +464,7 @@ private fun ExpenseGroupCard(
                                         contentColor = MaterialTheme.colorScheme.primary
                                     )
                                 ) {
-                                    Text("✎", style = MaterialTheme.typography.labelMedium)
+                                    Text("✎", style = MaterialTheme.typography.bodyLarge)
                                 }
                                 TextButton(
                                     onClick = { onDeleteExpense(expense.id) },
@@ -467,7 +474,7 @@ private fun ExpenseGroupCard(
                                         contentColor = MaterialTheme.colorScheme.error
                                     )
                                 ) {
-                                    Text("✕", style = MaterialTheme.typography.labelMedium)
+                                    Text("✕", style = MaterialTheme.typography.bodyLarge)
                                 }
                             }
                         }

@@ -32,22 +32,15 @@ fun Modifier.neonGlow(
     shape: Shape = RoundedCornerShape(16.dp)
 ): Modifier = composed {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    if (isDark) {
-        this.shadow(
-            elevation = radius,
-            shape = shape,
-            spotColor = color,
-            ambientColor = color
-        )
-    } else {
-        // Subtle shadow for light theme
-        this.shadow(
-            elevation = 4.dp,
-            shape = shape,
-            spotColor = color.copy(alpha = 0.3f),
-            ambientColor = color.copy(alpha = 0.3f)
-        )
-    }
+    // Even softer and more diffuse glow
+    val alpha = if (isDark) 0.45f else 0.25f
+    
+    this.shadow(
+        elevation = radius,
+        shape = shape,
+        spotColor = color.copy(alpha = alpha),
+        ambientColor = color.copy(alpha = alpha)
+    )
 }
 
 @Composable

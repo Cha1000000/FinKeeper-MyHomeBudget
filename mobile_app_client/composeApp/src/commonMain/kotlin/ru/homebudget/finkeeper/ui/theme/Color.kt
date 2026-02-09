@@ -46,7 +46,7 @@ val AvailableColorLight = Color(0xFF6B8E23)   // brand color for Доступн�
 
 // Card backgrounds for light
 val IncomeCardBgLight = Color(0xFFD1FAE5)     // emerald-100 (darker than bg for contrast)
-val ExpenseCardBgLight = Color(0xFFFEF2F2)    // red-50
+val ExpenseCardBgLight = Color(0xFFFEE2E2)    // red-100 (more visible than red-50)
 val SavingsCardBgLight = Color(0xFFEFF6FF)    // blue-50 (for % в копилку)
 val WarningCardBgLight = Color(0xFFFFFBEB)    // amber-50
 val TealCardBgLight = Color(0xFFCCFBF1)       // teal-100 (for Накопления)
@@ -95,7 +95,7 @@ val AvailableColorDark = Color(0xFF76FF03)    // Electric lime
 
 // Card backgrounds for dark (deep with subtle color tints)
 val IncomeCardBgDark = Color(0xFF0A1F14)      // Deep emerald-black
-val ExpenseCardBgDark = Color(0xFF1F0A0E)     // Deep red-black
+val ExpenseCardBgDark = Color(0xFF2C1014)     // Deep red-black (slightly lighter for visibility)
 val SavingsCardBgDark = Color(0xFF0A1A22)     // Deep cyan-black
 val WarningCardBgDark = Color(0xFF1F1A08)     // Deep amber-black
 val TealCardBgDark = Color(0xFF0A1F1C)        // Deep teal-black
