@@ -114,6 +114,11 @@ object Strings {
     const val CHANGE_PASSWORD_CONFIRM = "Вы уверены, что хотите сменить пароль?"
     const val RESTORE_DATA = "Восстановить данные"
     const val RESTORE_DATA_CONFIRM = "Все текущие данные будут заменены данными из последней резервной копии. Продолжить?"
+    const val BACKUP_RESTORE_CONFIRMATION_TITLE = "Восстановление из бэкапа"
+    const val BACKUP_RESTORE_CONFIRMATION_MESSAGE = "Вы уверены? При восстановлении все текущие данные будут удалены и заменены данными резервной копии. Это действие нельзя отменить."
+    const val BACKUP_RESTORE_BUTTON = "Восстановить"
+    const val BACKUP_RESTORE_SUCCESS = "Бэкап успешно восстановлен"
+    const val BACKUP_RESTORE_ERROR = "Ошибка восстановления бэкапа"
     const val LOGOUT_CONFIRM = "Вы уверены, что хотите выйти?"
     const val LOGOUT_TITLE = "Выход"
 

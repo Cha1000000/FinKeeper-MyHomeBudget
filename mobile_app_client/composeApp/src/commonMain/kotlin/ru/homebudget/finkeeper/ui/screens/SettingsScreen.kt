@@ -267,8 +267,9 @@ fun SettingsScreen(
 
     if (showRestoreConfirm) {
         ConfirmDialog(
-            title = Strings.RESTORE_DATA,
-            message = Strings.RESTORE_DATA_CONFIRM,
+            title = Strings.BACKUP_RESTORE_CONFIRMATION_TITLE,
+            message = Strings.BACKUP_RESTORE_CONFIRMATION_MESSAGE,
+            confirmText = Strings.BACKUP_RESTORE_BUTTON,
             onConfirm = {
                 onRestoreBackup {}
                 showRestoreConfirm = false
