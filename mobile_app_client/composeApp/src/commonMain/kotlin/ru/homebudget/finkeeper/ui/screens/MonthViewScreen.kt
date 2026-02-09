@@ -1,7 +1,6 @@
 package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,6 +65,7 @@ fun MonthViewScreen(
     onNextMonth: () -> Unit,
     onSetActiveTab: (Int) -> Unit,
     onAddIncome: (String, Double) -> Unit,
+    onAddIncomeWithSourceCheck: (String, Double) -> Unit,
     onAddExpense: (Int, Double, String?) -> Unit,
     onUpdateIncome: (Int, Double) -> Unit,
     onUpdateExpense: (Int, Double) -> Unit,
@@ -74,6 +73,8 @@ fun MonthViewScreen(
     onDeleteExpense: (Int) -> Unit,
     onSetBudget: (Int, Double) -> Unit,
     onAddIncomeSource: (String) -> Unit,
+    onConfirmAddIncomeSource: () -> Unit,
+    onCancelAddIncomeSource: () -> Unit,
     onRefresh: () -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -276,7 +277,7 @@ fun MonthViewScreen(
                 showAddDialog = false
             },
             onAddIncome = { source, amount ->
-                onAddIncome(source, amount)
+                onAddIncomeWithSourceCheck(source, amount)
                 showAddDialog = false
             },
             onAddIncomeSource = onAddIncomeSource
@@ -336,6 +337,26 @@ fun MonthViewScreen(
             onConfirm = { onDeleteExpense(id); deleteExpenseId = null },
             onDismiss = { deleteExpenseId = null },
             isDestructive = true
+        )
+    }
+
+    // Confirm new income source dialog from ViewModel state
+    if (state.showSourceConfirm) {
+        ConfirmDialog(
+            title = "Подтверждение",
+            message = "Источник дохода \"${state.pendingSourceName ?: ""}\" не найден. Создать его и добавить доход?",
+            confirmText = "Да",
+            dismissText = "Отмена",
+            onConfirm = { 
+                onConfirmAddIncomeSource()
+                showAddDialog = false
+            },
+            onDismiss = { 
+                onCancelAddIncomeSource()
+                showAddDialog = false
+            },
+            isDestructive = false,
+            isLoading = false
         )
     }
 }
@@ -536,153 +557,150 @@ private fun IncomeItemCard(
     }
 }
 
-@Composable
-private fun AddEntryDialog(
-    isExpense: Boolean,
-    categories: List<ru.homebudget.finkeeper.data.model.Category>,
-    incomeSources: List<ru.homebudget.finkeeper.data.model.IncomeSource>,
-    onDismiss: () -> Unit,
-    onAddExpense: (Int, Double, String?) -> Unit,
-    onAddIncome: (String, Double) -> Unit,
-    onAddIncomeSource: (String) -> Unit
-) {
-    var amount by remember { mutableStateOf("") }
-    var comment by remember { mutableStateOf("") }
-    var selectedCategoryId by remember { mutableStateOf(categories.firstOrNull()?.id ?: 0) }
-    var selectedSource by remember { mutableStateOf(incomeSources.firstOrNull()?.name ?: "") }
-    var customSource by remember { mutableStateOf("") }
-    var useCustomSource by remember { mutableStateOf(false) }
+    @Composable
+    private fun AddEntryDialog(
+        isExpense: Boolean,
+        categories: List<ru.homebudget.finkeeper.data.model.Category>,
+        incomeSources: List<ru.homebudget.finkeeper.data.model.IncomeSource>,
+        onDismiss: () -> Unit,
+        onAddExpense: (Int, Double, String?) -> Unit,
+        onAddIncome: (String, Double) -> Unit,
+        onAddIncomeSource: (String) -> Unit
+    ) {
+        var amount by remember { mutableStateOf("") }
+        var comment by remember { mutableStateOf("") }
+        var selectedCategoryId by remember { mutableStateOf(categories.firstOrNull()?.id ?: 0) }
+        var selectedSource by remember { mutableStateOf(incomeSources.firstOrNull()?.name ?: "") }
+        var customSource by remember { mutableStateOf("") }
+        var useCustomSource by remember { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (isExpense) "Добавить расход" else "Добавить доход") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (isExpense) {
-                    Text("Категория", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                    ) {
-                        LazyColumn(modifier = Modifier.padding(4.dp)) {
-                            items(categories, key = { it.id }) { cat ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { selectedCategoryId = cat.id }
-                                        .padding(vertical = 4.dp, horizontal = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(
-                                        selected = selectedCategoryId == cat.id,
-                                        onClick = { selectedCategoryId = cat.id }
-                                    )
-                                    Text(cat.name, modifier = Modifier.padding(start = 8.dp))
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(if (isExpense) "Добавить расход" else "Добавить доход") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (isExpense) {
+                        Text("Категория", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                        ) {
+                            LazyColumn(modifier = Modifier.padding(4.dp)) {
+                                items(categories, key = { it.id }) { cat ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { selectedCategoryId = cat.id }
+                                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = selectedCategoryId == cat.id,
+                                            onClick = { selectedCategoryId = cat.id }
+                                        )
+                                        Text(cat.name, modifier = Modifier.padding(start = 8.dp))
+                                    }
                                 }
                             }
                         }
-                    }
-                } else {
-                    Text("Источник", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                    ) {
-                        LazyColumn(modifier = Modifier.padding(4.dp)) {
-                            items(incomeSources, key = { it.name }) { src ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { selectedSource = src.name; useCustomSource = false }
-                                        .padding(vertical = 4.dp, horizontal = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(
-                                        selected = !useCustomSource && selectedSource == src.name,
-                                        onClick = { selectedSource = src.name; useCustomSource = false }
-                                    )
-                                    Text(src.name, modifier = Modifier.padding(start = 8.dp))
+                    } else {
+                        Text("Источник", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                        ) {
+                            LazyColumn(modifier = Modifier.padding(4.dp)) {
+                                items(incomeSources, key = { it.name }) { src ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { selectedSource = src.name; useCustomSource = false }
+                                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = !useCustomSource && selectedSource == src.name,
+                                            onClick = { selectedSource = src.name; useCustomSource = false }
+                                        )
+                                        Text(src.name, modifier = Modifier.padding(start = 8.dp))
+                                    }
                                 }
-                            }
-                            item {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { useCustomSource = true }
-                                        .padding(vertical = 4.dp, horizontal = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(
-                                        selected = useCustomSource,
-                                        onClick = { useCustomSource = true }
-                                    )
-                                    Text("Другой:", modifier = Modifier.padding(start = 8.dp))
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { useCustomSource = true }
+                                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = useCustomSource,
+                                            onClick = { useCustomSource = true }
+                                        )
+                                        Text("Другой:", modifier = Modifier.padding(start = 8.dp))
+                                    }
                                 }
                             }
                         }
+                        if (useCustomSource) {
+                            AppTextField(
+                                value = customSource,
+                                onValueChange = { customSource = it },
+                                label = "Новый источник"
+                            )
+                        }
                     }
-                    if (useCustomSource) {
+
+                    AppTextField(
+                        value = amount,
+                        onValueChange = { amount = it },
+                        label = "Сумма",
+                        keyboardType = KeyboardType.Decimal
+                    )
+
+                    if (isExpense) {
                         AppTextField(
-                            value = customSource,
-                            onValueChange = { customSource = it },
-                            label = "Новый источник"
+                            value = comment,
+                            onValueChange = { comment = it },
+                            label = "Комментарий (необязательно)"
                         )
                     }
                 }
-
-                AppTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = "Сумма",
-                    keyboardType = KeyboardType.Decimal
-                )
-
-                if (isExpense) {
-                    AppTextField(
-                        value = comment,
-                        onValueChange = { comment = it },
-                        label = "Комментарий (необязательно)"
-                    )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val amountVal = amount.toDoubleOrNull() ?: return@TextButton
+                        if (isExpense) {
+                            onAddExpense(selectedCategoryId, amountVal, comment.ifBlank { null })
+                        } else {
+                            val src = if (useCustomSource) {
+                                customSource
+                            } else selectedSource
+                            if (src.isNotBlank()) onAddIncome(src, amountVal)
+                        }
+                    },
+                    enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0
+                ) {
+                    Text("Добавить")
                 }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text("Отмена") }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
-                    if (isExpense) {
-                        onAddExpense(selectedCategoryId, amountVal, comment.ifBlank { null })
-                    } else {
-                        val src = if (useCustomSource) {
-                            if (customSource.isNotBlank()) {
-                                onAddIncomeSource(customSource)
-                            }
-                            customSource
-                        } else selectedSource
-                        if (src.isNotBlank()) onAddIncome(src, amountVal)
-                    }
-                },
-                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0
-            ) {
-                Text("Добавить")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
-        }
-    )
-}
+        )
+    }
 
 @Composable
 private fun BudgetDialog(

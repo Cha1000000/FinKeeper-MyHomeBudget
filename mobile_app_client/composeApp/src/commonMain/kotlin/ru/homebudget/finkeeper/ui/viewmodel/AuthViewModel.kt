@@ -48,10 +48,18 @@ class AuthViewModel(
     }
 
     fun login(username: String, password: String) {
+        val trimmedUsername = username.trim()
+        if (trimmedUsername.isBlank() || password.isBlank()) {
+            _state.value = _state.value.copy(
+                isLoading = false,
+                error = "Введите имя пользователя и пароль"
+            )
+            return
+        }
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
-                val authData = apiClient.login(username, password)
+                val authData = apiClient.login(trimmedUsername, password)
                 tokenStorage.token = authData.token
                 _state.value = AuthState(
                     user = authData.user,
@@ -73,10 +81,18 @@ class AuthViewModel(
     }
 
     fun register(username: String, password: String) {
+        val trimmedUsername = username.trim()
+        if (trimmedUsername.isBlank() || password.isBlank()) {
+            _state.value = _state.value.copy(
+                isLoading = false,
+                error = "Введите имя пользователя и пароль"
+            )
+            return
+        }
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
-                val authData = apiClient.register(username, password)
+                val authData = apiClient.register(trimmedUsername, password)
                 tokenStorage.token = authData.token
                 _state.value = AuthState(
                     user = authData.user,
@@ -86,7 +102,7 @@ class AuthViewModel(
             } catch (e: ApiException) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = e.message
+                    error = if (e.statusCode == 401) "Неверное имя пользователя или пароль" else e.message
                 )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(

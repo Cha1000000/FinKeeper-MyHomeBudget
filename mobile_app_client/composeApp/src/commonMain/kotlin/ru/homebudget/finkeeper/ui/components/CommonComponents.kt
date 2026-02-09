@@ -287,3 +287,26 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
     }
 }
+
+@Composable
+fun SourceConfirmDialog(
+    sourceName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Новый источник дохода") },
+        text = { Text("Источник \"$sourceName\" не найден. Создать его?") },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm
+            ) {
+                Text("Да")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
+}

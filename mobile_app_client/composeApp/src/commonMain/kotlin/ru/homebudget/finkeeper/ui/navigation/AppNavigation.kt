@@ -110,6 +110,7 @@ fun AppNavigation(
                     onNextMonth = { monthViewModel.nextMonth() },
                     onSetActiveTab = { monthViewModel.setActiveTab(it) },
                     onAddIncome = { source, amount -> monthViewModel.addIncome(source, amount) },
+                    onAddIncomeWithSourceCheck = { source, amount -> monthViewModel.addIncomeWithSourceCheck(source, amount) },
                     onAddExpense = { catId, amount, comment -> monthViewModel.addExpense(catId, amount, comment) },
                     onUpdateIncome = { id, amount -> monthViewModel.updateIncome(id, amount) },
                     onUpdateExpense = { id, amount -> monthViewModel.updateExpense(id, amount) },
@@ -117,6 +118,8 @@ fun AppNavigation(
                     onDeleteExpense = { monthViewModel.deleteExpense(it) },
                     onSetBudget = { catId, limit -> monthViewModel.setBudget(catId, limit) },
                     onAddIncomeSource = { monthViewModel.addIncomeSource(it) },
+                    onConfirmAddIncomeSource = { monthViewModel.confirmAddIncomeSource() },
+                    onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
                     onRefresh = { monthViewModel.loadData() }
                 )
 

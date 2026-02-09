@@ -37,7 +37,11 @@ data class MonthViewState(
     val totalExpense: Double = 0.0,
     val totalLimit: Double = 0.0,
     val activeTab: Int = 0, // 0 = expenses, 1 = incomes
-    val error: String? = null
+    val error: String? = null,
+    // Pending source confirmation state
+    val pendingSourceName: String? = null,
+    val pendingSourceAmount: Double? = null,
+    val showSourceConfirm: Boolean = false
 )
 
 class MonthViewModel(
@@ -133,6 +137,52 @@ class MonthViewModel(
         }
     }
 
+    fun addIncomeWithSourceCheck(source: String, amount: Double) {
+        val monthData = _state.value.monthData ?: return
+        val incomeSources = _state.value.incomeSources
+        
+        // Check if source exists
+        val sourceExists = incomeSources.any { it.name.equals(source, ignoreCase = true) }
+        
+        if (!sourceExists && source.isNotBlank()) {
+            // Source doesn't exist - show confirmation dialog
+            _state.value = _state.value.copy(
+                pendingSourceName = source,
+                pendingSourceAmount = amount,
+                showSourceConfirm = true
+            )
+        } else {
+            // Source exists or empty - add income directly
+            addIncome(source, amount)
+        }
+    }
+
+    fun confirmAddIncomeSource() {
+        val source = _state.value.pendingSourceName ?: return
+        val amount = _state.value.pendingSourceAmount ?: return
+        
+        // First add the source
+        addIncomeSource(source)
+        
+        // Then add income with the source
+        addIncome(source, amount)
+        
+        // Clear pending state
+        _state.value = _state.value.copy(
+            pendingSourceName = null,
+            pendingSourceAmount = null,
+            showSourceConfirm = false
+        )
+    }
+
+    fun cancelAddIncomeSource() {
+        _state.value = _state.value.copy(
+            pendingSourceName = null,
+            pendingSourceAmount = null,
+            showSourceConfirm = false
+        )
+    }
+
     fun addExpense(categoryId: Int, amount: Double, comment: String?) {
         val monthData = _state.value.monthData ?: return
         viewModelScope.launch {
@@ -216,7 +266,9 @@ class MonthViewModel(
             try {
                 apiClient.createIncomeSource(name)
                 loadData()
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = e.message ?: "Ошибка добавления источника")
+            }
         }
     }
 
