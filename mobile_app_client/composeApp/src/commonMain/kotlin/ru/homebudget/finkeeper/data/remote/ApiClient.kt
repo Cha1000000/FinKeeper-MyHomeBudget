@@ -11,6 +11,7 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import ru.homebudget.finkeeper.data.model.*
+import ru.homebudget.finkeeper.ui.Strings
 
 class ApiClient(private val tokenStorage: TokenStorage) {
 
@@ -297,7 +298,7 @@ class ApiClient(private val tokenStorage: TokenStorage) {
             }
             throw ApiException(
                 statusCode = response.status.value,
-                message = errorBody ?: "HTTP ${response.status.value}: ${response.status.description}"
+                message = errorBody ?: Strings.HTTP_ERROR.replace("%1\$d", response.status.value.toString()).replace("%2\$s", response.status.description)
             )
         }
     }

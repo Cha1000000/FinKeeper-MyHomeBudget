@@ -35,6 +35,7 @@ import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.theme.ChartColors
 import ru.homebudget.finkeeper.ui.viewmodel.DashboardState
 import ru.homebudget.finkeeper.ui.viewmodel.ExpenseCategoryBreakdown
+import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.util.formatCurrency
 import ru.homebudget.finkeeper.util.shortMonthName
 
@@ -61,7 +62,7 @@ fun DashboardScreen(
     ) {
         item {
             Text(
-                text = "Обзор",
+                text = Strings.DASHBOARD_TITLE,
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
@@ -74,14 +75,14 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 SummaryCard(
-                    title = "Доходы",
+                    title = Strings.INCOMES,
                     value = formatCurrency(state.totalIncome),
                     backgroundColor = semantic.incomeCardBg,
                     contentColor = semantic.incomeColor,
                     modifier = Modifier.weight(1f)
                 )
                 SummaryCard(
-                    title = "Расходы",
+                    title = Strings.EXPENSES,
                     value = formatCurrency(state.totalExpense),
                     backgroundColor = semantic.expenseCardBg,
                     contentColor = semantic.expenseColor,
@@ -96,14 +97,14 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 SummaryCard(
-                    title = "Накопления",
+                    title = Strings.SAVINGS,
                     value = formatCurrency(state.totalSavings),
                     backgroundColor = semantic.tealCardBg,
                     contentColor = semantic.tealColor,
                     modifier = Modifier.weight(1f)
                 )
                 SummaryCard(
-                    title = "% в копилку",
+                    title = Strings.SAVINGS_PERCENT,
                     value = "${kotlin.math.round(state.savingsPercent).toInt()}%",
                     backgroundColor = semantic.savingsCardBg,
                     contentColor = semantic.savingsColor,
@@ -118,7 +119,7 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 SummaryCard(
-                    title = "Доступно",
+                    title = Strings.AVAILABLE,
                     value = formatCurrency(state.available),
                     backgroundColor = if (state.available >= 0) semantic.availableCardBg
                         else semantic.expenseCardBg,
@@ -127,7 +128,7 @@ fun DashboardScreen(
                     modifier = Modifier.weight(1f)
                 )
                 SummaryCard(
-                    title = "Всего активов",
+                    title = Strings.TOTAL_ASSETS,
                     value = formatCurrency(state.totalAssets),
                     backgroundColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -165,7 +166,7 @@ private fun TrendCard(state: DashboardState) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Динамика финансов",
+                text = Strings.FINANCIAL_DYNAMICS,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -218,9 +219,9 @@ private fun TrendCard(state: DashboardState) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                LegendItem("Доходы", semantic.incomeColor)
-                LegendItem("Расходы", semantic.expenseColor)
-                LegendItem("Накопления", semantic.savingsColor)
+                LegendItem(Strings.INCOMES, semantic.incomeColor)
+                LegendItem(Strings.EXPENSES, semantic.expenseColor)
+                LegendItem(Strings.SAVINGS, semantic.savingsColor)
             }
         }
     }
@@ -256,7 +257,7 @@ private fun ExpenseBreakdownCard(breakdown: List<ExpenseCategoryBreakdown>) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Структура расходов",
+                text = Strings.EXPENSE_STRUCTURE,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )

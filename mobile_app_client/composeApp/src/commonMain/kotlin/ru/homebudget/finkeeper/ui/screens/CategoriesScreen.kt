@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.*
+import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesState
 
 @Composable
@@ -39,7 +40,7 @@ fun CategoriesScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
-            text = "Справочники",
+            text = Strings.REFERENCE_BOOKS,
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
@@ -52,10 +53,10 @@ fun CategoriesScreen(
             contentColor = MaterialTheme.colorScheme.primary
         ) {
             Tab(selected = state.activeTab == 0, onClick = { onSetActiveTab(0) }) {
-                Text("Категории", modifier = Modifier.padding(12.dp))
+                Text(Strings.CATEGORIES_TAB, modifier = Modifier.padding(12.dp))
             }
             Tab(selected = state.activeTab == 1, onClick = { onSetActiveTab(1) }) {
-                Text("Источники дохода", modifier = Modifier.padding(12.dp))
+                Text(Strings.INCOME_SOURCES_TAB, modifier = Modifier.padding(12.dp))
             }
         }
 
@@ -73,7 +74,7 @@ fun CategoriesScreen(
                 ) {
                     TextButton(onClick = { showAddDialog = true }) {
                         Text(
-                            "+ Добавить",
+                            Strings.ADD_NEW,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -83,7 +84,7 @@ fun CategoriesScreen(
 
             if (state.activeTab == 0) {
                 if (state.categories.isEmpty()) {
-                    item { EmptyState("Нет категорий") }
+                    item { EmptyState(Strings.NO_CATEGORIES) }
                 } else {
                     items(state.categories.filter { it.isActive == 1 }, key = { it.id }) { cat ->
                         EditableItemCard(
@@ -103,7 +104,7 @@ fun CategoriesScreen(
                 }
             } else {
                 if (state.incomeSources.isEmpty()) {
-                    item { EmptyState("Нет источников дохода") }
+                    item { EmptyState(Strings.NO_INCOME_SOURCES) }
                 } else {
                     items(state.incomeSources.filter { it.isActive == 1 }, key = { it.id }) { src ->
                         EditableItemCard(
@@ -127,7 +128,7 @@ fun CategoriesScreen(
 
     if (showAddDialog) {
         AddNameDialog(
-            title = if (state.activeTab == 0) "Новая категория" else "Новый источник дохода",
+            title = if (state.activeTab == 0) Strings.NEW_CATEGORY else Strings.NEW_INCOME_SOURCE,
             onDismiss = { showAddDialog = false },
             onConfirm = { name ->
                 if (state.activeTab == 0) onAddCategory(name) else onAddIncomeSource(name)
@@ -138,8 +139,8 @@ fun CategoriesScreen(
 
     deleteId?.let { id ->
         ConfirmDialog(
-            title = "Удалить",
-            message = "Вы уверены? Элемент будет деактивирован.",
+            title = Strings.DELETE_TITLE,
+            message = Strings.DELETE_CONFIRMATION,
             onConfirm = {
                 if (state.activeTab == 0) onDeactivateCategory(id) else onDeactivateIncomeSource(id)
                 deleteId = null
@@ -178,11 +179,11 @@ private fun EditableItemCard(
                 AppTextField(
                     value = editingName,
                     onValueChange = onEditingNameChange,
-                    label = "Название",
+                    label = Strings.NAME,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = onSaveEdit) { Text("✓") }
-                TextButton(onClick = onCancelEdit) { Text("✕") }
+                TextButton(onClick = onSaveEdit) { Text(Strings.CHECK) }
+                TextButton(onClick = onCancelEdit) { Text(Strings.DELETE) }
             }
         } else {
             Row(
@@ -200,7 +201,7 @@ private fun EditableItemCard(
                 )
                 Row {
                     TextButton(onClick = onStartEdit) {
-                        Text("✎", style = MaterialTheme.typography.bodyLarge)
+                        Text(Strings.EDIT, style = MaterialTheme.typography.bodyLarge)
                     }
                     TextButton(
                         onClick = onDelete,
@@ -208,7 +209,7 @@ private fun EditableItemCard(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text("✕", style = MaterialTheme.typography.bodyLarge)
+                        Text(Strings.DELETE, style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
@@ -231,7 +232,7 @@ private fun AddNameDialog(
             AppTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = "Название"
+                label = Strings.NAME
             )
         },
         confirmButton = {
@@ -239,11 +240,11 @@ private fun AddNameDialog(
                 onClick = { if (name.isNotBlank()) onConfirm(name) },
                 enabled = name.isNotBlank()
             ) {
-                Text("Добавить")
+                Text(Strings.ADD)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(Strings.CANCEL) }
         }
     )
 }

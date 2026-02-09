@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.EmptyState
@@ -110,13 +111,13 @@ fun MonthViewScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onPrevMonth) { Text("◀") }
+                TextButton(onClick = onPrevMonth) { Text(Strings.PREV_MONTH) }
                 Text(
                     text = "${monthName(state.month)} ${state.year}",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                TextButton(onClick = onNextMonth) { Text("▶") }
+                TextButton(onClick = onNextMonth) { Text(Strings.NEXT_MONTH) }
             }
         }
 
@@ -128,14 +129,14 @@ fun MonthViewScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SummaryCard(
-                title = "Доходы",
+                title = Strings.INCOMES_TAB,
                 value = formatCurrency(state.totalIncome),
                 backgroundColor = semantic.incomeCardBg,
                 contentColor = semantic.incomeColor,
                 modifier = Modifier.weight(1f)
             )
             SummaryCard(
-                title = "Расходы",
+                title = Strings.EXPENSES_TAB,
                 value = formatCurrency(state.totalExpense),
                 backgroundColor = semantic.expenseCardBg,
                 contentColor = semantic.expenseColor,
@@ -157,7 +158,7 @@ fun MonthViewScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Лимит трат", style = MaterialTheme.typography.titleSmall, color = semantic.warningColor)
+                        Text(Strings.SPENDING_LIMIT, style = MaterialTheme.typography.titleSmall, color = semantic.warningColor)
                         Text(
                             "${formatCurrency(state.totalExpense)} / ${formatCurrency(state.totalLimit)}",
                             style = MaterialTheme.typography.labelMedium,
@@ -171,7 +172,7 @@ fun MonthViewScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Остаток: ${formatCurrency(maxOf(0.0, state.totalLimit - state.totalExpense))}",
+                        text = "${Strings.REMAINDER} ${formatCurrency(maxOf(0.0, state.totalLimit - state.totalExpense))}",
                         style = MaterialTheme.typography.labelMedium,
                         color = semantic.warningColor.copy(alpha = 0.8f)
                     )
@@ -187,10 +188,10 @@ fun MonthViewScreen(
             contentColor = MaterialTheme.colorScheme.primary
         ) {
             Tab(selected = state.activeTab == 0, onClick = { onSetActiveTab(0) }) {
-                Text("Расходы", modifier = Modifier.padding(12.dp))
+                Text(Strings.EXPENSES_TAB, modifier = Modifier.padding(12.dp))
             }
             Tab(selected = state.activeTab == 1, onClick = { onSetActiveTab(1) }) {
-                Text("Доходы", modifier = Modifier.padding(12.dp))
+                Text(Strings.INCOMES_TAB, modifier = Modifier.padding(12.dp))
             }
         }
 
@@ -210,20 +211,20 @@ fun MonthViewScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Расходы по категориям", style = MaterialTheme.typography.titleMedium)
+                        Text(Strings.EXPENSES_BY_CATEGORIES, style = MaterialTheme.typography.titleMedium)
                         Row {
                             TextButton(onClick = { showBudgetDialog = true }) {
-                                Text("Бюджет", style = MaterialTheme.typography.labelMedium)
+                                Text(Strings.BUDGET, style = MaterialTheme.typography.labelMedium)
                             }
                             TextButton(onClick = { showAddDialog = true }) {
-                                Text("+ Добавить", style = MaterialTheme.typography.labelMedium)
+                                Text(Strings.ADD, style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
                 }
 
                 if (state.groupedExpenses.isEmpty()) {
-                    item { EmptyState("Нет расходов за этот месяц") }
+                    item { EmptyState(Strings.NO_EXPENSES_THIS_MONTH) }
                 } else {
                     items(state.groupedExpenses, key = { it.categoryId }) { group ->
                         ExpenseGroupCard(
@@ -242,9 +243,9 @@ fun MonthViewScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Доходы", style = MaterialTheme.typography.titleMedium)
+                        Text(Strings.INCOMES_TAB, style = MaterialTheme.typography.titleMedium)
                         TextButton(onClick = { showAddDialog = true }) {
-                            Text("+ Добавить", style = MaterialTheme.typography.labelMedium)
+                            Text(Strings.ADD, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -485,7 +486,7 @@ private fun ExpenseGroupCard(
                                         contentColor = MaterialTheme.colorScheme.primary
                                     )
                                 ) {
-                                    Text("✎", style = MaterialTheme.typography.bodyLarge)
+                                    Text(Strings.EDIT, style = MaterialTheme.typography.bodyLarge)
                                 }
                                 TextButton(
                                     onClick = { onDeleteExpense(expense.id) },
@@ -495,7 +496,7 @@ private fun ExpenseGroupCard(
                                         contentColor = MaterialTheme.colorScheme.error
                                     )
                                 ) {
-                                    Text("✕", style = MaterialTheme.typography.bodyLarge)
+                                    Text(Strings.DELETE, style = MaterialTheme.typography.bodyLarge)
                                 }
                             }
                         }

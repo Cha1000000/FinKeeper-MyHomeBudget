@@ -6,12 +6,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.text.*
 import ru.homebudget.finkeeper.data.model.User
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.ApiException
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.util.RetryConfig
 import ru.homebudget.finkeeper.util.withRetry
+import ru.homebudget.finkeeper.ui.Strings
 
 data class AuthState(
     val user: User? = null,
@@ -56,7 +58,7 @@ class AuthViewModel(
         if (trimmedUsername.isBlank() || password.isBlank()) {
             _state.value = _state.value.copy(
                 isLoading = false,
-                error = "Введите имя пользователя и пароль"
+                error = Strings.ENTER_USERNAME_AND_PASSWORD
             )
             return
         }
@@ -75,12 +77,12 @@ class AuthViewModel(
             } catch (e: ApiException) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = if (e.statusCode == 401) "Неверное имя пользователя или пароль" else e.message
+                    error = if (e.statusCode == 401) Strings.INVALID_USERNAME_OR_PASSWORD else e.message
                 )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = "Ошибка подключения к серверу"
+                    error = Strings.CONNECTION_ERROR
                 )
             }
         }
@@ -91,7 +93,7 @@ class AuthViewModel(
         if (trimmedUsername.isBlank() || password.isBlank()) {
             _state.value = _state.value.copy(
                 isLoading = false,
-                error = "Введите имя пользователя и пароль"
+                error = Strings.ENTER_USERNAME_AND_PASSWORD
             )
             return
         }
@@ -110,12 +112,12 @@ class AuthViewModel(
             } catch (e: ApiException) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = if (e.statusCode == 401) "Неверное имя пользователя или пароль" else e.message
+                    error = if (e.statusCode == 401) Strings.INVALID_USERNAME_OR_PASSWORD else e.message
                 )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = "Ошибка подключения к серверу"
+                    error = Strings.CONNECTION_ERROR
                 )
             }
         }

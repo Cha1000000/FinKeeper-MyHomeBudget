@@ -15,6 +15,7 @@ import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.viewmodel.SettingsState
+import ru.homebudget.finkeeper.ui.Strings
 
 import ru.homebudget.finkeeper.ui.components.neonGlow
 
@@ -47,7 +48,7 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Настройки",
+            text = Strings.SETTINGS,
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onBackground
         )
@@ -90,7 +91,7 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Профиль",
+                    text = Strings.PROFILE,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -98,13 +99,13 @@ fun SettingsScreen(
                 AppTextField(
                     value = newUsername,
                     onValueChange = { newUsername = it; onClearStatus() },
-                    label = "Имя пользователя",
+                    label = Strings.USERNAME_LABEL,
                     imeAction = ImeAction.Done,
                     onImeAction = { if (newUsername != username) showUsernameConfirm = true }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 AppButton(
-                    text = "Сохранить имя",
+                    text = Strings.SAVE_NAME,
                     onClick = { showUsernameConfirm = true },
                     enabled = newUsername.isNotBlank() && newUsername != username,
                     isLoading = state.isLoading
@@ -122,7 +123,7 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Безопасность",
+                    text = Strings.SECURITY,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -130,20 +131,20 @@ fun SettingsScreen(
                 AppTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it; onClearStatus() },
-                    label = "Новый пароль",
+                    label = Strings.NEW_PASSWORD,
                     isPassword = true
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 AppTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
-                    label = "Подтвердите пароль",
+                    label = Strings.CONFIRM_PASSWORD,
                     isPassword = true,
                     imeAction = ImeAction.Done
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 AppButton(
-                    text = "Сменить пароль",
+                    text = Strings.CHANGE_PASSWORD,
                     onClick = { showPasswordConfirm = true },
                     enabled = newPassword.isNotBlank() && newPassword == confirmPassword,
                     isLoading = state.isLoading
@@ -161,13 +162,13 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Управление данными",
+                    text = Strings.DATA_MANAGEMENT,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 AppButton(
-                    text = "Создать резервную копию",
+                    text = Strings.CREATE_BACKUP,
                     onClick = onCreateBackup,
                     isLoading = state.isLoading,
                     containerColor = MaterialTheme.colorScheme.secondary,
@@ -175,7 +176,7 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 AppButton(
-                    text = "Восстановить из копии",
+                    text = Strings.RESTORE_FROM_BACKUP,
                     onClick = { showRestoreConfirm = true },
                     isLoading = state.isLoading,
                     containerColor = MaterialTheme.colorScheme.tertiary,
@@ -194,15 +195,15 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Оформление",
+                    text = Strings.THEME,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 val themeOptions = listOf(
-                    "system" to "Как в системе",
-                    "light" to "Светлая",
-                    "dark" to "Тёмная"
+                    "system" to Strings.THEME_SYSTEM,
+                    "light" to Strings.THEME_LIGHT,
+                    "dark" to Strings.THEME_DARK
                 )
                 themeOptions.forEach { (mode, label) ->
                     Row(
@@ -228,7 +229,7 @@ fun SettingsScreen(
 
         // Logout
         AppButton(
-            text = "Выйти из аккаунта",
+            text = Strings.LOGOUT,
             onClick = { showLogoutConfirm = true },
             containerColor = MaterialTheme.colorScheme.error,
             contentColor = MaterialTheme.colorScheme.onError
@@ -240,8 +241,8 @@ fun SettingsScreen(
     // Dialogs
     if (showUsernameConfirm) {
         ConfirmDialog(
-            title = "Сменить имя",
-            message = "Изменить имя пользователя на \"$newUsername\"?",
+            title = Strings.CHANGE_NAME,
+            message = "${Strings.CHANGE_NAME_CONFIRM.replace("\"%1\$s\"", "\"$newUsername\"")}",
             onConfirm = {
                 onUpdateUsername(newUsername) { newUsername = newUsername }
                 showUsernameConfirm = false
@@ -252,8 +253,8 @@ fun SettingsScreen(
 
     if (showPasswordConfirm) {
         ConfirmDialog(
-            title = "Сменить пароль",
-            message = "Вы уверены, что хотите сменить пароль?",
+            title = Strings.CHANGE_PASSWORD,
+            message = Strings.CHANGE_PASSWORD_CONFIRM,
             onConfirm = {
                 onUpdatePassword(newPassword)
                 newPassword = ""
@@ -266,8 +267,8 @@ fun SettingsScreen(
 
     if (showRestoreConfirm) {
         ConfirmDialog(
-            title = "Восстановить данные",
-            message = "Все текущие данные будут заменены данными из последней резервной копии. Продолжить?",
+            title = Strings.RESTORE_DATA,
+            message = Strings.RESTORE_DATA_CONFIRM,
             onConfirm = {
                 onRestoreBackup {}
                 showRestoreConfirm = false
@@ -279,8 +280,8 @@ fun SettingsScreen(
 
     if (showLogoutConfirm) {
         ConfirmDialog(
-            title = "Выход",
-            message = "Вы уверены, что хотите выйти?",
+            title = Strings.LOGOUT_TITLE,
+            message = Strings.LOGOUT_CONFIRM,
             onConfirm = { onLogout(); showLogoutConfirm = false },
             onDismiss = { showLogoutConfirm = false },
             isDestructive = true

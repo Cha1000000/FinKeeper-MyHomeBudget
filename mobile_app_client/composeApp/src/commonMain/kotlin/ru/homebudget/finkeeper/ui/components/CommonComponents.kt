@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import ru.homebudget.finkeeper.ui.Strings
 
 fun Modifier.neonGlow(
     color: Color,
@@ -253,8 +254,8 @@ fun AppButton(
 fun ConfirmDialog(
     title: String,
     message: String,
-    confirmText: String = "Да",
-    dismissText: String = "Отмена",
+    confirmText: String = Strings.YES,
+    dismissText: String = Strings.CANCEL,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     isDestructive: Boolean = false,
@@ -350,8 +351,8 @@ fun SourceConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Новый источник дохода") },
-        text = { Text("Источник \"$sourceName\" не найден. Создать его?") },
+        title = { Text(Strings.NEW_INCOME_SOURCE_DIALOG) },
+        text = { Text(Strings.SOURCE_NOT_FOUND_DIALOG.replace("\"%1\$s\"", "\"$sourceName\"")) },
         confirmButton = {
             TextButton(
                 onClick = onConfirm

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.neonGlow
+import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.viewmodel.AuthState
 
 @Composable
@@ -58,12 +59,12 @@ fun LoginScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Text(
-                text = "FinKeeper",
+                text = Strings.APP_TITLE,
                 style = MaterialTheme.typography.displayMedium,
                 color = MaterialTheme.colorScheme.onPrimary
             )
             Text(
-                text = "Домашняя бухгалтерия",
+                text = Strings.APP_SUBTITLE,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                 modifier = Modifier.padding(bottom = 32.dp)
@@ -87,7 +88,7 @@ fun LoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = if (isRegisterMode) "Регистрация" else "Вход",
+                        text = if (isRegisterMode) Strings.REGISTER_TITLE else Strings.LOGIN_TITLE,
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -97,7 +98,7 @@ fun LoginScreen(
                     AppTextField(
                         value = username,
                         onValueChange = { onClearError() },
-                        label = "Имя пользователя",
+                        label = Strings.USERNAME_LABEL,
                         imeAction = ImeAction.Next,
                         debounceMs = 300L,
                         onImmediateValueChange = { username = it }
@@ -108,7 +109,7 @@ fun LoginScreen(
                     AppTextField(
                         value = password,
                         onValueChange = { onClearError() },
-                        label = "Пароль",
+                        label = Strings.PASSWORD_LABEL,
                         isPassword = true,
                         imeAction = ImeAction.Done,
                         debounceMs = 300L,
@@ -140,7 +141,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     AppButton(
-                        text = if (isRegisterMode) "Зарегистрироваться" else "Войти",
+                        text = if (isRegisterMode) Strings.REGISTER_BUTTON else Strings.LOGIN_BUTTON,
                         onClick = {
                             val u = username.trim()
                             val p = password.trim()
@@ -162,8 +163,7 @@ fun LoginScreen(
                         }
                     ) {
                         Text(
-                            text = if (isRegisterMode) "Уже есть аккаунт? Войти"
-                            else "Нет аккаунта? Зарегистрироваться",
+                            text = if (isRegisterMode) Strings.ALREADY_HAVE_ACCOUNT else Strings.NO_ACCOUNT,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -177,7 +177,7 @@ fun LoginScreen(
                 onClick = { showServerSettings = !showServerSettings }
             ) {
                 Text(
-                    text = "⚙ Настройки сервера",
+                    text = Strings.SERVER_SETTINGS,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -199,15 +199,15 @@ fun LoginScreen(
                         AppTextField(
                             value = serverUrl,
                             onValueChange = { serverUrl = it },
-                            label = "URL сервера",
-                            placeholder = "http://10.0.2.2:3002",
+                            label = Strings.SERVER_URL_LABEL,
+                            placeholder = Strings.SERVER_URL_PLACEHOLDER,
                             keyboardType = KeyboardType.Uri,
                             imeAction = ImeAction.Done,
                             onImeAction = { onServerUrlChange(serverUrl) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         AppButton(
-                            text = "Сохранить",
+                            text = Strings.SAVE,
                             onClick = { onServerUrlChange(serverUrl) },
                             containerColor = MaterialTheme.colorScheme.secondary
                         )

@@ -16,6 +16,7 @@ import ru.homebudget.finkeeper.ui.components.*
 import ru.homebudget.finkeeper.ui.components.neonGlow
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsState
+import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.util.formatCurrency
 
 @Composable
@@ -56,18 +57,18 @@ fun SavingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Копилки",
+                    text = Strings.PIGGY_BANKS,
                     style = MaterialTheme.typography.headlineLarge,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 TextButton(onClick = { showCreateDialog = true }) {
-                    Text("+ Создать", style = MaterialTheme.typography.labelLarge)
+                    Text(Strings.CREATE, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
 
         if (state.goals.isEmpty()) {
-            item { EmptyState("Нет копилок. Создайте первую!") }
+            item { EmptyState(Strings.NO_PIGGY_BANKS) }
         } else {
             items(state.goals, key = { it.id }) { goal ->
                 SavingsGoalCard(
@@ -120,8 +121,8 @@ fun SavingsScreen(
 
     deleteGoalId?.let { id ->
         ConfirmDialog(
-            title = "Удалить копилку",
-            message = "Вы уверены? Все данные копилки будут удалены.",
+            title = Strings.DELETE_PIGGY_BANK,
+            message = Strings.DELETE_PIGGY_BANK_CONFIRM,
             onConfirm = { onDeleteGoal(id); deleteGoalId = null },
             onDismiss = { deleteGoalId = null },
             isDestructive = true
@@ -158,7 +159,7 @@ private fun SavingsGoalCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 TextButton(onClick = onEdit) {
-                    Text("✎", style = MaterialTheme.typography.bodyLarge)
+                    Text(Strings.EDIT, style = MaterialTheme.typography.bodyLarge)
                 }
             }
 
@@ -174,7 +175,7 @@ private fun SavingsGoalCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "из ${formatCurrency(goal.targetAmount)}",
+                    text = "${Strings.FROM} ${formatCurrency(goal.targetAmount)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -210,7 +211,7 @@ private fun SavingsGoalCard(
                         contentColor = Color.White
                     )
                 ) {
-                    Text("Пополнить")
+                    Text(Strings.DEPOSIT)
                 }
                 Button(
                     onClick = onWithdraw,
@@ -221,7 +222,7 @@ private fun SavingsGoalCard(
                         contentColor = Color.White
                     )
                 ) {
-                    Text("Снять")
+                    Text(Strings.WITHDRAW)
                 }
             }
         }
@@ -238,7 +239,7 @@ private fun CreateGoalDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Новая копилка") },
+        title = { Text(Strings.NEW_PIGGY_BANK) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AppTextField(value = name, onValueChange = { name = it }, label = "Название")
@@ -257,7 +258,7 @@ private fun CreateGoalDialog(
                     if (name.isNotBlank() && t > 0) onConfirm(name, t)
                 },
                 enabled = name.isNotBlank() && (target.toDoubleOrNull() ?: 0.0) > 0
-            ) { Text("Создать") }
+            ) { Text(Strings.CREATE) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
@@ -276,20 +277,20 @@ private fun EditGoalDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Редактировать копилку") },
+        title = { Text(Strings.EDIT_PIGGY_BANK) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppTextField(value = name, onValueChange = { name = it }, label = "Название")
+                AppTextField(value = name, onValueChange = { name = it }, label = Strings.NAME)
                 AppTextField(
                     value = target,
                     onValueChange = { target = it },
-                    label = "Целевая сумма",
+                    label = Strings.TARGET_AMOUNT,
                     keyboardType = KeyboardType.Decimal
                 )
                 AppTextField(
                     value = current,
                     onValueChange = { current = it },
-                    label = "Текущая сумма",
+                    label = Strings.CURRENT_AMOUNT,
                     keyboardType = KeyboardType.Decimal
                 )
                 TextButton(
@@ -298,7 +299,7 @@ private fun EditGoalDialog(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Удалить копилку")
+                    Text(Strings.DELETE_PIGGY_BANK)
                 }
             }
         },
@@ -326,14 +327,14 @@ private fun TransactionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isDeposit) "Пополнить" else "Снять") },
+        title = { Text(if (isDeposit) Strings.DEPOSIT else Strings.WITHDRAW) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Копилка: $goalName", style = MaterialTheme.typography.bodyMedium)
+                Text("${Strings.PIGGY_BANK_NAME}", style = MaterialTheme.typography.bodyMedium)
                 AppTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = "Сумма",
+                    label = Strings.AMOUNT,
                     keyboardType = KeyboardType.Decimal
                 )
             }
@@ -345,7 +346,7 @@ private fun TransactionDialog(
                     if (a > 0) onConfirm(a)
                 },
                 enabled = (amount.toDoubleOrNull() ?: 0.0) > 0
-            ) { Text(if (isDeposit) "Пополнить" else "Снять") }
+            ) { Text(if (isDeposit) Strings.DEPOSIT else Strings.WITHDRAW) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
