@@ -235,8 +235,22 @@ class ExpenseRepository(
                     // Предзагрузка категорий для резолва серверного categoryId → локальный
                     val allCategories = categoryDao.getAllByUser(userId)
 
+                    // Получаем serverId записей, ожидающих удаления на сервере
+                    val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.EXPENSE.value)
+
                     for (remote in remoteExpenses) {
+                        // Не восстанавливаем записи, которые удалены локально и ждут синхронизации
+                        if (remote.id.toString() in pendingDeleteServerIds) {
+                            continue
+                        }
+
                         val existing = expenseDao.getByServerId(remote.id.toString())
+
+                        // Не перезаписываем записи с PENDING статусом —
+                        // они содержат локальные изменения, ещё не отправленные на сервер
+                        if (existing != null && existing.syncStatus == SyncStatus.PENDING.value) {
+                            continue
+                        }
 
                         // remote.categoryId — серверный ID, находим локальный
                         val localCategory = allCategories

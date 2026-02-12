@@ -119,7 +119,7 @@ class MonthViewModel(
         loadData()
     }
 
-    fun loadData() {
+    fun loadData(syncFromServer: Boolean = true) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
@@ -135,17 +135,22 @@ class MonthViewModel(
                     }
 
                 // Фаза 1: Синхронизируем данные с сервером (если онлайн)
-                var isOffline = false
-                try {
-                    categoryRepository.syncWithServer(currentUserId)
-                    incomeSourceRepository.syncWithServer(currentUserId)
-                    if (monthData.serverId != null) {
-                        incomeRepository.syncWithServer(currentUserId, monthData.localId)
-                        expenseRepository.syncWithServer(currentUserId, monthData.localId)
-                        budgetRepository.syncWithServer(currentUserId, monthData.localId)
+                // Пропускаем синхронизацию после локальных мутаций (delete/update),
+                // чтобы не перезаписать ещё не отправленные изменения
+                var isOffline = _state.value.isOffline
+                if (syncFromServer) {
+                    isOffline = false
+                    try {
+                        categoryRepository.syncWithServer(currentUserId)
+                        incomeSourceRepository.syncWithServer(currentUserId)
+                        if (monthData.serverId != null) {
+                            incomeRepository.syncWithServer(currentUserId, monthData.localId)
+                            expenseRepository.syncWithServer(currentUserId, monthData.localId)
+                            budgetRepository.syncWithServer(currentUserId, monthData.localId)
+                        }
+                    } catch (e: Exception) {
+                        isOffline = true
                     }
-                } catch (e: Exception) {
-                    isOffline = true
                 }
 
                 // Фаза 2: Читаем актуальные данные из локальной БД
@@ -360,7 +365,7 @@ class MonthViewModel(
                     amount = amount,
                 )
 
-                loadData()
+                loadData(syncFromServer = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }
@@ -379,7 +384,7 @@ class MonthViewModel(
                     amount = amount,
                 )
 
-                loadData()
+                loadData(syncFromServer = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }
@@ -392,7 +397,7 @@ class MonthViewModel(
                 // Удаляем локально через репозиторий
                 incomeRepository.deleteIncome(id.toLong())
 
-                loadData()
+                loadData(syncFromServer = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }
@@ -405,7 +410,7 @@ class MonthViewModel(
                 // Удаляем локально через репозиторий
                 expenseRepository.deleteExpense(id.toLong())
 
-                loadData()
+                loadData(syncFromServer = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }

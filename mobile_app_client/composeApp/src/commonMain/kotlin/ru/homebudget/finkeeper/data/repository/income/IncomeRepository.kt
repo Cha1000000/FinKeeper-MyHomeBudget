@@ -220,8 +220,22 @@ class IncomeRepository(
                     // Предзагрузка источников дохода для резолва имени → localId
                     val allSources = incomeSourceDao.getAllByUser(userId)
 
+                    // Получаем serverId записей, ожидающих удаления на сервере
+                    val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.INCOME.value)
+
                     for (remote in remoteIncomes) {
+                        // Не восстанавливаем записи, которые удалены локально и ждут синхронизации
+                        if (remote.id.toString() in pendingDeleteServerIds) {
+                            continue
+                        }
+
                         val existing = incomeDao.getByServerId(remote.id.toString())
+
+                        // Не перезаписываем записи с PENDING статусом —
+                        // они содержат локальные изменения, ещё не отправленные на сервер
+                        if (existing != null && existing.syncStatus == SyncStatus.PENDING.value) {
+                            continue
+                        }
 
                         // remote.source — это имя источника ("Зарплата" или "💸 Зарплата")
                         // Ищем локальный ID: сначала точное совпадение, потом нечёткое (с/без эмодзи)
@@ -258,7 +272,8 @@ class IncomeRepository(
                         }
                     }
 
-                    // Удаляем призрачные записи: локальные synced-записи, отсутствующие на сервере
+                    // Удаляем призрачные записи: только SYNCED-записи, отсутствующие на сервере
+                    // Не трогаем PENDING записи — они содержат локальные изменения
                     val remoteServerIds = remoteIncomes.map { it.id.toString() }.toSet()
                     val localSyncedIncomes = incomeDao.getByMonth(monthId).filter { it.serverId != null && it.syncStatus == SyncStatus.SYNCED.value }
                     for (local in localSyncedIncomes) {

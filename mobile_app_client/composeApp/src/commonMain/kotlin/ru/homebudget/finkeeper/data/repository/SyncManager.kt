@@ -529,6 +529,18 @@ class SyncManager(
     }
 
     /**
+     * Возвращает набор serverId из pending DELETE операций для указанного типа сущности.
+     * Используется в syncWithServer, чтобы не восстанавливать удалённые записи.
+     */
+    fun getPendingDeleteServerIds(entityType: String): Set<String> {
+        val pendingItems = syncQueueDao.getPendingItems(limit = 1000)
+        return pendingItems
+            .filter { it.entityType == entityType && it.operation == SyncOperation.DELETE.value && it.payload != null }
+            .mapNotNull { it.payload }
+            .toSet()
+    }
+
+    /**
      * Обновляет количество ожидающих операций
      */
     private fun updatePendingCount() {
