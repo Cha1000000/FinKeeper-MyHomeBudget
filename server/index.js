@@ -291,8 +291,8 @@ app.post('/api/user/restore', (req, res) => {
         const insertBudget = db.prepare('INSERT INTO budgets (id, month_id, category_id, limit_amount) VALUES (?, ?, ?, ?)');
         data.budgets.forEach(row => insertBudget.run(row.id, row.month_id, row.category_id, row.limit_amount));
         
-        const insertTrans = db.prepare('INSERT INTO savings_transactions (id, goal_id, amount, date, month_id) VALUES (?, ?, ?, ?, ?)');
-        data.savings_transactions.forEach(row => insertTrans.run(row.id, row.goal_id, row.amount, row.date, row.month_id));
+        const insertTrans = db.prepare('INSERT INTO savings_transactions (id, goal_id, amount, date, month_id, is_adjustment) VALUES (?, ?, ?, ?, ?, ?)');
+        data.savings_transactions.forEach(row => insertTrans.run(row.id, row.goal_id, row.amount, row.date, row.month_id, row.is_adjustment || 0));
     });
 
     try {
