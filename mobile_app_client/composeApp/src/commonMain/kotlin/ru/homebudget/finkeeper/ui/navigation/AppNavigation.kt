@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -33,12 +35,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
+import ru.homebudget.finkeeper.ui.components.FloatingNetworkStatusIndicator
 import ru.homebudget.finkeeper.ui.components.IconCalendar
 import ru.homebudget.finkeeper.ui.components.IconDashboard
 import ru.homebudget.finkeeper.ui.components.IconLogOut
 import ru.homebudget.finkeeper.ui.components.IconPiggyBank
 import ru.homebudget.finkeeper.ui.components.IconReceipt
 import ru.homebudget.finkeeper.ui.components.IconSettings
+import ru.homebudget.finkeeper.ui.components.NetworkStatusIndicator
 import ru.homebudget.finkeeper.ui.screens.CategoriesScreen
 import ru.homebudget.finkeeper.ui.screens.DashboardScreen
 import ru.homebudget.finkeeper.ui.screens.MonthViewScreen
@@ -54,7 +58,9 @@ import ru.homebudget.finkeeper.ui.viewmodel.MonthViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.SettingsViewModel
 
-enum class Screen(val title: String) {
+enum class Screen(
+    val title: String,
+) {
     Dashboard("Обзор"),
     MonthView("Месяц"),
     Categories("Категории"),
@@ -62,6 +68,7 @@ enum class Screen(val title: String) {
     Settings("Настр."),
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavigation(
     authViewModel: AuthViewModel,
@@ -71,7 +78,7 @@ fun AppNavigation(
     savingsViewModel: SavingsViewModel,
     settingsViewModel: SettingsViewModel,
     currentThemeMode: String,
-    onThemeModeChange: (String) -> Unit
+    onThemeModeChange: (String) -> Unit,
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
@@ -87,77 +94,98 @@ fun AppNavigation(
     val isDark = MaterialTheme.colorScheme.background == BackgroundDark
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(currentScreen.title) },
+                actions = {
+                    NetworkStatusIndicator()
+                },
+            )
+        },
         bottomBar = {
             GradientBottomBar(
                 currentScreen = currentScreen,
                 onScreenSelected = { currentScreen = it },
                 onLogout = { showLogoutConfirm = true },
                 isDark = isDark,
-                semantic = semantic
+                semantic = semantic,
             )
-        }
+        },
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
+            // Плавающий индикатор статуса сети
+            FloatingNetworkStatusIndicator(
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
+
             when (currentScreen) {
-                Screen.Dashboard -> DashboardScreen(
-                    state = dashboardState,
-                    onRefresh = { dashboardViewModel.loadData() }
-                )
+                Screen.Dashboard ->
+                    DashboardScreen(
+                        state = dashboardState,
+                        onRefresh = { dashboardViewModel.loadData() },
+                    )
 
-                Screen.MonthView -> MonthViewScreen(
-                    state = monthState,
-                    onPrevMonth = { monthViewModel.prevMonth() },
-                    onNextMonth = { monthViewModel.nextMonth() },
-                    onSetActiveTab = { monthViewModel.setActiveTab(it) },
-                    onAddIncome = { source, amount -> monthViewModel.addIncome(source, amount) },
-                    onAddIncomeWithSourceCheck = { source, amount -> monthViewModel.addIncomeWithSourceCheck(source, amount) },
-                    onAddExpense = { catId, amount, comment -> monthViewModel.addExpense(catId, amount, comment) },
-                    onUpdateIncome = { id, amount -> monthViewModel.updateIncome(id, amount) },
-                    onUpdateExpense = { id, amount -> monthViewModel.updateExpense(id, amount) },
-                    onDeleteIncome = { monthViewModel.deleteIncome(it) },
-                    onDeleteExpense = { monthViewModel.deleteExpense(it) },
-                    onSetBudget = { catId, limit -> monthViewModel.setBudget(catId, limit) },
-                    onAddIncomeSource = { monthViewModel.addIncomeSource(it) },
-                    onConfirmAddIncomeSource = { monthViewModel.confirmAddIncomeSource() },
-                    onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
-                    onRefresh = { monthViewModel.loadData() }
-                )
+                Screen.MonthView ->
+                    MonthViewScreen(
+                        state = monthState,
+                        onPrevMonth = { monthViewModel.prevMonth() },
+                        onNextMonth = { monthViewModel.nextMonth() },
+                        onSetActiveTab = { monthViewModel.setActiveTab(it) },
+                        onAddIncome = { source, amount -> monthViewModel.addIncome(source, amount) },
+                        onAddIncomeWithSourceCheck = { source, amount -> monthViewModel.addIncomeWithSourceCheck(source, amount) },
+                        onAddExpense = { catId, amount, comment -> monthViewModel.addExpense(catId, amount, comment) },
+                        onUpdateIncome = { id, amount -> monthViewModel.updateIncome(id, amount) },
+                        onUpdateExpense = { id, amount -> monthViewModel.updateExpense(id, amount) },
+                        onDeleteIncome = { monthViewModel.deleteIncome(it) },
+                        onDeleteExpense = { monthViewModel.deleteExpense(it) },
+                        onSetBudget = { catId, limit -> monthViewModel.setBudget(catId, limit) },
+                        onAddIncomeSource = { monthViewModel.addIncomeSource(it) },
+                        onConfirmAddIncomeSource = { monthViewModel.confirmAddIncomeSource() },
+                        onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
+                        onRefresh = { monthViewModel.loadData() },
+                    )
 
-                Screen.Categories -> CategoriesScreen(
-                    state = categoriesState,
-                    onSetActiveTab = { categoriesViewModel.setActiveTab(it) },
-                    onAddCategory = { categoriesViewModel.addCategory(it) },
-                    onUpdateCategory = { id, name -> categoriesViewModel.updateCategory(id, name) },
-                    onDeactivateCategory = { categoriesViewModel.deactivateCategory(it) },
-                    onAddIncomeSource = { categoriesViewModel.addIncomeSource(it) },
-                    onUpdateIncomeSource = { id, name -> categoriesViewModel.updateIncomeSource(id, name) },
-                    onDeactivateIncomeSource = { categoriesViewModel.deactivateIncomeSource(it) },
-                    onRefresh = { categoriesViewModel.loadData() }
-                )
+                Screen.Categories ->
+                    CategoriesScreen(
+                        state = categoriesState,
+                        onSetActiveTab = { categoriesViewModel.setActiveTab(it) },
+                        onAddCategory = { categoriesViewModel.addCategory(it) },
+                        onUpdateCategory = { id, name -> categoriesViewModel.updateCategory(id, name) },
+                        onDeactivateCategory = { categoriesViewModel.deactivateCategory(it) },
+                        onAddIncomeSource = { categoriesViewModel.addIncomeSource(it) },
+                        onUpdateIncomeSource = { id, name -> categoriesViewModel.updateIncomeSource(id, name) },
+                        onDeactivateIncomeSource = { categoriesViewModel.deactivateIncomeSource(it) },
+                        onRefresh = { categoriesViewModel.loadData() },
+                        onToggleReorderMode = { categoriesViewModel.toggleReorderMode() },
+                        onUpdateCategoriesOrder = { categoriesViewModel.updateCategoriesOrder(it) },
+                        onReorderCategories = { categoriesViewModel.reorderCategories(it) },
+                    )
 
-                Screen.Savings -> SavingsScreen(
-                    state = savingsState,
-                    onCreateGoal = { name, target -> savingsViewModel.createGoal(name, target) },
-                    onUpdateGoal = { id, name, target, current -> savingsViewModel.updateGoal(id, name, target, current) },
-                    onDeleteGoal = { savingsViewModel.deleteGoal(it) },
-                    onAddTransaction = { goalId, amount -> savingsViewModel.addTransaction(goalId, amount) },
-                    onRefresh = { savingsViewModel.loadData() }
-                )
+                Screen.Savings ->
+                    SavingsScreen(
+                        state = savingsState,
+                        onCreateGoal = { name, target -> savingsViewModel.createGoal(name, target) },
+                        onUpdateGoal = { id, name, target, current -> savingsViewModel.updateGoal(id, name, target, current) },
+                        onDeleteGoal = { savingsViewModel.deleteGoal(it) },
+                        onAddTransaction = { goalId, amount -> savingsViewModel.addTransaction(goalId, amount) },
+                        onRefresh = { savingsViewModel.loadData() },
+                    )
 
-                Screen.Settings -> SettingsScreen(
-                    state = settingsState,
-                    username = authState.user?.username ?: "",
-                    onUpdateUsername = { name, callback ->
-                        settingsViewModel.updateUsername(name, callback)
-                    },
-                    onUpdatePassword = { settingsViewModel.updatePassword(it) },
-                    onCreateBackup = { settingsViewModel.createBackup() },
-                    onRestoreBackup = { callback -> settingsViewModel.restoreBackup(callback) },
-                    onLogout = { authViewModel.logout() },
-                    onClearStatus = { settingsViewModel.clearStatus() },
-                    currentThemeMode = currentThemeMode,
-                    onThemeModeChange = onThemeModeChange
-                )
+                Screen.Settings ->
+                    SettingsScreen(
+                        state = settingsState,
+                        username = authState.user?.username ?: "",
+                        onUpdateUsername = { name, callback ->
+                            settingsViewModel.updateUsername(name, callback)
+                        },
+                        onUpdatePassword = { settingsViewModel.updatePassword(it) },
+                        onCreateBackup = { settingsViewModel.createBackup() },
+                        onRestoreBackup = { callback -> settingsViewModel.restoreBackup(callback) },
+                        onLogout = { authViewModel.logout() },
+                        onClearStatus = { settingsViewModel.clearStatus() },
+                        currentThemeMode = currentThemeMode,
+                        onThemeModeChange = onThemeModeChange,
+                    )
             }
         }
     }
@@ -166,9 +194,12 @@ fun AppNavigation(
         ConfirmDialog(
             title = "Выход",
             message = "Вы уверены, что хотите выйти?",
-            onConfirm = { authViewModel.logout(); showLogoutConfirm = false },
+            onConfirm = {
+                authViewModel.logout()
+                showLogoutConfirm = false
+            },
             onDismiss = { showLogoutConfirm = false },
-            isDestructive = true
+            isDestructive = true,
         )
     }
 }
@@ -179,43 +210,48 @@ private fun GradientBottomBar(
     onScreenSelected: (Screen) -> Unit,
     onLogout: () -> Unit,
     isDark: Boolean,
-    semantic: AppSemanticColors
+    semantic: AppSemanticColors,
 ) {
-    val gradientBrush = if (isDark) {
-        Brush.horizontalGradient(
-            colors = listOf(
-                Color(0xFF0D1520),
-                Color(0xFF111D2B),
-                Color(0xFF0D1520)
+    val gradientBrush =
+        if (isDark) {
+            Brush.horizontalGradient(
+                colors =
+                    listOf(
+                        Color(0xFF0D1520),
+                        Color(0xFF111D2B),
+                        Color(0xFF0D1520),
+                    ),
             )
-        )
-    } else {
-        Brush.horizontalGradient(
-            colors = listOf(
-                Color(0xFF064E3B), // emerald-900
-                Color(0xFF047857), // emerald-700
-                Color(0xFF134E4A)  // teal-900
+        } else {
+            Brush.horizontalGradient(
+                colors =
+                    listOf(
+                        Color(0xFF064E3B), // emerald-900
+                        Color(0xFF047857), // emerald-700
+                        Color(0xFF134E4A), // teal-900
+                    ),
             )
-        )
-    }
+        }
 
     val activeColor = if (isDark) Color(0xFF00E676) else Color.White
     val inactiveColor = if (isDark) Color(0xFF4A6070) else Color(0xBBD1FAE5)
 
     val navigationBarInsets = WindowInsets.navigationBars
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(gradientBrush)
-            .windowInsetsPadding(navigationBarInsets)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(gradientBrush)
+                .windowInsetsPadding(navigationBarInsets),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp)
-                .padding(top = 6.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp)
+                    .padding(top = 6.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Screen.entries.forEach { screen ->
                 val isSelected = currentScreen == screen
@@ -234,7 +270,7 @@ private fun GradientBottomBar(
                     isSelected = isSelected,
                     activeColor = activeColor,
                     inactiveColor = inactiveColor,
-                    onClick = { onScreenSelected(screen) }
+                    onClick = { onScreenSelected(screen) },
                 )
             }
             // Logout button
@@ -244,7 +280,7 @@ private fun GradientBottomBar(
                 isSelected = false,
                 activeColor = activeColor,
                 inactiveColor = inactiveColor,
-                onClick = onLogout
+                onClick = onLogout,
             )
         }
     }
@@ -257,28 +293,31 @@ private fun NavBarItem(
     isSelected: Boolean,
     activeColor: Color,
     inactiveColor: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val color = if (isSelected) activeColor else inactiveColor
 
     Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .then(
-                if (isSelected) Modifier.background(activeColor.copy(alpha = 0.15f))
-                else Modifier
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .widthIn(min = 56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .then(
+                    if (isSelected) {
+                        Modifier.background(activeColor.copy(alpha = 0.15f))
+                    } else {
+                        Modifier
+                    },
+                ).clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .widthIn(min = 56.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         icon()
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = color
+            color = color,
         )
     }
 }

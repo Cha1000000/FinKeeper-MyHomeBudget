@@ -76,6 +76,9 @@ object Strings {
     const val DELETE_CONFIRMATION = "Вы уверены? Элемент будет деактивирован."
     const val NAME = "Название"
     const val NEW_NAME = "Новая копилка"
+    const val REORDER_MODE = "Режим сортировки"
+    const val DONE = "Готово"
+    const val DRAG_HANDLE = "Перетащить"
 
     // === Экран копилок (Savings) ===
     const val PIGGY_BANKS = "Копилки"
@@ -124,6 +127,7 @@ object Strings {
 
     // === Сообщения валидации и ошибок ===
     const val ENTER_USERNAME_AND_PASSWORD = "Введите имя пользователя и пароль"
+    const val PASSWORD_TOO_SHORT = "Пароль должен быть не короче 6 символов"
     const val INVALID_USERNAME_OR_PASSWORD = "Неверное имя пользователя или пароль"
     const val CONNECTION_ERROR = "Ошибка подключения к серверу"
     const val LOADING_ERROR = "Ошибка загрузки данных"

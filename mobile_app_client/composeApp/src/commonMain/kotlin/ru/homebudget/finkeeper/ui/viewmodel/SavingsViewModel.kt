@@ -6,54 +6,91 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
+import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import ru.homebudget.finkeeper.data.model.*
-import ru.homebudget.finkeeper.data.remote.ApiClient
+import ru.homebudget.finkeeper.data.remote.TokenStorage
+import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.month.MonthRepository
+import ru.homebudget.finkeeper.data.repository.onSuccess
+import ru.homebudget.finkeeper.data.repository.savings.SavingsGoalRepository
+import ru.homebudget.finkeeper.data.repository.savings.SavingsTransactionRepository
 import ru.homebudget.finkeeper.util.currentIsoDate
-import ru.homebudget.finkeeper.util.RetryConfig
-import ru.homebudget.finkeeper.util.withRetry
 
 data class SavingsState(
     val isLoading: Boolean = true,
     val goals: List<SavingsGoal> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val isOffline: Boolean = false,
 )
 
 class SavingsViewModel(
-    private val apiClient: ApiClient
+    private val savingsGoalRepository: SavingsGoalRepository,
+    private val savingsTransactionRepository: SavingsTransactionRepository,
+    private val monthRepository: MonthRepository,
+    private val tokenStorage: TokenStorage,
+    private val syncManager: SyncManager,
 ) : ViewModel() {
-
+    private val currentUserId: Long get() = tokenStorage.userId
     private val _state = MutableStateFlow(SavingsState())
     val state: StateFlow<SavingsState> = _state.asStateFlow()
 
     private val _savingsUpdated = MutableStateFlow(0)
     val savingsUpdated: StateFlow<Int> = _savingsUpdated.asStateFlow()
 
-    fun loadData() {
+    init {
+        observeSyncUpdates()
+    }
+
+    private fun observeSyncUpdates() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            try {
-                val goals = withRetry(config = RetryConfig(maxAttempts = 3)) {
-                    apiClient.getSavingsGoals()
-                }
-                _state.value = _state.value.copy(isLoading = false, goals = goals)
-            } catch (e: Exception) {
-                _state.value = _state.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Ошибка загрузки"
-                )
+            syncManager.dataUpdated.collect {
+                loadData()
             }
         }
     }
 
-    fun createGoal(name: String, targetAmount: Double) {
+    fun loadData() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true, error = null)
+            try {
+                // Получаем цели через репозиторий
+                var goals: List<SavingsGoal> = emptyList()
+                savingsGoalRepository
+                    .getAllSavingsGoals(currentUserId)
+                    .onSuccess { goalList ->
+                        goals = goalList
+                    }
+
+                // Синхронизируем с сервером
+                savingsGoalRepository.syncWithServer(currentUserId)
+
+                _state.value = _state.value.copy(isLoading = false, goals = goals, isOffline = false)
+            } catch (e: Exception) {
+                _state.value =
+                    _state.value.copy(
+                        isLoading = false,
+                        error = e.message ?: "Ошибка загрузки",
+                        isOffline = true,
+                    )
+            }
+        }
+    }
+
+    fun createGoal(
+        name: String,
+        targetAmount: Double,
+    ) {
         viewModelScope.launch {
             try {
-                withRetry(config = RetryConfig(maxAttempts = 3)) {
-                    apiClient.createSavingsGoal(CreateSavingsGoalRequest(name, targetAmount))
-                }
+                // Сначала сохраняем локально через репозиторий
+                savingsGoalRepository.createSavingsGoal(
+                    userId = currentUserId,
+                    name = name,
+                    targetAmount = targetAmount,
+                )
+
                 loadData()
                 notifySavingsUpdated()
             } catch (e: Exception) {
@@ -62,12 +99,22 @@ class SavingsViewModel(
         }
     }
 
-    fun updateGoal(id: Int, name: String?, targetAmount: Double?, currentAmount: Double?) {
+    fun updateGoal(
+        id: Int,
+        name: String?,
+        targetAmount: Double?,
+        currentAmount: Double?,
+    ) {
         viewModelScope.launch {
             try {
-                withRetry(config = RetryConfig(maxAttempts = 3)) {
-                    apiClient.updateSavingsGoal(id, UpdateSavingsGoalRequest(name, targetAmount, currentAmount))
-                }
+                // Обновляем локально через репозиторий
+                savingsGoalRepository.updateSavingsGoal(
+                    id = id.toLong(),
+                    name = name,
+                    targetAmount = targetAmount,
+                    currentAmount = currentAmount,
+                )
+
                 loadData()
                 notifySavingsUpdated()
             } catch (e: Exception) {
@@ -79,9 +126,9 @@ class SavingsViewModel(
     fun deleteGoal(id: Int) {
         viewModelScope.launch {
             try {
-                withRetry(config = RetryConfig(maxAttempts = 3)) {
-                    apiClient.deleteSavingsGoal(id)
-                }
+                // Удаляем локально через репозиторий
+                savingsGoalRepository.deleteSavingsGoal(id.toLong())
+
                 loadData()
                 notifySavingsUpdated()
             } catch (e: Exception) {
@@ -90,21 +137,32 @@ class SavingsViewModel(
         }
     }
 
-    fun addTransaction(goalId: Int, amount: Double) {
+    fun addTransaction(
+        goalId: Int,
+        amount: Double,
+    ) {
         viewModelScope.launch {
             try {
                 val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                val monthData = withRetry(config = RetryConfig(maxAttempts = 3)) {
-                    apiClient.ensureMonth(now.year, now.monthNumber)
-                }
-                withRetry(config = RetryConfig(maxAttempts = 3)) {
-                    apiClient.addSavingsTransaction(AddSavingsTransactionRequest(
-                        goalId = goalId,
-                        amount = amount,
-                        date = currentIsoDate(),
-                        monthId = monthData.id
-                    ))
-                }
+
+                // Получаем или создаём месяц
+                val monthResult = monthRepository.getOrCreateMonth(currentUserId, now.year, now.monthNumber)
+                val monthData =
+                    if (monthResult.isSuccess) {
+                        monthResult.getOrNull()!!
+                    } else {
+                        throw Exception("Failed to get or create month")
+                    }
+
+                // Сначала сохраняем локально через репозиторий
+                savingsTransactionRepository.createTransaction(
+                    userId = currentUserId,
+                    goalId = goalId.toLong(),
+                    amount = amount,
+                    date = currentIsoDate(),
+                    type = "deposit",
+                )
+
                 loadData()
                 notifySavingsUpdated()
             } catch (e: Exception) {

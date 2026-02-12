@@ -1,0 +1,656 @@
+-- FinKeeper Database Schema for SQLDelight
+-- Version: 1.0
+
+CREATE TABLE users (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE categories (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('expense', 'income')),
+    icon TEXT,
+    color TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    server_id TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'synced',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE income_sources (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    server_id TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'synced',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE months (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    year INTEGER NOT NULL CHECK (year >= 2000 AND year <= 2100),
+    month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    server_id TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'synced',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, year, month)
+);
+
+CREATE TABLE incomes (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    month_id INTEGER NOT NULL,
+    income_source_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL CHECK (amount >= 0),
+    description TEXT,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    server_id TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'synced',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE CASCADE,
+    FOREIGN KEY (income_source_id) REFERENCES income_sources(id) ON DELETE CASCADE
+);
+
+CREATE TABLE expenses (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    month_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL,
+    description TEXT,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    server_id TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'synced',
+    is_hidden INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
+
+CREATE TABLE budgets (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    month_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    limit_amount INTEGER NOT NULL CHECK (limit_amount >= 0),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    server_id TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'synced',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
+    UNIQUE(user_id, month_id, category_id)
+);
+
+CREATE TABLE savings_goals (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    target_amount INTEGER NOT NULL CHECK (target_amount >= 0),
+    current_amount INTEGER NOT NULL DEFAULT 0 CHECK (current_amount >= 0),
+    color TEXT,
+    icon TEXT,
+    target_date TEXT,
+    is_achieved INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    server_id TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'synced',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE savings_transactions (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    savings_goal_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL CHECK (amount != 0),
+    type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal')),
+    description TEXT,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    server_id TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'synced',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (savings_goal_id) REFERENCES savings_goals(id) ON DELETE CASCADE
+);
+
+CREATE TABLE sync_queue (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER NOT NULL,
+    operation TEXT NOT NULL CHECK (operation IN ('insert', 'update', 'delete')),
+    payload TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    last_attempt TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'syncing', 'failed', 'completed')),
+    error_message TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Indexes for performance optimization
+CREATE INDEX idx_categories_user ON categories(user_id);
+CREATE INDEX idx_categories_type ON categories(type);
+CREATE INDEX idx_income_sources_user ON income_sources(user_id);
+CREATE INDEX idx_months_user ON months(user_id);
+CREATE INDEX idx_incomes_month ON incomes(month_id);
+CREATE INDEX idx_incomes_user ON incomes(user_id);
+CREATE INDEX idx_expenses_month ON expenses(month_id);
+CREATE INDEX idx_expenses_category ON expenses(category_id);
+CREATE INDEX idx_expenses_user ON expenses(user_id);
+CREATE INDEX idx_budgets_month ON budgets(month_id);
+CREATE INDEX idx_budgets_user ON budgets(user_id);
+CREATE INDEX idx_savings_goals_user ON savings_goals(user_id);
+CREATE INDEX idx_savings_transactions_goal ON savings_transactions(savings_goal_id);
+CREATE INDEX idx_sync_queue_user ON sync_queue(user_id);
+CREATE INDEX idx_sync_queue_status ON sync_queue(status);
+
+-- User queries
+getUserById:
+SELECT * FROM users WHERE id = ?;
+
+getUserByUsername:
+SELECT * FROM users WHERE username = ?;
+
+getUserByEmail:
+SELECT * FROM users WHERE email = ?;
+
+insertUser:
+INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?);
+
+updateUserPassword:
+UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?;
+
+deleteUser:
+DELETE FROM users WHERE id = ?;
+
+-- Category queries
+insertCategory:
+INSERT INTO categories (user_id, name, type, icon, color, sort_order, is_active, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateCategoryById:
+UPDATE categories SET name = ?, type = ?, icon = ?, color = ?, sort_order = ?, is_active = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+
+updateCategorySyncStatus:
+UPDATE categories SET sync_status = ?, server_id = ? WHERE id = ?;
+
+deleteCategoryById:
+DELETE FROM categories WHERE id = ?;
+
+deleteAllCategoriesByUser:
+DELETE FROM categories WHERE user_id = ?;
+
+getCategoryById:
+SELECT * FROM categories WHERE id = ?;
+
+getAllCategoriesByUser:
+SELECT * FROM categories WHERE user_id = ? ORDER BY sort_order ASC;
+
+getActiveCategoriesByUser:
+SELECT * FROM categories WHERE user_id = ? AND is_active = 1 ORDER BY sort_order ASC;
+
+getCategoriesByType:
+SELECT * FROM categories WHERE user_id = ? AND type = ? AND is_active = 1 ORDER BY sort_order ASC;
+
+getCategoriesPendingSync:
+SELECT * FROM categories WHERE sync_status != 'synced';
+
+getCategoriesPendingSyncCount:
+SELECT COUNT(*) FROM categories WHERE sync_status != 'synced';
+
+getMaxCategorySortOrder:
+SELECT COALESCE(MAX(sort_order), 0) FROM categories WHERE user_id = ?;
+
+categoryExistsById:
+SELECT EXISTS(SELECT 1 FROM categories WHERE id = ?);
+
+categoryExistsByServerId:
+SELECT EXISTS(SELECT 1 FROM categories WHERE server_id = ?);
+
+getCategoryByServerId:
+SELECT * FROM categories WHERE server_id = ?;
+
+deleteAllCategories:
+DELETE FROM categories;
+
+-- Income Source queries
+insertIncomeSource:
+INSERT INTO income_sources (user_id, name, sort_order, is_active, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+updateIncomeSourceById:
+UPDATE income_sources SET name = ?, sort_order = ?, is_active = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+
+updateIncomeSourceSyncStatus:
+UPDATE income_sources SET sync_status = ?, server_id = ? WHERE id = ?;
+
+deleteIncomeSourceById:
+DELETE FROM income_sources WHERE id = ?;
+
+deleteAllIncomeSourcesByUser:
+DELETE FROM income_sources WHERE user_id = ?;
+
+getIncomeSourceById:
+SELECT * FROM income_sources WHERE id = ?;
+
+getAllIncomeSourcesByUser:
+SELECT * FROM income_sources WHERE user_id = ? ORDER BY sort_order ASC;
+
+getActiveIncomeSourcesByUser:
+SELECT * FROM income_sources WHERE user_id = ? AND is_active = 1 ORDER BY sort_order ASC;
+
+getIncomeSourcesPendingSync:
+SELECT * FROM income_sources WHERE sync_status != 'synced';
+
+getIncomeSourcesPendingSyncCount:
+SELECT COUNT(*) FROM income_sources WHERE sync_status != 'synced';
+
+getMaxIncomeSourceSortOrder:
+SELECT COALESCE(MAX(sort_order), 0) FROM income_sources WHERE user_id = ?;
+
+incomeSourceExistsById:
+SELECT EXISTS(SELECT 1 FROM income_sources WHERE id = ?);
+
+incomeSourceExistsByServerId:
+SELECT EXISTS(SELECT 1 FROM income_sources WHERE server_id = ?);
+
+getIncomeSourceByServerId:
+SELECT * FROM income_sources WHERE server_id = ?;
+
+deleteAllIncomeSources:
+DELETE FROM income_sources;
+
+-- Month queries
+insertMonth:
+INSERT INTO months (user_id, year, month, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updateMonthById:
+UPDATE months SET year = ?, month = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+
+updateMonthSyncStatus:
+UPDATE months SET sync_status = ?, server_id = ? WHERE id = ?;
+
+deleteMonthById:
+DELETE FROM months WHERE id = ?;
+
+deleteAllMonthsByUser:
+DELETE FROM months WHERE user_id = ?;
+
+getMonthById:
+SELECT * FROM months WHERE id = ?;
+
+getMonthByUserAndYearMonth:
+SELECT * FROM months WHERE user_id = ? AND year = ? AND month = ?;
+
+getOrCreateMonth:
+SELECT * FROM months WHERE user_id = ? AND year = ? AND month = ?;
+
+getAllMonthsByUser:
+SELECT * FROM months WHERE user_id = ? ORDER BY year DESC, month DESC;
+
+getMonthsPendingSync:
+SELECT * FROM months WHERE sync_status != 'synced';
+
+getMonthsPendingSyncCount:
+SELECT COUNT(*) FROM months WHERE sync_status != 'synced';
+
+monthExistsById:
+SELECT EXISTS(SELECT 1 FROM months WHERE id = ?);
+
+monthExistsByServerId:
+SELECT EXISTS(SELECT 1 FROM months WHERE server_id = ?);
+
+getMonthByServerId:
+SELECT * FROM months WHERE server_id = ?;
+
+deleteAllMonths:
+DELETE FROM months;
+
+-- Income queries
+insertIncome:
+INSERT INTO incomes (user_id, month_id, income_source_id, amount, description, date, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateIncomeById:
+UPDATE incomes SET month_id = ?, income_source_id = ?, amount = ?, description = ?, date = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+
+updateIncomeSyncStatus:
+UPDATE incomes SET sync_status = ?, server_id = ? WHERE id = ?;
+
+deleteIncomeById:
+DELETE FROM incomes WHERE id = ?;
+
+deleteAllIncomesByUser:
+DELETE FROM incomes WHERE user_id = ?;
+
+deleteAllIncomesByMonth:
+DELETE FROM incomes WHERE month_id = ?;
+
+getIncomeById:
+SELECT * FROM incomes WHERE id = ?;
+
+getAllIncomesByUser:
+SELECT * FROM incomes WHERE user_id = ? ORDER BY date DESC, created_at DESC;
+
+getIncomesByMonth:
+SELECT * FROM incomes WHERE month_id = ? ORDER BY date DESC;
+
+getIncomesByMonthAndSource:
+SELECT * FROM incomes WHERE month_id = ? AND income_source_id = ? ORDER BY date DESC;
+
+getIncomesPendingSync:
+SELECT * FROM incomes WHERE sync_status != 'synced';
+
+getIncomesPendingSyncCount:
+SELECT COUNT(*) FROM incomes WHERE sync_status != 'synced';
+
+incomeExistsById:
+SELECT EXISTS(SELECT 1 FROM incomes WHERE id = ?);
+
+incomeExistsByServerId:
+SELECT EXISTS(SELECT 1 FROM incomes WHERE server_id = ?);
+
+getIncomeByServerId:
+SELECT * FROM incomes WHERE server_id = ?;
+
+deleteAllIncomes:
+DELETE FROM incomes;
+
+-- Expense queries
+insertExpense:
+INSERT INTO expenses (user_id, month_id, category_id, amount, description, date, created_at, updated_at, server_id, sync_status, is_hidden)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateExpenseById:
+UPDATE expenses SET month_id = ?, category_id = ?, amount = ?, description = ?, date = ?, updated_at = ?, server_id = ?, sync_status = ?, is_hidden = ? WHERE id = ?;
+
+updateExpenseSyncStatus:
+UPDATE expenses SET sync_status = ?, server_id = ? WHERE id = ?;
+
+updateExpenseHiddenStatus:
+UPDATE expenses SET is_hidden = ?, updated_at = datetime('now') WHERE id = ?;
+
+deleteExpenseById:
+DELETE FROM expenses WHERE id = ?;
+
+deleteAllExpensesByUser:
+DELETE FROM expenses WHERE user_id = ?;
+
+deleteAllExpensesByMonth:
+DELETE FROM expenses WHERE month_id = ?;
+
+getExpenseById:
+SELECT * FROM expenses WHERE id = ?;
+
+getAllExpensesByUser:
+SELECT * FROM expenses WHERE user_id = ? ORDER BY date DESC, created_at DESC;
+
+getExpensesByMonth:
+SELECT * FROM expenses WHERE month_id = ? AND is_hidden = 0 ORDER BY date DESC;
+
+getExpensesByCategory:
+SELECT * FROM expenses WHERE category_id = ? ORDER BY date DESC;
+
+getExpensesPendingSync:
+SELECT * FROM expenses WHERE sync_status != 'synced';
+
+getExpensesPendingSyncCount:
+SELECT COUNT(*) FROM expenses WHERE sync_status != 'synced';
+
+expenseExistsById:
+SELECT EXISTS(SELECT 1 FROM expenses WHERE id = ?);
+
+expenseExistsByServerId:
+SELECT EXISTS(SELECT 1 FROM expenses WHERE server_id = ?);
+
+getExpenseByServerId:
+SELECT * FROM expenses WHERE server_id = ?;
+
+deleteAllExpenses:
+DELETE FROM expenses;
+
+-- Budget queries
+insertBudget:
+INSERT INTO budgets (user_id, month_id, category_id, limit_amount, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+updateBudgetById:
+UPDATE budgets SET month_id = ?, category_id = ?, limit_amount = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+
+updateBudgetSyncStatus:
+UPDATE budgets SET sync_status = ?, server_id = ? WHERE id = ?;
+
+deleteBudgetById:
+DELETE FROM budgets WHERE id = ?;
+
+deleteAllBudgetsByUser:
+DELETE FROM budgets WHERE user_id = ?;
+
+deleteAllBudgetsByMonth:
+DELETE FROM budgets WHERE month_id = ?;
+
+getBudgetById:
+SELECT * FROM budgets WHERE id = ?;
+
+getBudgetsByMonth:
+SELECT * FROM budgets WHERE month_id = ?;
+
+getBudgetsByUser:
+SELECT * FROM budgets WHERE user_id = ?;
+
+getBudgetByMonthAndCategory:
+SELECT * FROM budgets WHERE month_id = ? AND category_id = ?;
+
+getBudgetsPendingSync:
+SELECT * FROM budgets WHERE sync_status != 'synced';
+
+getBudgetsPendingSyncCount:
+SELECT COUNT(*) FROM budgets WHERE sync_status != 'synced';
+
+budgetExistsById:
+SELECT EXISTS(SELECT 1 FROM budgets WHERE id = ?);
+
+budgetExistsByServerId:
+SELECT EXISTS(SELECT 1 FROM budgets WHERE server_id = ?);
+
+getBudgetByServerId:
+SELECT * FROM budgets WHERE server_id = ?;
+
+deleteAllBudgets:
+DELETE FROM budgets;
+
+-- Savings Goal queries
+insertSavingsGoal:
+INSERT INTO savings_goals (user_id, name, target_amount, current_amount, color, icon, target_date, is_achieved, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateSavingsGoalById:
+UPDATE savings_goals SET name = ?, target_amount = ?, current_amount = ?, color = ?, icon = ?, target_date = ?, is_achieved = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+
+updateSavingsGoalSyncStatus:
+UPDATE savings_goals SET sync_status = ?, server_id = ? WHERE id = ?;
+
+deleteSavingsGoalById:
+DELETE FROM savings_goals WHERE id = ?;
+
+deleteAllSavingsGoalsByUser:
+DELETE FROM savings_goals WHERE user_id = ?;
+
+getSavingsGoalById:
+SELECT * FROM savings_goals WHERE id = ?;
+
+getAllSavingsGoalsByUser:
+SELECT * FROM savings_goals WHERE user_id = ? ORDER BY created_at DESC;
+
+getActiveSavingsGoalsByUser:
+SELECT * FROM savings_goals WHERE user_id = ? AND is_achieved = 0 ORDER BY created_at DESC;
+
+getSavingsGoalsPendingSync:
+SELECT * FROM savings_goals WHERE sync_status != 'synced';
+
+getSavingsGoalsPendingSyncCount:
+SELECT COUNT(*) FROM savings_goals WHERE sync_status != 'synced';
+
+savingsGoalExistsById:
+SELECT EXISTS(SELECT 1 FROM savings_goals WHERE id = ?);
+
+savingsGoalExistsByServerId:
+SELECT EXISTS(SELECT 1 FROM savings_goals WHERE server_id = ?);
+
+getSavingsGoalByServerId:
+SELECT * FROM savings_goals WHERE server_id = ?;
+
+deleteAllSavingsGoals:
+DELETE FROM savings_goals;
+
+-- Savings Transaction queries
+insertSavingsTransaction:
+INSERT INTO savings_transactions (user_id, savings_goal_id, amount, type, description, date, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateSavingsTransactionById:
+UPDATE savings_transactions SET savings_goal_id = ?, amount = ?, type = ?, description = ?, date = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+
+updateSavingsTransactionSyncStatus:
+UPDATE savings_transactions SET sync_status = ?, server_id = ? WHERE id = ?;
+
+deleteSavingsTransactionById:
+DELETE FROM savings_transactions WHERE id = ?;
+
+deleteAllSavingsTransactionsByUser:
+DELETE FROM savings_transactions WHERE user_id = ?;
+
+deleteAllSavingsTransactionsByGoal:
+DELETE FROM savings_transactions WHERE savings_goal_id = ?;
+
+getSavingsTransactionById:
+SELECT * FROM savings_transactions WHERE id = ?;
+
+getAllSavingsTransactionsByUser:
+SELECT * FROM savings_transactions WHERE user_id = ? ORDER BY date DESC, created_at DESC;
+
+getSavingsTransactionsByGoal:
+SELECT * FROM savings_transactions WHERE savings_goal_id = ? ORDER BY date DESC;
+
+getSavingsTransactionsPendingSync:
+SELECT * FROM savings_transactions WHERE sync_status != 'synced';
+
+getSavingsTransactionsPendingSyncCount:
+SELECT COUNT(*) FROM savings_transactions WHERE sync_status != 'synced';
+
+savingsTransactionExistsById:
+SELECT EXISTS(SELECT 1 FROM savings_transactions WHERE id = ?);
+
+savingsTransactionExistsByServerId:
+SELECT EXISTS(SELECT 1 FROM savings_transactions WHERE server_id = ?);
+
+getSavingsTransactionByServerId:
+SELECT * FROM savings_transactions WHERE server_id = ?;
+
+deleteAllSavingsTransactions:
+DELETE FROM savings_transactions;
+
+-- Sync Queue queries
+insertSyncQueueItem:
+INSERT INTO sync_queue (user_id, entity_type, entity_id, operation, payload, created_at, status)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updateSyncQueueItemStatus:
+UPDATE sync_queue SET status = ?, last_attempt = datetime('now'), retry_count = retry_count + 1, error_message = ? WHERE id = ?;
+
+updateSyncQueueItemCompleted:
+UPDATE sync_queue SET status = 'completed', last_attempt = datetime('now') WHERE id = ?;
+
+deleteSyncQueueItemById:
+DELETE FROM sync_queue WHERE id = ?;
+
+deleteSyncQueueItemByIdAndType:
+DELETE FROM sync_queue WHERE entity_type = ? AND entity_id = ?;
+
+deleteAllSyncQueueItemsByUser:
+DELETE FROM sync_queue WHERE user_id = ?;
+
+getSyncQueueItemById:
+SELECT * FROM sync_queue WHERE id = ?;
+
+getPendingSyncQueueItems:
+SELECT * FROM sync_queue WHERE status = 'pending' ORDER BY created_at ASC LIMIT :limit;
+
+getFailedSyncQueueItems:
+SELECT * FROM sync_queue WHERE status = 'failed' ORDER BY last_attempt ASC LIMIT :limit;
+
+getAllSyncQueueItemsByUser:
+SELECT * FROM sync_queue WHERE user_id = ? ORDER BY created_at DESC;
+
+getSyncQueueItemCount:
+SELECT COUNT(*) FROM sync_queue WHERE status = 'pending';
+
+syncQueueItemExists:
+SELECT EXISTS(SELECT 1 FROM sync_queue WHERE entity_type = ? AND entity_id = ? AND status = 'pending');
+
+deleteAllSyncQueueItems:
+DELETE FROM sync_queue;
+
+clearCompletedSyncQueueItems:
+DELETE FROM sync_queue WHERE status = 'completed';
+
+-- Retry failed operations
+updateFailedToPending:
+UPDATE sync_queue SET status = 'pending', error_message = NULL WHERE status = 'failed';
+
+-- Get total income for month
+getTotalIncomeByMonth:
+SELECT COALESCE(SUM(amount), 0) AS value FROM incomes WHERE month_id = ?;
+
+-- Get total income for month by source
+getTotalIncomeByMonthAndSource:
+SELECT COALESCE(SUM(amount), 0) AS value FROM incomes WHERE month_id = ? AND income_source_id = ?;
+
+-- Get visible expenses for month
+getVisibleExpensesByMonth:
+SELECT * FROM expenses WHERE month_id = ? AND is_hidden = 0 ORDER BY date DESC;
+
+-- Get expenses by month and category
+getExpensesByMonthAndCategory:
+SELECT * FROM expenses WHERE month_id = ? AND category_id = ? ORDER BY date DESC;
+
+-- Get total expense for month
+getTotalExpenseByMonth:
+SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE month_id = ?;
+
+-- Get total expense for month by category
+getTotalExpenseByMonthAndCategory:
+SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE month_id = ? AND category_id = ?;
+
+-- Get total visible expense for month
+getTotalVisibleExpenseByMonth:
+SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE month_id = ? AND is_hidden = 0;
+
+-- Get last insert row ID
+lastInsertRowId:
+SELECT last_insert_rowid();

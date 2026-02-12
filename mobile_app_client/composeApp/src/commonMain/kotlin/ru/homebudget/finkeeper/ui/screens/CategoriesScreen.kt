@@ -3,6 +3,7 @@ package ru.homebudget.finkeeper.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.*
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesState
+import ru.homebudget.finkeeper.data.model.Category
 
 @Composable
 fun CategoriesScreen(
@@ -24,12 +26,27 @@ fun CategoriesScreen(
     onAddIncomeSource: (String) -> Unit,
     onUpdateIncomeSource: (Int, String) -> Unit,
     onDeactivateIncomeSource: (Int) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onToggleReorderMode: () -> Unit,
+    onUpdateCategoriesOrder: (List<Category>) -> Unit,
+    onReorderCategories: (List<Category>) -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<Int?>(null) }
     var editingName by remember { mutableStateOf("") }
     var deleteId by remember { mutableStateOf<Int?>(null) }
+    var localCategories by remember { mutableStateOf(state.categories) }
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(state.categories) {
+        localCategories = state.categories
+    }
+
+    LaunchedEffect(localCategories) {
+        if (state.isReorderMode) {
+            onUpdateCategoriesOrder(localCategories)
+        }
+    }
 
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -65,13 +82,25 @@ fun CategoriesScreen(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            state = listState
         ) {
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    if (state.activeTab == 0) {
+                        TextButton(onClick = onToggleReorderMode) {
+                            Text(
+                                if (state.isReorderMode) Strings.DONE else Strings.REORDER_MODE,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                     TextButton(onClick = { showAddDialog = true }) {
                         Text(
                             Strings.ADD_NEW,
@@ -83,23 +112,30 @@ fun CategoriesScreen(
             }
 
             if (state.activeTab == 0) {
-                if (state.categories.isEmpty()) {
+                val activeCategories = localCategories.filter { it.isActive == 1 }
+                if (activeCategories.isEmpty()) {
                     item { EmptyState(Strings.NO_CATEGORIES) }
                 } else {
-                    items(state.categories.filter { it.isActive == 1 }, key = { it.id }) { cat ->
-                        EditableItemCard(
-                            name = cat.name,
-                            isEditing = editingId == cat.id,
-                            editingName = editingName,
-                            onEditingNameChange = { editingName = it },
-                            onStartEdit = { editingId = cat.id; editingName = cat.name },
-                            onSaveEdit = {
-                                onUpdateCategory(cat.id, editingName)
-                                editingId = null
-                            },
-                            onCancelEdit = { editingId = null },
-                            onDelete = { deleteId = cat.id }
-                        )
+                    items(activeCategories, key = { it.id }) { cat ->
+                        if (state.isReorderMode) {
+                            ReorderableCategoryItem(
+                                name = cat.name
+                            )
+                        } else {
+                            EditableItemCard(
+                                name = cat.name,
+                                isEditing = editingId == cat.id,
+                                editingName = editingName,
+                                onEditingNameChange = { editingName = it },
+                                onStartEdit = { editingId = cat.id; editingName = cat.name },
+                                onSaveEdit = {
+                                    onUpdateCategory(cat.id, editingName)
+                                    editingId = null
+                                },
+                                onCancelEdit = { editingId = null },
+                                onDelete = { deleteId = cat.id }
+                            )
+                        }
                     }
                 }
             } else {
@@ -148,6 +184,12 @@ fun CategoriesScreen(
             onDismiss = { deleteId = null },
             isDestructive = true
         )
+    }
+
+    LaunchedEffect(!state.isReorderMode) {
+        if (!state.isReorderMode && localCategories != state.categories) {
+            onReorderCategories(localCategories)
+        }
     }
 }
 
@@ -249,3 +291,38 @@ private fun AddNameDialog(
     )
 }
 
+@Composable
+private fun ReorderableCategoryItem(
+    name: String
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = Strings.DRAG_HANDLE,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(end = 12.dp)
+            )
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}

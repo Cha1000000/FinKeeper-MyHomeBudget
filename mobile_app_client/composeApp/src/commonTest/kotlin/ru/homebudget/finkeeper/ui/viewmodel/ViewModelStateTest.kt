@@ -303,7 +303,9 @@ class ViewModelStateTest {
     }
 
     private fun createAuthViewModel(): AuthViewModel {
-        val tokenStorage = ru.homebudget.finkeeper.data.remote.TokenStorage().apply {
+        val tokenStorage = ru.homebudget.finkeeper.data.remote.TokenStorage(
+            com.russhwolf.settings.MapSettings()
+        ).apply {
             clear()
         }
         val apiClient = ru.homebudget.finkeeper.data.remote.ApiClient(tokenStorage)

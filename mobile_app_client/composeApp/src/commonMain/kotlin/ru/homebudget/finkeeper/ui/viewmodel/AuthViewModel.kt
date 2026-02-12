@@ -45,6 +45,7 @@ class AuthViewModel(
                 val user = withRetry(config = RetryConfig(maxAttempts = 3)) {
                     apiClient.getMe()
                 }
+                tokenStorage.userId = user.id.toLong()
                 _state.value = AuthState(user = user, isLoading = false, isAuthenticated = true)
             } catch (_: Exception) {
                 tokenStorage.clear()
@@ -62,13 +63,21 @@ class AuthViewModel(
             )
             return
         }
+        if (password.length < 6) {
+            _state.value = _state.value.copy(
+                isLoading = false,
+                error = Strings.PASSWORD_TOO_SHORT
+            )
+            return
+        }
+        _state.value = _state.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
             try {
                 val authData = withRetry(config = RetryConfig(maxAttempts = 3)) {
                     apiClient.login(trimmedUsername, password)
                 }
                 tokenStorage.token = authData.token
+                tokenStorage.userId = authData.user.id.toLong()
                 _state.value = AuthState(
                     user = authData.user,
                     isLoading = false,
@@ -97,13 +106,21 @@ class AuthViewModel(
             )
             return
         }
+        if (password.length < 6) {
+            _state.value = _state.value.copy(
+                isLoading = false,
+                error = Strings.PASSWORD_TOO_SHORT
+            )
+            return
+        }
+        _state.value = _state.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
             try {
                 val authData = withRetry(config = RetryConfig(maxAttempts = 3)) {
                     apiClient.register(trimmedUsername, password)
                 }
                 tokenStorage.token = authData.token
+                tokenStorage.userId = authData.user.id.toLong()
                 _state.value = AuthState(
                     user = authData.user,
                     isLoading = false,

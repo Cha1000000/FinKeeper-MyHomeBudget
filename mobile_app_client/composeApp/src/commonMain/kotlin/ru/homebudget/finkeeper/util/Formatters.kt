@@ -1,6 +1,6 @@
 package ru.homebudget.finkeeper.util
 
-import kotlin.time.Clock
+import kotlinx.datetime.Clock
 import kotlinx.datetime.*
 
 fun formatCurrency(amount: Double): String {

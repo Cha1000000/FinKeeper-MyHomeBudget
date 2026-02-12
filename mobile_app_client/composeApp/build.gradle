@@ -1,0 +1,186 @@
+buildscript {
+    ext {
+        kotlin_version = '2.0.21'
+        compose_version = '1.6.10'
+        ktor_version = '3.0.1'
+        kotlinx_serialization_version = '1.7.1'
+        kotlinx_coroutines_version = '1.8.1'
+        kotlinx_datetime_version = '0.6.0'
+        navigation_version = '2.7.7'
+        multiplatform_settings_version = '1.1.1'
+        koin_version = '3.5.6'
+        sqldelight_version = '1.5.5'
+    }
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.compose:compose-gradle-plugin:$compose_version"
+        classpath "com.squareup.sqldelight:gradle-plugin:$sqldelight_version"
+    }
+}
+
+plugins {
+    id 'org.jetbrains.kotlin.multiplatform' version '2.0.21'
+    id 'com.android.application'
+    id 'org.jetbrains.compose'
+    id 'org.jetbrains.kotlin.plugin.compose' version '2.0.21'
+    id 'org.jetbrains.kotlin.plugin.serialization' version '2.0.21'
+}
+
+apply plugin: 'com.squareup.sqldelight'
+
+sqldelight {
+    FinKeeperDatabase {
+        packageName = 'ru.homebudget.finkeeper.data.local.database'
+    }
+}
+
+kotlin {
+    androidTarget {
+        compilations.all {
+            kotlinOptions {
+                jvmTarget = '11'
+            }
+        }
+    }
+
+    [iosArm64(), iosSimulatorArm64()].each { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "ComposeApp"
+            isStatic = true
+        }
+    }
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation compose.runtime
+                implementation compose.foundation
+                implementation compose.material3
+                implementation compose.materialIconsExtended
+                implementation compose.ui
+                implementation compose.components.resources
+                implementation 'org.jetbrains.compose.ui:ui-tooling-preview:1.6.10'
+
+                implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3'
+                implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.3'
+
+                // Ktor
+                implementation "io.ktor:ktor-client-core:$ktor_version"
+                implementation "io.ktor:ktor-client-content-negotiation:$ktor_version"
+                implementation "io.ktor:ktor-serialization-kotlinx-json:$ktor_version"
+                implementation "io.ktor:ktor-client-auth:$ktor_version"
+                implementation "io.ktor:ktor-client-logging:$ktor_version"
+
+                // Kotlinx
+                implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinx_serialization_version"
+                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_coroutines_version"
+                implementation "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_datetime_version"
+
+                // Navigation
+                implementation "androidx.navigation:navigation-compose:$navigation_version"
+
+                // Multiplatform Settings
+                implementation "com.russhwolf:multiplatform-settings-no-arg:$multiplatform_settings_version"
+
+                // Koin
+                implementation "io.insert-koin:koin-core:$koin_version"
+                implementation "io.insert-koin:koin-androidx-compose:$koin_version"
+
+                // SQLDelight
+                implementation "com.squareup.sqldelight:runtime:$sqldelight_version"
+                implementation "com.squareup.sqldelight:coroutines-extensions:$sqldelight_version"
+
+                // Reorderable
+                implementation "sh.calvin.reorderable:reorderable:2.3.3"
+
+                // Vico Charts
+                implementation "com.patrykandpatrick.vico:compose:2.0.0-beta.4"
+                implementation "com.patrykandpatrick.vico:compose-m3:2.0.0-beta.4"
+                implementation "com.patrykandpatrick.vico:core:2.0.0-beta.4"
+            }
+        }
+        androidMain {
+            dependencies {
+                implementation 'androidx.activity:activity-compose:1.9.0'
+                implementation "io.ktor:ktor-client-okhttp:$ktor_version"
+                implementation "io.insert-koin:koin-android:$koin_version"
+                implementation "com.squareup.sqldelight:android-driver:$sqldelight_version"
+            }
+        }
+        iosMain {
+            dependencies {
+                implementation "io.ktor:ktor-client-darwin:$ktor_version"
+                implementation "io.insert-koin:koin-core:$koin_version"
+                implementation "com.squareup.sqldelight:native-driver:$sqldelight_version"
+            }
+        }
+        commonTest {
+            dependencies {
+                implementation 'org.jetbrains.kotlin:kotlin-test'
+                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$kotlinx_coroutines_version"
+                implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinx_serialization_version"
+                implementation "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_datetime_version"
+                implementation "com.russhwolf:multiplatform-settings-test:$multiplatform_settings_version"
+            }
+        }
+    }
+}
+
+android {
+    namespace 'ru.homebudget.finkeeper'
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId "ru.homebudget.finkeeper"
+        minSdk = 24
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    packaging {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+        }
+    }
+
+    signingConfigs {
+        release {
+            def keystorePropertiesFile = rootProject.file("keystore.properties")
+            def keystoreProperties = new Properties()
+            if (keystorePropertiesFile.exists()) {
+                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+            }
+            storeFile = file(keystoreProperties.getProperty("storeFile", "../release-keystore.jks"))
+            storePassword keystoreProperties.getProperty("storePassword", "")
+            keyAlias keystoreProperties.getProperty("keyAlias", "")
+            keyPassword keystoreProperties.getProperty("keyPassword", "")
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            signingConfig signingConfigs.release
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def outputFile = output.outputFileName
+            output.outputFileName = "FinKeeper-mobileApp-v${versionName}-${variant.name}.apk"
+        }
+    }
+}

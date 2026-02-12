@@ -46,7 +46,8 @@ data class Income(
     @SerialName("month_id") val monthId: Int,
     val source: String,
     val amount: Double,
-    val date: String
+    val date: String,
+    val description: String? = null,
 )
 
 @Serializable
