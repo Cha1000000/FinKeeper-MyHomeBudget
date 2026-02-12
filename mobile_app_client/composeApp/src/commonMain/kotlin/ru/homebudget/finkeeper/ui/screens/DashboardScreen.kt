@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.ExpensePieChart
+import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.FinancialDynamicsChart
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.SummaryCard
@@ -44,10 +45,9 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text(
-                text = Strings.DASHBOARD_TITLE,
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onBackground
+            ScreenHeader(
+                title = Strings.DASHBOARD_TITLE,
+                modifier = Modifier.padding(horizontal = 0.dp),
             )
         }
 

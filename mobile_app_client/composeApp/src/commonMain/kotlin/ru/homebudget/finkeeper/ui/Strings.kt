@@ -33,6 +33,7 @@ object Strings {
     const val EXPENSE_STRUCTURE = "Структура расходов"
 
     // === Экран месяца (MonthView) ===
+    const val MONTH_TITLE = "Месяц"
     const val EXPENSES_TAB = "Расходы"
     const val INCOMES_TAB = "Доходы"
     const val SPENDING_LIMIT = "Лимит трат"

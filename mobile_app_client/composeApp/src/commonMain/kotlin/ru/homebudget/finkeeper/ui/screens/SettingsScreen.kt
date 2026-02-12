@@ -17,6 +17,7 @@ import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.viewmodel.SettingsState
 import ru.homebudget.finkeeper.ui.Strings
 
+import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.neonGlow
 
 @Composable
@@ -47,10 +48,9 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = Strings.SETTINGS,
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground
+        ScreenHeader(
+            title = Strings.SETTINGS,
+            modifier = Modifier.padding(horizontal = 0.dp),
         )
 
         // Status message

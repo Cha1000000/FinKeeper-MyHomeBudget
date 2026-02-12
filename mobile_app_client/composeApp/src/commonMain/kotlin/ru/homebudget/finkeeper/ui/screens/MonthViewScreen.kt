@@ -51,6 +51,7 @@ import ru.homebudget.finkeeper.ui.components.EmptyState
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ProgressBar
 import ru.homebudget.finkeeper.ui.components.SummaryCard
+import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.neonGlow
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.GroupedExpense
@@ -95,6 +96,8 @@ fun MonthViewScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        ScreenHeader(title = Strings.MONTH_TITLE)
+
         // Month navigation header
         Card(
             modifier =

@@ -56,12 +56,7 @@ fun CategoriesScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = Strings.REFERENCE_BOOKS,
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-        )
+        ScreenHeader(title = Strings.REFERENCE_BOOKS)
 
         TabRow(
             selectedTabIndex = state.activeTab,

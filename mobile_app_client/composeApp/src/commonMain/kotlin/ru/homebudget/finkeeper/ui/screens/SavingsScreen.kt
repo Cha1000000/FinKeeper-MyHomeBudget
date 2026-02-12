@@ -51,20 +51,15 @@ fun SavingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = Strings.PIGGY_BANKS,
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                TextButton(onClick = { showCreateDialog = true }) {
-                    Text(Strings.CREATE, style = MaterialTheme.typography.labelLarge)
-                }
-            }
+            ScreenHeader(
+                title = Strings.PIGGY_BANKS,
+                modifier = Modifier.padding(horizontal = 0.dp),
+                actions = {
+                    TextButton(onClick = { showCreateDialog = true }) {
+                        Text(Strings.CREATE, style = MaterialTheme.typography.labelLarge)
+                    }
+                },
+            )
         }
 
         if (state.goals.isEmpty()) {

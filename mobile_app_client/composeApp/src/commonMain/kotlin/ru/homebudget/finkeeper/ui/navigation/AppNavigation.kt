@@ -17,11 +17,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,14 +33,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
-import ru.homebudget.finkeeper.ui.components.FloatingNetworkStatusIndicator
 import ru.homebudget.finkeeper.ui.components.IconCalendar
 import ru.homebudget.finkeeper.ui.components.IconDashboard
 import ru.homebudget.finkeeper.ui.components.IconLogOut
 import ru.homebudget.finkeeper.ui.components.IconPiggyBank
 import ru.homebudget.finkeeper.ui.components.IconReceipt
 import ru.homebudget.finkeeper.ui.components.IconSettings
-import ru.homebudget.finkeeper.ui.components.NetworkStatusIndicator
 import ru.homebudget.finkeeper.ui.screens.CategoriesScreen
 import ru.homebudget.finkeeper.ui.screens.DashboardScreen
 import ru.homebudget.finkeeper.ui.screens.MonthViewScreen
@@ -68,7 +64,6 @@ enum class Screen(
     Settings("Настр."),
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavigation(
     authViewModel: AuthViewModel,
@@ -94,14 +89,6 @@ fun AppNavigation(
     val isDark = MaterialTheme.colorScheme.background == BackgroundDark
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(currentScreen.title) },
-                actions = {
-                    NetworkStatusIndicator()
-                },
-            )
-        },
         bottomBar = {
             GradientBottomBar(
                 currentScreen = currentScreen,
@@ -113,11 +100,6 @@ fun AppNavigation(
         },
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
-            // Плавающий индикатор статуса сети
-            FloatingNetworkStatusIndicator(
-                modifier = Modifier.align(Alignment.TopEnd),
-            )
-
             when (currentScreen) {
                 Screen.Dashboard ->
                     DashboardScreen(
