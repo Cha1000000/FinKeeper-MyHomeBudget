@@ -88,6 +88,9 @@ class SyncManager(
                     payload = payload,
                 )
                 updatePendingCount()
+
+                // Немедленно отправляем на сервер (если доступен)
+                scheduleProcessQueue()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -524,6 +527,41 @@ class SyncManager(
                         )
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Отправляет pending операции на сервер (только upload, без download).
+     * Вызывается автоматически после enqueueSync для немедленной отправки изменений.
+     * Использует отдельную корутину с задержкой, чтобы не конфликтовать с syncAll().
+     */
+    private fun scheduleProcessQueue() {
+        scope.launch {
+            // Ждём, пока syncAll() завершится (если запущен)
+            var attempts = 0
+            while (_isSyncing.value && attempts < 10) {
+                kotlinx.coroutines.delay(500)
+                attempts++
+            }
+
+            if (_isSyncing.value) return@launch
+
+            _isSyncing.value = true
+            try {
+                val pendingItems = syncQueueDao.getPendingItems(limit = 50)
+                for (item in pendingItems) {
+                    syncItemToServer(item)
+                }
+                syncQueueDao.clearCompleted()
+                updatePendingCount()
+                if (pendingItems.isNotEmpty()) {
+                    _dataUpdated.tryEmit(Unit)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isSyncing.value = false
             }
         }
     }
