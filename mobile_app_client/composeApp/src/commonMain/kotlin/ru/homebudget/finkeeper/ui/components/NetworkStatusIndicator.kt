@@ -69,6 +69,12 @@ fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
             }
         }
 
+        Text(
+            text = if (isOnline) "В сети" else "Нет связи",
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isOnline) Color(0xFF4CAF50) else Color(0xFFF44336),
+        )
+
         Box(
             modifier =
                 Modifier

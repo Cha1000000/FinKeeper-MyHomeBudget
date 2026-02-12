@@ -10,7 +10,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Android реализация NetworkMonitor
+ * Android реализация NetworkMonitor.
+ * Использует NET_CAPABILITY_INTERNET (без VALIDATED),
+ * чтобы корректно работать на эмуляторе.
  */
 actual class NetworkMonitor(
     private val context: Context,
@@ -30,7 +32,8 @@ actual class NetworkMonitor(
             }
 
             override fun onLost(network: Network) {
-                _isOnline.value = false
+                // Проверяем, есть ли другие активные сети
+                _isOnline.value = checkCurrentNetworkState()
             }
 
             override fun onCapabilitiesChanged(
@@ -38,9 +41,7 @@ actual class NetworkMonitor(
                 networkCapabilities: NetworkCapabilities,
             ) {
                 _isOnline.value =
-                    networkCapabilities.hasCapability(
-                        NetworkCapabilities.NET_CAPABILITY_VALIDATED,
-                    )
+                    networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             }
         }
 
@@ -49,22 +50,25 @@ actual class NetworkMonitor(
             NetworkRequest
                 .Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 .build()
 
         connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
 
         // Проверяем начальное состояние
-        _isOnline.value = checkInitialNetworkState()
+        _isOnline.value = checkCurrentNetworkState()
     }
 
     actual fun stopMonitoring() {
-        connectivityManager.unregisterNetworkCallback(networkCallback)
+        try {
+            connectivityManager.unregisterNetworkCallback(networkCallback)
+        } catch (_: Exception) {
+            // Callback may not be registered
+        }
     }
 
-    private fun checkInitialNetworkState(): Boolean {
+    private fun checkCurrentNetworkState(): Boolean {
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 }
