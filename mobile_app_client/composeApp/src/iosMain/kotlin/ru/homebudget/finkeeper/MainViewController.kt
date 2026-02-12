@@ -5,6 +5,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.context.startKoin
 import ru.homebudget.finkeeper.data.repository.SyncService
+import ru.homebudget.finkeeper.data.repository.WebSocketService
 import ru.homebudget.finkeeper.di.appModule
 import ru.homebudget.finkeeper.di.iosAppModule
 
@@ -29,12 +30,15 @@ fun MainViewController() = ComposeUIViewController { App() }
  */
 class SyncServiceInitializer : KoinComponent {
     private val syncService: SyncService by inject()
+    private val webSocketService: WebSocketService by inject()
 
     fun start() {
         syncService.start()
+        webSocketService.start()
     }
 
     fun stop() {
         syncService.stop()
+        webSocketService.stop()
     }
 }

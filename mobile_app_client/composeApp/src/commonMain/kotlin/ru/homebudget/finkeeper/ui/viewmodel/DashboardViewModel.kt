@@ -33,6 +33,7 @@ private const val PIGGY_BANK_CATEGORY_NAME = "Пополнение копилк�
 
 data class DashboardState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
     val totalSavings: Double = 0.0,
@@ -71,111 +72,123 @@ class DashboardViewModel(
         }
     }
 
+    fun refreshData() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true)
+            loadDataSuspend()
+            _state.value = _state.value.copy(isRefreshing = false)
+        }
+    }
+
     fun loadData() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
-            try {
-                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                val year = now.year
-                val month = now.monthNumber
+            loadDataSuspend()
+        }
+    }
 
-                // Получаем или создаём месяц через репозиторий
-                val monthResult = monthRepository.getOrCreateMonth(currentUserId, year, month)
+    private suspend fun loadDataSuspend() {
+        try {
+            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val year = now.year
+            val month = now.monthNumber
 
-                val monthData =
-                    if (monthResult.isSuccess) {
-                        monthResult.getOrNull()!!
-                    } else {
-                        throw Exception("Failed to get or create month")
-                    }
+            // Получаем или создаём месяц через репозиторий
+            val monthResult = monthRepository.getOrCreateMonth(currentUserId, year, month)
 
-                // Фаза 1: Синхронизация с сервером
-                var isOffline = false
-                var summary: MonthSummary? = null
-                var trend: List<TrendItem> = emptyList()
-
-                try {
-                    categoryRepository.syncWithServer(currentUserId)
-                    savingsGoalRepository.syncWithServer(currentUserId)
-                    if (monthData.serverId != null) {
-                        expenseRepository.syncWithServer(currentUserId, monthData.localId)
-                        incomeRepository.syncWithServer(currentUserId, monthData.localId)
-                        summary = withRetry(config = RetryConfig(maxAttempts = 2)) {
-                            apiClient.getMonthSummary(monthData.serverId)
-                        }
-                        trend = withRetry(config = RetryConfig(maxAttempts = 2)) {
-                            apiClient.getTrend()
-                        }
-                    }
-                } catch (e: Exception) {
-                    isOffline = true
-                }
-
-                // Фаза 2: Читаем актуальные данные из локальной БД
-                var savingsGoals: List<SavingsGoal> = emptyList()
-                savingsGoalRepository
-                    .getAllSavingsGoals(currentUserId)
-                    .onSuccess { goals -> savingsGoals = goals }
-
-                var expenses: List<Expense> = emptyList()
-                expenseRepository
-                    .getExpensesByMonth(monthData.localId)
-                    .onSuccess { expenseList -> expenses = expenseList }
-
-                var incomes: List<Income> = emptyList()
-                incomeRepository
-                    .getIncomesByMonth(monthData.localId)
-                    .onSuccess { incomeList -> incomes = incomeList }
-
-                var categories: List<Category> = emptyList()
-                categoryRepository
-                    .getAllCategories(currentUserId)
-                    .onSuccess { cats -> categories = cats }
-
-                val totalSavings = savingsGoals.sumOf { it.currentAmount }
-
-                // Используем серверные данные если есть, иначе локальные
-                val totalIncome = summary?.income ?: incomes.sumOf { it.amount }
-                val totalExpense = summary?.expenses ?: expenses.sumOf { it.amount }
-                val available = totalIncome - totalExpense
-                val totalAssets = available + totalSavings
-                val savingsPercent =
-                    if (totalIncome > 0) {
-                        ((summary?.savings ?: 0.0) / totalIncome) * 100
-                    } else {
-                        0.0
-                    }
-
-                // Фильтруем по имени категории, не по ID
-                val piggyBankCategoryId = categories.find { it.name == PIGGY_BANK_CATEGORY_NAME }?.id
-                val visibleExpenses = if (piggyBankCategoryId != null) {
-                    expenses.filter { it.categoryId != piggyBankCategoryId }
+            val monthData =
+                if (monthResult.isSuccess) {
+                    monthResult.getOrNull()!!
                 } else {
-                    expenses
+                    throw Exception("Failed to get or create month")
                 }
-                val breakdown = buildExpenseBreakdown(visibleExpenses, categories)
 
-                _state.value =
-                    DashboardState(
-                        isLoading = false,
-                        totalIncome = totalIncome,
-                        totalExpense = totalExpense,
-                        totalSavings = totalSavings,
-                        savingsPercent = savingsPercent,
-                        available = available,
-                        totalAssets = totalAssets,
-                        trendData = trend,
-                        expenseBreakdown = breakdown,
-                        isOffline = isOffline,
-                    )
+            // Фаза 1: Синхронизация с сервером
+            var isOffline = false
+            var summary: MonthSummary? = null
+            var trend: List<TrendItem> = emptyList()
+
+            try {
+                categoryRepository.syncWithServer(currentUserId)
+                savingsGoalRepository.syncWithServer(currentUserId)
+                if (monthData.serverId != null) {
+                    expenseRepository.syncWithServer(currentUserId, monthData.localId)
+                    incomeRepository.syncWithServer(currentUserId, monthData.localId)
+                    summary = withRetry(config = RetryConfig(maxAttempts = 2)) {
+                        apiClient.getMonthSummary(monthData.serverId)
+                    }
+                    trend = withRetry(config = RetryConfig(maxAttempts = 2)) {
+                        apiClient.getTrend()
+                    }
+                }
             } catch (e: Exception) {
-                _state.value =
-                    _state.value.copy(
-                        isLoading = false,
-                        error = e.message ?: "Ошибка загрузки",
-                        isOffline = true,
-                    )
+                isOffline = true
             }
+
+            // Фаза 2: Читаем актуальные данные из локальной БД
+            var savingsGoals: List<SavingsGoal> = emptyList()
+            savingsGoalRepository
+                .getAllSavingsGoals(currentUserId)
+                .onSuccess { goals -> savingsGoals = goals }
+
+            var expenses: List<Expense> = emptyList()
+            expenseRepository
+                .getExpensesByMonth(monthData.localId)
+                .onSuccess { expenseList -> expenses = expenseList }
+
+            var incomes: List<Income> = emptyList()
+            incomeRepository
+                .getIncomesByMonth(monthData.localId)
+                .onSuccess { incomeList -> incomes = incomeList }
+
+            var categories: List<Category> = emptyList()
+            categoryRepository
+                .getAllCategories(currentUserId)
+                .onSuccess { cats -> categories = cats }
+
+            val totalSavings = savingsGoals.sumOf { it.currentAmount }
+
+            // Используем серверные данные если есть, иначе локальные
+            val totalIncome = summary?.income ?: incomes.sumOf { it.amount }
+            val totalExpense = summary?.expenses ?: expenses.sumOf { it.amount }
+            val available = totalIncome - totalExpense
+            val totalAssets = available + totalSavings
+            val savingsPercent =
+                if (totalIncome > 0) {
+                    ((summary?.savings ?: 0.0) / totalIncome) * 100
+                } else {
+                    0.0
+                }
+
+            // Фильтруем по имени категории, не по ID
+            val piggyBankCategoryId = categories.find { it.name == PIGGY_BANK_CATEGORY_NAME }?.id
+            val visibleExpenses = if (piggyBankCategoryId != null) {
+                expenses.filter { it.categoryId != piggyBankCategoryId }
+            } else {
+                expenses
+            }
+            val breakdown = buildExpenseBreakdown(visibleExpenses, categories)
+
+            _state.value =
+                DashboardState(
+                    isLoading = false,
+                    totalIncome = totalIncome,
+                    totalExpense = totalExpense,
+                    totalSavings = totalSavings,
+                    savingsPercent = savingsPercent,
+                    available = available,
+                    totalAssets = totalAssets,
+                    trendData = trend,
+                    expenseBreakdown = breakdown,
+                    isOffline = isOffline,
+                )
+        } catch (e: Exception) {
+            _state.value =
+                _state.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Ошибка загрузки",
+                    isOffline = true,
+                )
         }
     }
 

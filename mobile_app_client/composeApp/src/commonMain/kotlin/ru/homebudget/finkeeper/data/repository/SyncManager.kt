@@ -66,6 +66,17 @@ class SyncManager(
     }
 
     /**
+     * Вызывается из WebSocketService при получении события об изменении данных на сервере.
+     * Запускает синхронизацию с сервером и уведомляет ViewModels об обновлении.
+     */
+    fun notifyDataChanged() {
+        scope.launch {
+            syncAll()
+            _dataUpdated.tryEmit(Unit)
+        }
+    }
+
+    /**
      * Добавляет операцию в очередь синхронизации
      */
     fun enqueueSync(

@@ -39,6 +39,7 @@ import ru.homebudget.finkeeper.ui.components.IconLogOut
 import ru.homebudget.finkeeper.ui.components.IconPiggyBank
 import ru.homebudget.finkeeper.ui.components.IconReceipt
 import ru.homebudget.finkeeper.ui.components.IconSettings
+import ru.homebudget.finkeeper.ui.components.PullToRefreshWrapper
 import ru.homebudget.finkeeper.ui.screens.CategoriesScreen
 import ru.homebudget.finkeeper.ui.screens.DashboardScreen
 import ru.homebudget.finkeeper.ui.screens.MonthViewScreen
@@ -102,56 +103,76 @@ fun AppNavigation(
         Box(modifier = Modifier.padding(innerPadding)) {
             when (currentScreen) {
                 Screen.Dashboard ->
-                    DashboardScreen(
-                        state = dashboardState,
-                        onRefresh = { dashboardViewModel.loadData() },
-                    )
+                    PullToRefreshWrapper(
+                        isRefreshing = dashboardState.isRefreshing,
+                        onRefresh = { dashboardViewModel.refreshData() },
+                    ) {
+                        DashboardScreen(
+                            state = dashboardState,
+                            onRefresh = { dashboardViewModel.loadData() },
+                        )
+                    }
 
                 Screen.MonthView ->
-                    MonthViewScreen(
-                        state = monthState,
-                        onPrevMonth = { monthViewModel.prevMonth() },
-                        onNextMonth = { monthViewModel.nextMonth() },
-                        onSetActiveTab = { monthViewModel.setActiveTab(it) },
-                        onAddIncome = { source, amount -> monthViewModel.addIncome(source, amount) },
-                        onAddIncomeWithSourceCheck = { source, amount -> monthViewModel.addIncomeWithSourceCheck(source, amount) },
-                        onAddExpense = { catId, amount, comment -> monthViewModel.addExpense(catId, amount, comment) },
-                        onUpdateIncome = { id, amount -> monthViewModel.updateIncome(id, amount) },
-                        onUpdateExpense = { id, amount -> monthViewModel.updateExpense(id, amount) },
-                        onDeleteIncome = { monthViewModel.deleteIncome(it) },
-                        onDeleteExpense = { monthViewModel.deleteExpense(it) },
-                        onSetBudget = { catId, limit -> monthViewModel.setBudget(catId, limit) },
-                        onAddIncomeSource = { monthViewModel.addIncomeSource(it) },
-                        onConfirmAddIncomeSource = { monthViewModel.confirmAddIncomeSource() },
-                        onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
-                        onRefresh = { monthViewModel.loadData() },
-                    )
+                    PullToRefreshWrapper(
+                        isRefreshing = monthState.isRefreshing,
+                        onRefresh = { monthViewModel.refreshData() },
+                    ) {
+                        MonthViewScreen(
+                            state = monthState,
+                            onPrevMonth = { monthViewModel.prevMonth() },
+                            onNextMonth = { monthViewModel.nextMonth() },
+                            onSetActiveTab = { monthViewModel.setActiveTab(it) },
+                            onAddIncome = { source, amount -> monthViewModel.addIncome(source, amount) },
+                            onAddIncomeWithSourceCheck = { source, amount -> monthViewModel.addIncomeWithSourceCheck(source, amount) },
+                            onAddExpense = { catId, amount, comment -> monthViewModel.addExpense(catId, amount, comment) },
+                            onUpdateIncome = { id, amount -> monthViewModel.updateIncome(id, amount) },
+                            onUpdateExpense = { id, amount -> monthViewModel.updateExpense(id, amount) },
+                            onDeleteIncome = { monthViewModel.deleteIncome(it) },
+                            onDeleteExpense = { monthViewModel.deleteExpense(it) },
+                            onSetBudget = { catId, limit -> monthViewModel.setBudget(catId, limit) },
+                            onAddIncomeSource = { monthViewModel.addIncomeSource(it) },
+                            onConfirmAddIncomeSource = { monthViewModel.confirmAddIncomeSource() },
+                            onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
+                            onRefresh = { monthViewModel.loadData() },
+                        )
+                    }
 
                 Screen.Categories ->
-                    CategoriesScreen(
-                        state = categoriesState,
-                        onSetActiveTab = { categoriesViewModel.setActiveTab(it) },
-                        onAddCategory = { categoriesViewModel.addCategory(it) },
-                        onUpdateCategory = { id, name -> categoriesViewModel.updateCategory(id, name) },
-                        onDeactivateCategory = { categoriesViewModel.deactivateCategory(it) },
-                        onAddIncomeSource = { categoriesViewModel.addIncomeSource(it) },
-                        onUpdateIncomeSource = { id, name -> categoriesViewModel.updateIncomeSource(id, name) },
-                        onDeactivateIncomeSource = { categoriesViewModel.deactivateIncomeSource(it) },
-                        onRefresh = { categoriesViewModel.loadData() },
-                        onToggleReorderMode = { categoriesViewModel.toggleReorderMode() },
-                        onUpdateCategoriesOrder = { categoriesViewModel.updateCategoriesOrder(it) },
-                        onReorderCategories = { categoriesViewModel.reorderCategories(it) },
-                    )
+                    PullToRefreshWrapper(
+                        isRefreshing = categoriesState.isRefreshing,
+                        onRefresh = { categoriesViewModel.refreshData() },
+                    ) {
+                        CategoriesScreen(
+                            state = categoriesState,
+                            onSetActiveTab = { categoriesViewModel.setActiveTab(it) },
+                            onAddCategory = { categoriesViewModel.addCategory(it) },
+                            onUpdateCategory = { id, name -> categoriesViewModel.updateCategory(id, name) },
+                            onDeactivateCategory = { categoriesViewModel.deactivateCategory(it) },
+                            onAddIncomeSource = { categoriesViewModel.addIncomeSource(it) },
+                            onUpdateIncomeSource = { id, name -> categoriesViewModel.updateIncomeSource(id, name) },
+                            onDeactivateIncomeSource = { categoriesViewModel.deactivateIncomeSource(it) },
+                            onRefresh = { categoriesViewModel.loadData() },
+                            onToggleReorderMode = { categoriesViewModel.toggleReorderMode() },
+                            onUpdateCategoriesOrder = { categoriesViewModel.updateCategoriesOrder(it) },
+                            onReorderCategories = { categoriesViewModel.reorderCategories(it) },
+                        )
+                    }
 
                 Screen.Savings ->
-                    SavingsScreen(
-                        state = savingsState,
-                        onCreateGoal = { name, target -> savingsViewModel.createGoal(name, target) },
-                        onUpdateGoal = { id, name, target, current -> savingsViewModel.updateGoal(id, name, target, current) },
-                        onDeleteGoal = { savingsViewModel.deleteGoal(it) },
-                        onAddTransaction = { goalId, amount -> savingsViewModel.addTransaction(goalId, amount) },
-                        onRefresh = { savingsViewModel.loadData() },
-                    )
+                    PullToRefreshWrapper(
+                        isRefreshing = savingsState.isRefreshing,
+                        onRefresh = { savingsViewModel.refreshData() },
+                    ) {
+                        SavingsScreen(
+                            state = savingsState,
+                            onCreateGoal = { name, target -> savingsViewModel.createGoal(name, target) },
+                            onUpdateGoal = { id, name, target, current -> savingsViewModel.updateGoal(id, name, target, current) },
+                            onDeleteGoal = { savingsViewModel.deleteGoal(it) },
+                            onAddTransaction = { goalId, amount -> savingsViewModel.addTransaction(goalId, amount) },
+                            onRefresh = { savingsViewModel.loadData() },
+                        )
+                    }
 
                 Screen.Settings ->
                     SettingsScreen(

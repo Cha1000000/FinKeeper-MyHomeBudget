@@ -40,6 +40,7 @@ data class IncomeWithSource(
 
 data class MonthViewState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val year: Int = 0,
     val month: Int = 0,
     val monthData: MonthData? = null,
@@ -91,6 +92,14 @@ class MonthViewModel(
         }
     }
 
+    fun refreshData() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true)
+            loadDataSuspend()
+            _state.value = _state.value.copy(isRefreshing = false)
+        }
+    }
+
     fun setActiveTab(tab: Int) {
         _state.value = _state.value.copy(activeTab = tab)
     }
@@ -122,130 +131,134 @@ class MonthViewModel(
     fun loadData(syncFromServer: Boolean = true) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
-            try {
-                val s = _state.value
+            loadDataSuspend(syncFromServer)
+        }
+    }
 
-                // Получаем или создаём месяц через репозиторий
-                val monthResult = monthRepository.getOrCreateMonth(currentUserId, s.year, s.month)
-                val monthData =
-                    if (monthResult.isSuccess) {
-                        monthResult.getOrNull()!!
-                    } else {
-                        throw Exception("Failed to get or create month")
-                    }
+    private suspend fun loadDataSuspend(syncFromServer: Boolean = true) {
+        try {
+            val s = _state.value
 
-                // Фаза 1: Синхронизируем данные с сервером (если онлайн)
-                // Пропускаем синхронизацию после локальных мутаций (delete/update),
-                // чтобы не перезаписать ещё не отправленные изменения
-                var isOffline = _state.value.isOffline
-                if (syncFromServer) {
-                    isOffline = false
-                    try {
-                        categoryRepository.syncWithServer(currentUserId)
-                        incomeSourceRepository.syncWithServer(currentUserId)
-                        if (monthData.serverId != null) {
-                            incomeRepository.syncWithServer(currentUserId, monthData.localId)
-                            expenseRepository.syncWithServer(currentUserId, monthData.localId)
-                            budgetRepository.syncWithServer(currentUserId, monthData.localId)
-                        }
-                    } catch (e: Exception) {
-                        isOffline = true
-                    }
+            // Получаем или создаём месяц через репозиторий
+            val monthResult = monthRepository.getOrCreateMonth(currentUserId, s.year, s.month)
+            val monthData =
+                if (monthResult.isSuccess) {
+                    monthResult.getOrNull()!!
+                } else {
+                    throw Exception("Failed to get or create month")
                 }
 
-                // Фаза 2: Читаем актуальные данные из локальной БД
-                var incomes: List<Income> = emptyList()
-                incomeRepository
-                    .getIncomesByMonth(monthData.localId)
-                    .onSuccess { incomeList ->
-                        incomes = incomeList
+            // Фаза 1: Синхронизируем данные с сервером (если онлайн)
+            // Пропускаем синхронизацию после локальных мутаций (delete/update),
+            // чтобы не перезаписать ещё не отправленные изменения
+            var isOffline = _state.value.isOffline
+            if (syncFromServer) {
+                isOffline = false
+                try {
+                    categoryRepository.syncWithServer(currentUserId)
+                    incomeSourceRepository.syncWithServer(currentUserId)
+                    if (monthData.serverId != null) {
+                        incomeRepository.syncWithServer(currentUserId, monthData.localId)
+                        expenseRepository.syncWithServer(currentUserId, monthData.localId)
+                        budgetRepository.syncWithServer(currentUserId, monthData.localId)
                     }
-
-                var allExpenses: List<Expense> = emptyList()
-                expenseRepository
-                    .getExpensesByMonth(monthData.localId)
-                    .onSuccess { expenseList ->
-                        allExpenses = expenseList
-                    }
-
-                var categories: List<Category> = emptyList()
-                categoryRepository
-                    .getAllCategories(currentUserId)
-                    .onSuccess { categoryList ->
-                        categories = categoryList
-                    }
-
-                var budgets: List<Budget> = emptyList()
-                budgetRepository
-                    .getBudgetsByMonth(monthData.localId)
-                    .onSuccess { budgetList ->
-                        budgets = budgetList
-                    }
-
-                var incomeSources: List<IncomeSource> = emptyList()
-                incomeSourceRepository
-                    .getAllIncomeSources(currentUserId)
-                    .onSuccess { sourceList ->
-                        incomeSources = sourceList
-                    }
-
-                // Фильтруем расходы - исключаем категорию "Пополнение копилки"
-                val piggyBankCategoryId = categories.find { it.name == "Пополнение копилки" }?.id
-                val visibleExpenses =
-                    if (piggyBankCategoryId != null) {
-                        allExpenses.filter { it.categoryId != piggyBankCategoryId }
-                    } else {
-                        allExpenses
-                    }
-
-                // Присоединяем названия источников к доходам
-                val incomesWithSources =
-                    incomes.map { income ->
-                        val sourceId = income.source.toLongOrNull()
-                        val matchedSource = if (sourceId != null && sourceId != 0L) {
-                            incomeSources.find { it.id.toLong() == sourceId }
-                        } else null
-                        val sourceName = matchedSource?.name
-                            ?: income.description
-                            ?: income.source
-                        IncomeWithSource(
-                            id = income.id,
-                            sourceName = sourceName,
-                            amount = income.amount,
-                            date = income.date,
-                        )
-                    }
-
-                val totalIncome = incomes.sumOf { it.amount }
-                val totalExpense = visibleExpenses.sumOf { it.amount }
-                val totalLimit = budgets.sumOf { it.limitAmount }
-
-                val grouped = buildGroupedExpenses(visibleExpenses, categories, budgets)
-
-                _state.value =
-                    _state.value.copy(
-                        isLoading = false,
-                        monthData = monthData,
-                        incomes = incomes,
-                        incomesWithSources = incomesWithSources,
-                        expenses = visibleExpenses,
-                        categories = categories,
-                        incomeSources = incomeSources,
-                        budgets = budgets,
-                        groupedExpenses = grouped,
-                        totalIncome = totalIncome,
-                        totalExpense = totalExpense,
-                        totalLimit = totalLimit,
-                        isOffline = isOffline,
-                    )
-            } catch (e: Exception) {
-                _state.value =
-                    _state.value.copy(
-                        isLoading = false,
-                        error = e.message ?: "Ошибка загрузки",
-                        isOffline = true,
-                    )
+                } catch (e: Exception) {
+                    isOffline = true
+                }
             }
+
+            // Фаза 2: Читаем актуальные данные из локальной БД
+            var incomes: List<Income> = emptyList()
+            incomeRepository
+                .getIncomesByMonth(monthData.localId)
+                .onSuccess { incomeList ->
+                    incomes = incomeList
+                }
+
+            var allExpenses: List<Expense> = emptyList()
+            expenseRepository
+                .getExpensesByMonth(monthData.localId)
+                .onSuccess { expenseList ->
+                    allExpenses = expenseList
+                }
+
+            var categories: List<Category> = emptyList()
+            categoryRepository
+                .getAllCategories(currentUserId)
+                .onSuccess { categoryList ->
+                    categories = categoryList
+                }
+
+            var budgets: List<Budget> = emptyList()
+            budgetRepository
+                .getBudgetsByMonth(monthData.localId)
+                .onSuccess { budgetList ->
+                    budgets = budgetList
+                }
+
+            var incomeSources: List<IncomeSource> = emptyList()
+            incomeSourceRepository
+                .getAllIncomeSources(currentUserId)
+                .onSuccess { sourceList ->
+                    incomeSources = sourceList
+                }
+
+            // Фильтруем расходы - исключаем категорию "Пополнение копилки"
+            val piggyBankCategoryId = categories.find { it.name == "Пополнение копилки" }?.id
+            val visibleExpenses =
+                if (piggyBankCategoryId != null) {
+                    allExpenses.filter { it.categoryId != piggyBankCategoryId }
+                } else {
+                    allExpenses
+                }
+
+            // Присоединяем названия источников к доходам
+            val incomesWithSources =
+                incomes.map { income ->
+                    val sourceId = income.source.toLongOrNull()
+                    val matchedSource = if (sourceId != null && sourceId != 0L) {
+                        incomeSources.find { it.id.toLong() == sourceId }
+                    } else null
+                    val sourceName = matchedSource?.name
+                        ?: income.description
+                        ?: income.source
+                    IncomeWithSource(
+                        id = income.id,
+                        sourceName = sourceName,
+                        amount = income.amount,
+                        date = income.date,
+                    )
+                }
+
+            val totalIncome = incomes.sumOf { it.amount }
+            val totalExpense = visibleExpenses.sumOf { it.amount }
+            val totalLimit = budgets.sumOf { it.limitAmount }
+
+            val grouped = buildGroupedExpenses(visibleExpenses, categories, budgets)
+
+            _state.value =
+                _state.value.copy(
+                    isLoading = false,
+                    monthData = monthData,
+                    incomes = incomes,
+                    incomesWithSources = incomesWithSources,
+                    expenses = visibleExpenses,
+                    categories = categories,
+                    incomeSources = incomeSources,
+                    budgets = budgets,
+                    groupedExpenses = grouped,
+                    totalIncome = totalIncome,
+                    totalExpense = totalExpense,
+                    totalLimit = totalLimit,
+                    isOffline = isOffline,
+                )
+        } catch (e: Exception) {
+            _state.value =
+                _state.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Ошибка загрузки",
+                    isOffline = true,
+                )
         }
     }
 

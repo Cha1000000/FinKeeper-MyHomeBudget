@@ -7,6 +7,7 @@ import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import ru.homebudget.finkeeper.data.repository.SyncService
+import ru.homebudget.finkeeper.data.repository.WebSocketService
 import ru.homebudget.finkeeper.di.androidAppModule
 import ru.homebudget.finkeeper.di.appModule
 
@@ -25,6 +26,8 @@ class FinKeeperApp : Application() {
             try {
                 val syncService = GlobalContext.get().getOrNull<SyncService>()
                 syncService?.start()
+                val webSocketService = GlobalContext.get().getOrNull<WebSocketService>()
+                webSocketService?.start()
             } catch (e: Exception) {
                 // Игнорируем ошибки синхронизации - приложение всё равно работает
                 android.util.Log.e("FinKeeperApp", "Failed to start sync service: ${e.message}")
@@ -37,6 +40,8 @@ class FinKeeperApp : Application() {
         try {
             val syncService = GlobalContext.get().getOrNull<SyncService>()
             syncService?.stop()
+            val webSocketService = GlobalContext.get().getOrNull<WebSocketService>()
+            webSocketService?.stop()
         } catch (e: Exception) {
             android.util.Log.e("FinKeeperApp", "Failed to stop sync service: ${e.message}")
         }

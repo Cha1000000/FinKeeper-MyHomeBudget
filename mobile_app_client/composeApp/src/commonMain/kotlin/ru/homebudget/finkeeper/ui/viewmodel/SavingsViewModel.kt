@@ -20,6 +20,7 @@ import ru.homebudget.finkeeper.util.currentIsoDate
 
 data class SavingsState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val goals: List<SavingsGoal> = emptyList(),
     val error: String? = null,
     val isOffline: Boolean = false,
@@ -51,30 +52,42 @@ class SavingsViewModel(
         }
     }
 
+    fun refreshData() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true)
+            loadDataSuspend()
+            _state.value = _state.value.copy(isRefreshing = false)
+        }
+    }
+
     fun loadData() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
-            try {
-                // Получаем цели через репозиторий
-                var goals: List<SavingsGoal> = emptyList()
-                savingsGoalRepository
-                    .getAllSavingsGoals(currentUserId)
-                    .onSuccess { goalList ->
-                        goals = goalList
-                    }
+            loadDataSuspend()
+        }
+    }
 
-                // Синхронизируем с сервером
-                savingsGoalRepository.syncWithServer(currentUserId)
+    private suspend fun loadDataSuspend() {
+        try {
+            // Получаем цели через репозиторий
+            var goals: List<SavingsGoal> = emptyList()
+            savingsGoalRepository
+                .getAllSavingsGoals(currentUserId)
+                .onSuccess { goalList ->
+                    goals = goalList
+                }
 
-                _state.value = _state.value.copy(isLoading = false, goals = goals, isOffline = false)
-            } catch (e: Exception) {
-                _state.value =
-                    _state.value.copy(
-                        isLoading = false,
-                        error = e.message ?: "Ошибка загрузки",
-                        isOffline = true,
-                    )
-            }
+            // Синхронизируем с сервером
+            savingsGoalRepository.syncWithServer(currentUserId)
+
+            _state.value = _state.value.copy(isLoading = false, goals = goals, isOffline = false)
+        } catch (e: Exception) {
+            _state.value =
+                _state.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Ошибка загрузки",
+                    isOffline = true,
+                )
         }
     }
 

@@ -18,6 +18,7 @@ import ru.homebudget.finkeeper.data.repository.onSuccess
 
 data class CategoriesState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val categories: List<Category> = emptyList(),
     val incomeSources: List<IncomeSource> = emptyList(),
     val activeTab: Int = 0, // 0 = categories, 1 = income sources
@@ -50,49 +51,61 @@ class CategoriesViewModel(
         }
     }
 
+    fun refreshData() {
+        viewModelScope.launch {
+            _state.update { it.copy(isRefreshing = true) }
+            loadDataSuspend()
+            _state.update { it.copy(isRefreshing = false) }
+        }
+    }
+
     fun loadData() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
+            loadDataSuspend()
+        }
+    }
 
-            try {
-                // Получаем категории через репозиторий
-                var categories: List<Category> = emptyList()
-                categoryRepository
-                    .getAllCategories(currentUserId)
-                    .onSuccess { categoryList ->
-                        categories = categoryList
-                    }
+    private suspend fun loadDataSuspend() {
 
-                // Синхронизируем категории с сервером
-                categoryRepository.syncWithServer(currentUserId)
-
-                // Получаем источники дохода через репозиторий
-                var incomeSources: List<IncomeSource> = emptyList()
-                incomeSourceRepository
-                    .getAllIncomeSources(currentUserId)
-                    .onSuccess { sourceList ->
-                        incomeSources = sourceList
-                    }
-
-                // Синхронизируем источники дохода с сервером
-                incomeSourceRepository.syncWithServer(currentUserId)
-
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        categories = categories,
-                        incomeSources = incomeSources,
-                        isOffline = false,
-                    )
+        try {
+            // Получаем категории через репозиторий
+            var categories: List<Category> = emptyList()
+            categoryRepository
+                .getAllCategories(currentUserId)
+                .onSuccess { categoryList ->
+                    categories = categoryList
                 }
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        error = e.message ?: "Ошибка загрузки данных",
-                        isOffline = true,
-                    )
+
+            // Синхронизируем категории с сервером
+            categoryRepository.syncWithServer(currentUserId)
+
+            // Получаем источники дохода через репозиторий
+            var incomeSources: List<IncomeSource> = emptyList()
+            incomeSourceRepository
+                .getAllIncomeSources(currentUserId)
+                .onSuccess { sourceList ->
+                    incomeSources = sourceList
                 }
+
+            // Синхронизируем источники дохода с сервером
+            incomeSourceRepository.syncWithServer(currentUserId)
+
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    categories = categories,
+                    incomeSources = incomeSources,
+                    isOffline = false,
+                )
+            }
+        } catch (e: Exception) {
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    error = e.message ?: "Ошибка загрузки данных",
+                    isOffline = true,
+                )
             }
         }
     }

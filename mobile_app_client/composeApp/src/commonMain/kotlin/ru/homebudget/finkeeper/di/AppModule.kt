@@ -6,6 +6,7 @@ import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.SyncManager
 import ru.homebudget.finkeeper.data.repository.SyncService
+import ru.homebudget.finkeeper.data.repository.WebSocketService
 import ru.homebudget.finkeeper.data.repository.budget.BudgetRepository
 import ru.homebudget.finkeeper.data.repository.category.CategoryRepository
 import ru.homebudget.finkeeper.data.repository.expense.ExpenseRepository
@@ -82,4 +83,7 @@ val appModule =
 
         // Сервис авто-синхронизации
         single { SyncService(get(), get(), get(), get()) }
+
+        // WebSocket сервис для real-time обновлений
+        single { WebSocketService(get(), get()) }
     }
