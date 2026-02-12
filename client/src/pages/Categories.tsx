@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Check, X } from 'lucide-react';
 import api, { getCategories, getIncomeSources } from '../api';
 import type { Category, IncomeSource } from '../api';
 import Modal from '../components/Modal';
+import { useDataChanged } from '../hooks/useWebSocket';
 
 type TabType = 'expenses' | 'income';
 
@@ -36,6 +37,9 @@ const Categories: React.FC = () => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchData();
     }, [fetchData]);
+
+    // Refresh on WebSocket data changes
+    useDataChanged(['category', 'income_source', 'all'], () => { fetchData(); });
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();

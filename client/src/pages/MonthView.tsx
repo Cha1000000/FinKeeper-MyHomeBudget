@@ -13,6 +13,7 @@ import {
 import type { Month, Income, Expense, Category, Budget, IncomeSource } from '../api';
 import { formatCurrency, formatDate } from '../utils';
 import Modal from '../components/Modal';
+import { useDataChanged } from '../hooks/useWebSocket';
 
 interface GroupedExpense {
     id: number;
@@ -184,6 +185,9 @@ const MonthView: React.FC = () => {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    // Refresh on WebSocket data changes
+    useDataChanged(['income', 'expense', 'category', 'budget', 'income_source', 'all'], () => { loadData(); });
 
     const handlePrevMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
