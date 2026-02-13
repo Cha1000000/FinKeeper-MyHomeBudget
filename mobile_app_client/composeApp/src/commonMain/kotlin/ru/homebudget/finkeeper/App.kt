@@ -2,11 +2,13 @@ package ru.homebudget.finkeeper
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
+import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.navigation.AppNavigation
 import ru.homebudget.finkeeper.ui.screens.LoginScreen
+import ru.homebudget.finkeeper.ui.screens.SplashScreen
 import ru.homebudget.finkeeper.ui.theme.FinKeeperTheme
 import ru.homebudget.finkeeper.ui.theme.ThemePalette
 import ru.homebudget.finkeeper.ui.viewmodel.*
@@ -28,8 +30,14 @@ fun App() {
         val authViewModel = koinInject<AuthViewModel>()
         val authState by authViewModel.state.collectAsState()
 
+        var isSplashTimeFinished by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(2000)
+            isSplashTimeFinished = true
+        }
+
         when {
-            authState.isLoading -> LoadingScreen()
+            authState.isLoading || !isSplashTimeFinished -> SplashScreen()
             authState.user == null -> LoginScreen(
                 state = authState,
                 onLogin = { u, p -> authViewModel.login(u, p) },
