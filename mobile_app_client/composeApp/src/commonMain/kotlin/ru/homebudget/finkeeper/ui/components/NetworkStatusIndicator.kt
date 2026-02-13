@@ -12,6 +12,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.StateFlow
 import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
 import ru.homebudget.finkeeper.data.repository.SyncManager
@@ -36,9 +38,13 @@ fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
     val networkMonitor = koinInject<NetworkMonitor>()
     val syncManager = koinInject<SyncManager>()
 
-    val isOnline by networkMonitor.isOnline.collectAsState()
-    val isSyncing by syncManager.isSyncing.collectAsState()
-    val pendingCount by syncManager.pendingCount.collectAsState()
+    val isOnlineState: State<Boolean> = networkMonitor.isOnline.collectAsState()
+    val isSyncingState: State<Boolean> = syncManager.isSyncing.collectAsState()
+    val pendingCountState: State<Long> = syncManager.pendingCount.collectAsState()
+    
+    val isOnline = isOnlineState.value
+    val isSyncing = isSyncingState.value
+    val pendingCount = pendingCountState.value
 
     Row(
         modifier = modifier,

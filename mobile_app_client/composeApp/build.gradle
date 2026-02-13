@@ -36,6 +36,7 @@ apply plugin: 'com.squareup.sqldelight'
 sqldelight {
     FinKeeperDatabase {
         packageName = 'ru.homebudget.finkeeper.data.local.database'
+        linkSqlite = true
     }
 }
 
@@ -44,6 +45,14 @@ kotlin {
         compilations.all {
             kotlinOptions {
                 jvmTarget = '11'
+            }
+        }
+    }
+
+    jvm("desktop") {
+        compilations.all {
+            kotlinOptions {
+                jvmTarget = '17'
             }
         }
     }
@@ -66,9 +75,6 @@ kotlin {
                 implementation compose.components.resources
                 implementation 'org.jetbrains.compose.ui:ui-tooling-preview:1.6.10'
 
-                implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3'
-                implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.3'
-
                 // Ktor
                 implementation "io.ktor:ktor-client-core:$ktor_version"
                 implementation "io.ktor:ktor-client-content-negotiation:$ktor_version"
@@ -82,15 +88,11 @@ kotlin {
                 implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_coroutines_version"
                 implementation "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_datetime_version"
 
-                // Navigation
-                implementation "androidx.navigation:navigation-compose:$navigation_version"
-
                 // Multiplatform Settings
                 implementation "com.russhwolf:multiplatform-settings-no-arg:$multiplatform_settings_version"
 
-                // Koin
+                // Koin - core only in common
                 implementation "io.insert-koin:koin-core:$koin_version"
-                implementation "io.insert-koin:koin-androidx-compose:$koin_version"
 
                 // SQLDelight
                 implementation "com.squareup.sqldelight:runtime:$sqldelight_version"
@@ -98,11 +100,6 @@ kotlin {
 
                 // Reorderable
                 implementation "sh.calvin.reorderable:reorderable:2.3.3"
-
-                // Vico Charts
-                implementation "com.patrykandpatrick.vico:compose:2.0.0-beta.4"
-                implementation "com.patrykandpatrick.vico:compose-m3:2.0.0-beta.4"
-                implementation "com.patrykandpatrick.vico:core:2.0.0-beta.4"
             }
         }
         androidMain {
@@ -110,7 +107,11 @@ kotlin {
                 implementation 'androidx.activity:activity-compose:1.9.0'
                 implementation "io.ktor:ktor-client-okhttp:$ktor_version"
                 implementation "io.insert-koin:koin-android:$koin_version"
+                implementation "io.insert-koin:koin-androidx-compose:$koin_version"
                 implementation "com.squareup.sqldelight:android-driver:$sqldelight_version"
+                implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3'
+                implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.3'
+                implementation "androidx.navigation:navigation-compose:$navigation_version"
             }
         }
         iosMain {
@@ -118,6 +119,18 @@ kotlin {
                 implementation "io.ktor:ktor-client-darwin:$ktor_version"
                 implementation "io.insert-koin:koin-core:$koin_version"
                 implementation "com.squareup.sqldelight:native-driver:$sqldelight_version"
+            }
+        }
+        desktopMain {
+            dependencies {
+                implementation compose.desktop.currentOs
+                implementation "io.ktor:ktor-client-cio:$ktor_version"
+                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-swing:$kotlinx_coroutines_version"
+                implementation "io.insert-koin:koin-core:$koin_version"
+                implementation "io.insert-koin:koin-compose:1.2.0-alpha3"
+                implementation "com.squareup.sqldelight:sqlite-driver:$sqldelight_version"
+                // Lifecycle for desktop
+                implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0"
             }
         }
         commonTest {
@@ -182,6 +195,45 @@ android {
         variant.outputs.all { output ->
             def outputFile = output.outputFileName
             output.outputFileName = "FinKeeper-mobileApp-v${versionName}-${variant.name}.apk"
+        }
+    }
+}
+
+// Compose Desktop packaging configuration
+compose.desktop {
+    application {
+        mainClass = "ru.homebudget.finkeeper.MainKt"
+
+        nativeDistributions {
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg)
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Pkg)
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
+
+            modules("java.instrument", "java.management", "java.prefs", "java.sql", "jdk.unsupported")
+
+            packageName = "FinKeeper"
+            packageVersion = "1.0.0"
+
+            macOS {
+                bundleID = "ru.homebudget.finkeeper"
+                packageName = "FinKeeper"
+                dockName = "FinKeeper"
+            }
+
+            windows {
+                packageName = "FinKeeper"
+                description = "FinKeeper - Personal Finance Manager"
+                vendor = "HomeBudget"
+                shortcut = true
+                menuGroup = "FinKeeper"
+            }
+
+            linux {
+                packageName = "finkeeper"
+                debMaintainer = "finkeeper@homebudget.ru"
+                appCategory = "Office"
+            }
         }
     }
 }

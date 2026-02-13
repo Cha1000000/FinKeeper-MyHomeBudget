@@ -204,8 +204,9 @@ fun IconSettings(color: Color, size: Dp = 24.dp) {
                 gearPath.moveTo(xInner, yInner)
             }
             
-            // Draw tooth as a rounded curve
-            gearPath.quadraticTo(xTooth, yTooth, 
+            // Draw tooth as a rounded curve using lineTo (quadraticTo not available on desktop)
+            gearPath.lineTo(xTooth, yTooth)
+            gearPath.lineTo(
                 cx + innerR * kotlin.math.cos(nextAngle.toDouble()).toFloat(),
                 cy + innerR * kotlin.math.sin(nextAngle.toDouble()).toFloat()
             )
