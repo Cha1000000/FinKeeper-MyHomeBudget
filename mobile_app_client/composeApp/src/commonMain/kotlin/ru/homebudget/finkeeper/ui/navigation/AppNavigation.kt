@@ -220,9 +220,8 @@ private fun GradientBottomBar(
             Brush.horizontalGradient(
                 colors =
                     listOf(
-                        Color(0xFF0D1520),
-                        Color(0xFF111D2B),
-                        Color(0xFF0D1520),
+                        semantic.navBarColor,
+                        semantic.navBarColor,
                     ),
             )
         } else {
@@ -236,8 +235,8 @@ private fun GradientBottomBar(
             )
         }
 
-    val activeColor = if (isDark) Color(0xFF00E676) else Color.White
-    val inactiveColor = if (isDark) Color(0xFF4A6070) else Color(0xBBD1FAE5)
+    val activeColor = if (isDark) semantic.navBarContent else Color.White
+    val inactiveColor = if (isDark) semantic.navBarContentInactive else Color(0xBBD1FAE5)
 
     val navigationBarInsets = WindowInsets.navigationBars
     Box(
