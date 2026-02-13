@@ -160,3 +160,49 @@ val ChartColors = listOf(
     Color(0xFFEA580C),
     Color(0xFF4F46E5),
 )
+
+// ── Dark Night Theme Colors (Reference based) ──
+val PrimaryDarkNight = Color(0xFF9773FE)         // Purple
+val OnPrimaryDarkNight = Color(0xFFFFFFFF)
+val PrimaryContainerDarkNight = Color(0xFF2D1F4C) // Darker purple
+val OnPrimaryContainerDarkNight = Color(0xFFEADBFF)
+
+val SecondaryDarkNight = Color(0xFF75E8FF)       // Cyan
+val OnSecondaryDarkNight = Color(0xFF003544)
+val SecondaryContainerDarkNight = Color(0xFF004D61)
+val OnSecondaryContainerDarkNight = Color(0xFFBCE9FF)
+
+val TertiaryDarkNight = Color(0xFFECECEC)        // Light Grey / White accent
+val OnTertiaryDarkNight = Color(0xFF1A1625)
+
+val ErrorDarkNight = Color(0xFFFFB4AB)
+val OnErrorDarkNight = Color(0xFF690005)
+val ErrorContainerDarkNight = Color(0xFF93000A)
+val OnErrorContainerDarkNight = Color(0xFFFFDAD6)
+
+val BackgroundDarkNight = Color(0xFF05010A)      // Deep dark background
+val OnBackgroundDarkNight = Color(0xFFECECEC)
+val SurfaceDarkNight = Color(0xFF120D18)         // Slightly lighter than bg
+val OnSurfaceDarkNight = Color(0xFFECECEC)
+val SurfaceVariantDarkNight = Color(0xFF2A2533)
+val OnSurfaceVariantDarkNight = Color(0xFFD3D3D3) // Grey text
+val OutlineDarkNight = Color(0xFF49454F)
+val OutlineVariantDarkNight = Color(0xFF2A2533)
+
+val NavBarDarkNight = Color(0xFF05010A)
+val NavBarContentDarkNight = Color(0xFF9773FE)
+val NavBarContentInactiveDarkNight = Color(0xFF49454F)
+
+val IncomeColorDarkNight = Color(0xFF75E8FF)     // Cyan for Income
+val ExpenseColorDarkNight = Color(0xFFFF5252)    // Bright Red for Expense
+val SavingsColorDarkNight = Color(0xFF9773FE)    // Purple for Savings
+val WarningDarkNight = Color(0xFFFFD740)
+val TealColorDarkNight = Color(0xFF64FFDA)
+val AvailableColorDarkNight = Color(0xFFB2FF59)
+
+val IncomeCardBgDarkNight = Color(0xFF0A181A)
+val ExpenseCardBgDarkNight = Color(0xFF1A0A0A)
+val SavingsCardBgDarkNight = Color(0xFF140F1F)
+val WarningCardBgDarkNight = Color(0xFF1A160A)
+val TealCardBgDarkNight = Color(0xFF0A1A16)
+val AvailableCardBgDarkNight = Color(0xFF121A0A)

@@ -112,6 +112,7 @@ object Strings {
     const val THEME_SYSTEM = "Как в системе"
     const val THEME_LIGHT = "Светлая"
     const val THEME_DARK = "Тёмная"
+    const val THEME_DARK_NIGHT = "Тёмная ночь"
     const val THEME_CYBERPUNK = "Cyberpunk"
     const val LOGOUT = "Выйти из аккаунта"
     const val CHANGE_NAME = "Сменить имя"

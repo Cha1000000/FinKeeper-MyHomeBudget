@@ -199,6 +199,7 @@ fun SettingsScreen(
                     "system" to Strings.THEME_SYSTEM,
                     "light" to Strings.THEME_LIGHT,
                     "night" to Strings.THEME_DARK,
+                    "dark_night" to Strings.THEME_DARK_NIGHT,
                     "dark" to Strings.THEME_CYBERPUNK,
                 )
                 themeOptions.forEach { (mode, label) ->

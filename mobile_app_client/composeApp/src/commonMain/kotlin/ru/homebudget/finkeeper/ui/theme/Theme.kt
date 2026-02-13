@@ -87,10 +87,36 @@ private val CyberpunkColorScheme = darkColorScheme(
     outlineVariant = OutlineVariantCyberpunk,
 )
 
+private val DarkNightColorScheme = darkColorScheme(
+    primary = PrimaryDarkNight,
+    onPrimary = OnPrimaryDarkNight,
+    primaryContainer = PrimaryContainerDarkNight,
+    onPrimaryContainer = OnPrimaryContainerDarkNight,
+    secondary = SecondaryDarkNight,
+    onSecondary = OnSecondaryDarkNight,
+    secondaryContainer = SecondaryContainerDarkNight,
+    onSecondaryContainer = OnSecondaryContainerDarkNight,
+    tertiary = TertiaryDarkNight,
+    onTertiary = OnTertiaryDarkNight,
+    error = ErrorDarkNight,
+    onError = OnErrorDarkNight,
+    errorContainer = ErrorContainerDarkNight,
+    onErrorContainer = OnErrorContainerDarkNight,
+    background = BackgroundDarkNight,
+    onBackground = OnBackgroundDarkNight,
+    surface = SurfaceDarkNight,
+    onSurface = OnSurfaceDarkNight,
+    surfaceVariant = SurfaceVariantDarkNight,
+    onSurfaceVariant = OnSurfaceVariantDarkNight,
+    outline = OutlineDarkNight,
+    outlineVariant = OutlineVariantDarkNight,
+)
+
 enum class ThemePalette {
     Light,
     Dark,
     Cyberpunk,
+    DarkNight,
 }
 
 data class AppSemanticColors(
@@ -147,6 +173,24 @@ val DarkSemanticColors = AppSemanticColors(
     navBarContentInactive = NavBarContentInactiveDark,
 )
 
+val DarkNightSemanticColors = AppSemanticColors(
+    incomeColor = IncomeColorDarkNight,
+    expenseColor = ExpenseColorDarkNight,
+    savingsColor = SavingsColorDarkNight,
+    warningColor = WarningDarkNight,
+    tealColor = TealColorDarkNight,
+    availableColor = AvailableColorDarkNight,
+    incomeCardBg = IncomeCardBgDarkNight,
+    expenseCardBg = ExpenseCardBgDarkNight,
+    savingsCardBg = SavingsCardBgDarkNight,
+    warningCardBg = WarningCardBgDarkNight,
+    tealCardBg = TealCardBgDarkNight,
+    availableCardBg = AvailableCardBgDarkNight,
+    navBarColor = NavBarDarkNight,
+    navBarContent = NavBarContentDarkNight,
+    navBarContentInactive = NavBarContentInactiveDarkNight,
+)
+
 val CyberpunkSemanticColors = AppSemanticColors(
     incomeColor = IncomeColorCyberpunk,
     expenseColor = ExpenseColorCyberpunk,
@@ -200,12 +244,14 @@ fun FinKeeperTheme(
             ThemePalette.Light -> LightColorScheme
             ThemePalette.Dark -> DarkColorScheme
             ThemePalette.Cyberpunk -> CyberpunkColorScheme
+            ThemePalette.DarkNight -> DarkNightColorScheme
         }
     val semanticColors =
         when (palette) {
             ThemePalette.Light -> LightSemanticColors
             ThemePalette.Dark -> DarkSemanticColors
             ThemePalette.Cyberpunk -> CyberpunkSemanticColors
+            ThemePalette.DarkNight -> DarkNightSemanticColors
         }
 
     CompositionLocalProvider(LocalSemanticColors provides semanticColors) {
