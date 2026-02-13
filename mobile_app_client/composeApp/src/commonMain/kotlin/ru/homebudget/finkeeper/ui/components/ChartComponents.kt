@@ -528,7 +528,7 @@ private fun BarChartCanvas(
 private fun MonthLabelsRow(trendData: List<TrendItem>) {
     val barWidth = 12.dp
     val barGap = 4.dp
-    val groupGap = 16.dp
+    val groupGap = 14.dp
     val groupWidth = barWidth * 3 + barGap * 2
     val totalGroupsWidth = groupWidth * trendData.size + groupGap * (trendData.size - 1).coerceAtLeast(0)
 
