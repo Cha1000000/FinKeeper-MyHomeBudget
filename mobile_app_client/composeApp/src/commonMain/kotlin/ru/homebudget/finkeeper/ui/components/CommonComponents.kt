@@ -80,36 +80,36 @@ fun SummaryCard(
     subtitle: String? = null,
     onClick: (() -> Unit)? = null
 ) {
-    Card(
+    GlassyCard(
         modifier = modifier
             .fillMaxWidth()
-            .neonGlow(contentColor, shape = RoundedCornerShape(16.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
+        shape = RoundedCornerShape(24.dp),
+        baseColor = backgroundColor,
+        highlightColor = contentColor
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(20.dp)
         ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = contentColor.copy(alpha = 0.7f)
+                color = contentColor.copy(alpha = 0.9f)
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
                 color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             if (subtitle != null) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = contentColor.copy(alpha = 0.6f)
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor.copy(alpha = 0.7f)
                 )
             }
         }
@@ -122,7 +122,7 @@ fun ProgressBar(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-    height: Int = 6
+    height: Int = 8
 ) {
     Box(
         modifier = modifier
@@ -135,7 +135,7 @@ fun ProgressBar(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
-                .neonGlow(color, radius = 8.dp, shape = RoundedCornerShape(height.dp / 2))
+                .neonGlow(color, radius = 6.dp, shape = RoundedCornerShape(height.dp / 2))
                 .clip(RoundedCornerShape(height.dp / 2))
                 .background(color)
         )
@@ -159,7 +159,12 @@ fun AppTextField(
     onImmediateValueChange: ((String) -> Unit)? = null
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val containerColor = if (isDark) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    // Более "стеклянный" фон для инпутов
+    val containerColor = if (isDark) 
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f) 
+    else 
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        
     val updatedOnValueChange by rememberUpdatedState(onValueChange)
     val updatedOnImmediateValueChange by rememberUpdatedState(onImmediateValueChange)
     var internalValue by remember { mutableStateOf(value) }
@@ -205,11 +210,13 @@ fun AppTextField(
             focusedContainerColor = containerColor,
             unfocusedContainerColor = containerColor,
             disabledContainerColor = containerColor.copy(alpha = 0.2f),
+            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
         ),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         singleLine = singleLine,
         enabled = enabled,
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(16.dp)
     )
 }
 
@@ -223,31 +230,16 @@ fun AppButton(
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary
 ) {
-    Button(
+    GlassyButton(
+        text = text,
         onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(52.dp),
-        enabled = enabled && !isLoading,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
-            contentColor = contentColor
-        )
-    ) {
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = contentColor,
-                strokeWidth = 2.dp
-            )
-        } else {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
-    }
+        modifier = modifier,
+        enabled = enabled,
+        isLoading = isLoading,
+        color = containerColor,
+        textColor = contentColor,
+        style = GlassyButtonStyle.Solid // По умолчанию яркий стиль, как на референсе
+    )
 }
 
 @Composable

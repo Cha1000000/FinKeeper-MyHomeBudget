@@ -20,6 +20,8 @@ import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.neonGlow
 
+import ru.homebudget.finkeeper.ui.components.GlassyCard
+
 @Composable
 fun SettingsScreen(
     state: SettingsState,
@@ -59,16 +61,13 @@ fun SettingsScreen(
                 MaterialTheme.colorScheme.error
             else MaterialTheme.colorScheme.primary
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .neonGlow(statusColor, radius = 12.dp),
+            GlassyCard(
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (state.statusIsError)
-                        MaterialTheme.colorScheme.errorContainer
-                    else MaterialTheme.colorScheme.primaryContainer
-                )
+                baseColor = if (state.statusIsError)
+                    MaterialTheme.colorScheme.errorContainer
+                else MaterialTheme.colorScheme.primaryContainer,
+                highlightColor = statusColor
             ) {
                 Text(
                     text = state.statusMessage ?: "",
@@ -82,12 +81,11 @@ fun SettingsScreen(
         }
 
         // Profile section
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
+        GlassyCard(
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            baseColor = MaterialTheme.colorScheme.surface,
+            highlightColor = MaterialTheme.colorScheme.primary
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
@@ -114,12 +112,11 @@ fun SettingsScreen(
         }
 
         // Security section
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
+        GlassyCard(
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            baseColor = MaterialTheme.colorScheme.surface,
+            highlightColor = MaterialTheme.colorScheme.primary
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
@@ -153,12 +150,11 @@ fun SettingsScreen(
         }
 
         // Data management section
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
+        GlassyCard(
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            baseColor = MaterialTheme.colorScheme.surface,
+            highlightColor = MaterialTheme.colorScheme.primary
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
@@ -186,12 +182,11 @@ fun SettingsScreen(
         }
 
         // Theme section
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
+        GlassyCard(
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            baseColor = MaterialTheme.colorScheme.surface,
+            highlightColor = MaterialTheme.colorScheme.primary
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(

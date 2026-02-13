@@ -13,7 +13,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.data.model.SavingsGoal
 import ru.homebudget.finkeeper.ui.components.*
-import ru.homebudget.finkeeper.ui.components.neonGlow
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsState
 import ru.homebudget.finkeeper.ui.Strings
@@ -135,12 +134,11 @@ private fun SavingsGoalCard(
     val semantic = AppTheme.semanticColors
     val progress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
+    GlassyCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        baseColor = MaterialTheme.colorScheme.surface,
+        highlightColor = MaterialTheme.colorScheme.primary
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -197,28 +195,22 @@ private fun SavingsGoalCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
+                GlassyButton(
                     onClick = onDeposit,
+                    text = Strings.DEPOSIT,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = semantic.incomeColor,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text(Strings.DEPOSIT)
-                }
-                Button(
+                    color = semantic.incomeColor,
+                    textColor = Color.White,
+                    style = GlassyButtonStyle.Solid
+                )
+                GlassyButton(
                     onClick = onWithdraw,
+                    text = Strings.WITHDRAW,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = semantic.expenseColor,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text(Strings.WITHDRAW)
-                }
+                    color = semantic.expenseColor,
+                    textColor = Color.White,
+                    style = GlassyButtonStyle.Glassy
+                )
             }
         }
     }
