@@ -21,13 +21,16 @@ jobs:
       with:
         gradle-version: 8.14.3
     
-    - name: Build Windows EXE
-      working-directory: ./mobile_app_client
-      run: ./gradlew :composeApp:packageExe
+    - name: Install WiX Toolset
+      run: dotnet tool install --global wix --version 5.0.2
     
     - name: Build Windows MSI
       working-directory: ./mobile_app_client
       run: ./gradlew :composeApp:packageMsi
+    
+    - name: Build Windows EXE
+      working-directory: ./mobile_app_client
+      run: ./gradlew :composeApp:packageExe
     
     - name: Upload Windows EXE
       uses: actions/upload-artifact@v4
