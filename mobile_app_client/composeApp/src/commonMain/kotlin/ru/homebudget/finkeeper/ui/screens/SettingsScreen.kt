@@ -203,7 +203,8 @@ fun SettingsScreen(
                 val themeOptions = listOf(
                     "system" to Strings.THEME_SYSTEM,
                     "light" to Strings.THEME_LIGHT,
-                    "dark" to Strings.THEME_DARK
+                    "night" to Strings.THEME_DARK,
+                    "dark" to Strings.THEME_CYBERPUNK,
                 )
                 themeOptions.forEach { (mode, label) ->
                     Row(

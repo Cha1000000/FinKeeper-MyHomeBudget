@@ -8,6 +8,7 @@ import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.navigation.AppNavigation
 import ru.homebudget.finkeeper.ui.screens.LoginScreen
 import ru.homebudget.finkeeper.ui.theme.FinKeeperTheme
+import ru.homebudget.finkeeper.ui.theme.ThemePalette
 import ru.homebudget.finkeeper.ui.viewmodel.*
 
 @Composable
@@ -15,13 +16,14 @@ fun App() {
     val tokenStorage = koinInject<TokenStorage>()
     var themeMode by remember { mutableStateOf(tokenStorage.themeMode) }
 
-    val isDark = when (themeMode) {
-        "light" -> false
-        "dark" -> true
-        else -> isSystemInDarkTheme()
+    val palette = when (themeMode) {
+        "light" -> ThemePalette.Light
+        "dark" -> ThemePalette.Cyberpunk
+        "night" -> ThemePalette.Dark
+        else -> if (isSystemInDarkTheme()) ThemePalette.Dark else ThemePalette.Light
     }
 
-    FinKeeperTheme(darkTheme = isDark) {
+    FinKeeperTheme(palette = palette) {
         val authViewModel = koinInject<AuthViewModel>()
         val authState by authViewModel.state.collectAsState()
 

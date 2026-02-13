@@ -26,7 +26,7 @@ class TokenStorage(private val settings: Settings = Settings()) {
             settings.putString(KEY_SERVER_URL, value)
         }
 
-    // Theme mode: "light", "dark", "system"
+    // Theme mode: "light", "night" (soft dark), "dark" (Cyberpunk), "system"
     var themeMode: String
         get() = settings.getString(KEY_THEME_MODE, "light")
         set(value) {

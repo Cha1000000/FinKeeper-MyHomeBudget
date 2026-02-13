@@ -62,6 +62,37 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant = OutlineVariantDark,
 )
 
+private val CyberpunkColorScheme = darkColorScheme(
+    primary = PrimaryCyberpunk,
+    onPrimary = OnPrimaryCyberpunk,
+    primaryContainer = PrimaryContainerCyberpunk,
+    onPrimaryContainer = OnPrimaryContainerCyberpunk,
+    secondary = SecondaryCyberpunk,
+    onSecondary = OnSecondaryCyberpunk,
+    secondaryContainer = SecondaryContainerCyberpunk,
+    onSecondaryContainer = OnSecondaryContainerCyberpunk,
+    tertiary = TertiaryCyberpunk,
+    onTertiary = OnTertiaryCyberpunk,
+    error = ErrorCyberpunk,
+    onError = OnErrorCyberpunk,
+    errorContainer = ErrorContainerCyberpunk,
+    onErrorContainer = OnErrorContainerCyberpunk,
+    background = BackgroundCyberpunk,
+    onBackground = OnBackgroundCyberpunk,
+    surface = SurfaceCyberpunk,
+    onSurface = OnSurfaceCyberpunk,
+    surfaceVariant = SurfaceVariantCyberpunk,
+    onSurfaceVariant = OnSurfaceVariantCyberpunk,
+    outline = OutlineCyberpunk,
+    outlineVariant = OutlineVariantCyberpunk,
+)
+
+enum class ThemePalette {
+    Light,
+    Dark,
+    Cyberpunk,
+}
+
 data class AppSemanticColors(
     val incomeColor: androidx.compose.ui.graphics.Color,
     val expenseColor: androidx.compose.ui.graphics.Color,
@@ -116,6 +147,24 @@ val DarkSemanticColors = AppSemanticColors(
     navBarContentInactive = NavBarContentInactiveDark,
 )
 
+val CyberpunkSemanticColors = AppSemanticColors(
+    incomeColor = IncomeColorCyberpunk,
+    expenseColor = ExpenseColorCyberpunk,
+    savingsColor = SavingsColorCyberpunk,
+    warningColor = WarningCyberpunk,
+    tealColor = TealColorCyberpunk,
+    availableColor = AvailableColorCyberpunk,
+    incomeCardBg = IncomeCardBgCyberpunk,
+    expenseCardBg = ExpenseCardBgCyberpunk,
+    savingsCardBg = SavingsCardBgCyberpunk,
+    warningCardBg = WarningCardBgCyberpunk,
+    tealCardBg = TealCardBgCyberpunk,
+    availableCardBg = AvailableCardBgCyberpunk,
+    navBarColor = NavBarCyberpunk,
+    navBarContent = NavBarContentCyberpunk,
+    navBarContentInactive = NavBarContentInactiveCyberpunk,
+)
+
 val LocalSemanticColors = staticCompositionLocalOf { LightSemanticColors }
 
 object AppTheme {
@@ -143,11 +192,21 @@ private val AppTypography = Typography(
 
 @Composable
 fun FinKeeperTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    palette: ThemePalette = if (isSystemInDarkTheme()) ThemePalette.Dark else ThemePalette.Light,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val semanticColors = if (darkTheme) DarkSemanticColors else LightSemanticColors
+    val colorScheme =
+        when (palette) {
+            ThemePalette.Light -> LightColorScheme
+            ThemePalette.Dark -> DarkColorScheme
+            ThemePalette.Cyberpunk -> CyberpunkColorScheme
+        }
+    val semanticColors =
+        when (palette) {
+            ThemePalette.Light -> LightSemanticColors
+            ThemePalette.Dark -> DarkSemanticColors
+            ThemePalette.Cyberpunk -> CyberpunkSemanticColors
+        }
 
     CompositionLocalProvider(LocalSemanticColors provides semanticColors) {
         MaterialTheme(

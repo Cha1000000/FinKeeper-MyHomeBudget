@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.IconCalendar
@@ -47,7 +48,6 @@ import ru.homebudget.finkeeper.ui.screens.SavingsScreen
 import ru.homebudget.finkeeper.ui.screens.SettingsScreen
 import ru.homebudget.finkeeper.ui.theme.AppSemanticColors
 import ru.homebudget.finkeeper.ui.theme.AppTheme
-import ru.homebudget.finkeeper.ui.theme.BackgroundDark
 import ru.homebudget.finkeeper.ui.viewmodel.AuthViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.DashboardViewModel
@@ -87,7 +87,7 @@ fun AppNavigation(
     val settingsState by settingsViewModel.state.collectAsState()
 
     val semantic = AppTheme.semanticColors
-    val isDark = MaterialTheme.colorScheme.background == BackgroundDark
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     Scaffold(
         bottomBar = {

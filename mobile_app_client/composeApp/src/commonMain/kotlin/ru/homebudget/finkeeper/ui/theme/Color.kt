@@ -52,54 +52,100 @@ val WarningCardBgLight = Color(0xFFFFFBEB)    // amber-50
 val TealCardBgLight = Color(0xFFCCFBF1)       // teal-100 (for Накопления)
 val AvailableCardBgLight = Color(0xFFFEFCE8)  // yellow-50 (for Доступно)
 
-// ── Dark Theme Colors (futuristic neon-tech style with emerald branding) ──
-val PrimaryDark = Color(0xFF00E676)           // Neon emerald green
-val OnPrimaryDark = Color(0xFF003919)
-val PrimaryContainerDark = Color(0xFF00522A)
-val OnPrimaryContainerDark = Color(0xFF69FFB0)
+// ── Dark Theme Colors (modern soft dark, eye-friendly) ──
+val PrimaryDark = Color(0xFFDCEB57)
+val OnPrimaryDark = Color(0xFF1A2006)
+val PrimaryContainerDark = Color(0xFF2B3316)
+val OnPrimaryContainerDark = Color(0xFFF1F8B5)
 
-val SecondaryDark = Color(0xFFB2FF59)         // Light lime
-val OnSecondaryDark = Color(0xFF1A3300)
-val SecondaryContainerDark = Color(0xFF2B5200)
-val OnSecondaryContainerDark = Color(0xFFCFFF90)
+val SecondaryDark = Color(0xFF82966A)
+val OnSecondaryDark = Color(0xFF11170B)
+val SecondaryContainerDark = Color(0xFF243022)
+val OnSecondaryContainerDark = Color(0xFFC6D8B1)
 
-val TertiaryDark = Color(0xFF4DB6AC)          // Muted teal
-val OnTertiaryDark = Color(0xFF003028)
+val TertiaryDark = Color(0xFF8CA8C3)
+val OnTertiaryDark = Color(0xFF0F1A24)
 
-val ErrorDark = Color(0xFFFF8A80)             // Soft neon red
-val OnErrorDark = Color(0xFF690005)
-val ErrorContainerDark = Color(0xFF93000A)
-val OnErrorContainerDark = Color(0xFFFFDAD6)
+val ErrorDark = Color(0xFFFFA4A0)
+val OnErrorDark = Color(0xFF601410)
+val ErrorContainerDark = Color(0xFF7E2A26)
+val OnErrorContainerDark = Color(0xFFFFDAD7)
 
-val BackgroundDark = Color(0xFF050806)        // Deepest emerald black
-val OnBackgroundDark = Color(0xFFE0E6E2)
-val SurfaceDark = Color(0xFF0F1411)           // Dark charcoal with subtle green tint
-val OnSurfaceDark = Color(0xFFE0E6E2)
-val SurfaceVariantDark = Color(0xFF1A211D)    // Slightly lighter dark green-grey
-val OnSurfaceVariantDark = Color(0xFF8DA396)  // Muted sage text
-val OutlineDark = Color(0xFF2D3B33)           // Subtle green-grey border
-val OutlineVariantDark = Color(0xFF1F2924)
+val BackgroundDark = Color(0xFF080B0A)
+val OnBackgroundDark = Color(0xFFE7ECE8)
+val SurfaceDark = Color(0xFF121715)
+val OnSurfaceDark = Color(0xFFE7ECE8)
+val SurfaceVariantDark = Color(0xFF1D2420)
+val OnSurfaceVariantDark = Color(0xFFA6B3AA)
+val OutlineDark = Color(0xFF323D37)
+val OutlineVariantDark = Color(0xFF252E29)
 
 // Navigation bar for dark theme
-val NavBarDark = Color(0xFF080C0A)            // Almost black with green hint
-val NavBarContentDark = Color(0xFF00E676)     // Neon green active
-val NavBarContentInactiveDark = Color(0xFF4F665C) // Muted sage
+val NavBarDark = Color(0xFF0D110F)
+val NavBarContentDark = Color(0xFFDCEB57)
+val NavBarContentInactiveDark = Color(0xFF6B786F)
 
-// Specific semantic colors for dark theme (neon/glow style)
-val IncomeColorDark = Color(0xFF00E676)       // Neon green
-val ExpenseColorDark = Color(0xFFFF5252)      // Neon red
-val SavingsColorDark = Color(0xFF00E5FF)      // Cyan/Electric Blue (more futuristic than standard blue)
-val WarningDark = Color(0xFFFFD740)           // Bright amber
-val TealColorDark = Color(0xFF1DE9B6)         // Neon Teal
-val AvailableColorDark = Color(0xFF76FF03)    // Electric lime
+// Specific semantic colors for dark theme
+val IncomeColorDark = Color(0xFFAAD769)
+val ExpenseColorDark = Color(0xFFE57B7B)
+val SavingsColorDark = Color(0xFFD7B25A)
+val WarningDark = Color(0xFFE7D96A)
+val TealColorDark = Color(0xFF79B8A0)
+val AvailableColorDark = Color(0xFFA8C96C)
 
-// Card backgrounds for dark (deep with subtle color tints)
-val IncomeCardBgDark = Color(0xFF0A1F14)      // Deep emerald-black
-val ExpenseCardBgDark = Color(0xFF2C1014)     // Deep red-black (slightly lighter for visibility)
-val SavingsCardBgDark = Color(0xFF0A1A22)     // Deep cyan-black
-val WarningCardBgDark = Color(0xFF1F1A08)     // Deep amber-black
-val TealCardBgDark = Color(0xFF0A1F1C)        // Deep teal-black
-val AvailableCardBgDark = Color(0xFF141F08)   // Deep lime-black
+// Card backgrounds for dark
+val IncomeCardBgDark = Color(0xFF1B241A)
+val ExpenseCardBgDark = Color(0xFF2B1C1D)
+val SavingsCardBgDark = Color(0xFF2B271B)
+val WarningCardBgDark = Color(0xFF302D1D)
+val TealCardBgDark = Color(0xFF1D2A25)
+val AvailableCardBgDark = Color(0xFF252C1C)
+
+// ── Cyberpunk Theme Colors (old neon dark theme) ──
+val PrimaryCyberpunk = Color(0xFF00E676)
+val OnPrimaryCyberpunk = Color(0xFF003919)
+val PrimaryContainerCyberpunk = Color(0xFF00522A)
+val OnPrimaryContainerCyberpunk = Color(0xFF69FFB0)
+
+val SecondaryCyberpunk = Color(0xFFB2FF59)
+val OnSecondaryCyberpunk = Color(0xFF1A3300)
+val SecondaryContainerCyberpunk = Color(0xFF2B5200)
+val OnSecondaryContainerCyberpunk = Color(0xFFCFFF90)
+
+val TertiaryCyberpunk = Color(0xFF4DB6AC)
+val OnTertiaryCyberpunk = Color(0xFF003028)
+
+val ErrorCyberpunk = Color(0xFFFF8A80)
+val OnErrorCyberpunk = Color(0xFF690005)
+val ErrorContainerCyberpunk = Color(0xFF93000A)
+val OnErrorContainerCyberpunk = Color(0xFFFFDAD6)
+
+val BackgroundCyberpunk = Color(0xFF050806)
+val OnBackgroundCyberpunk = Color(0xFFE0E6E2)
+val SurfaceCyberpunk = Color(0xFF0F1411)
+val OnSurfaceCyberpunk = Color(0xFFE0E6E2)
+val SurfaceVariantCyberpunk = Color(0xFF1A211D)
+val OnSurfaceVariantCyberpunk = Color(0xFF8DA396)
+val OutlineCyberpunk = Color(0xFF2D3B33)
+val OutlineVariantCyberpunk = Color(0xFF1F2924)
+
+val NavBarCyberpunk = Color(0xFF080C0A)
+val NavBarContentCyberpunk = Color(0xFF00E676)
+val NavBarContentInactiveCyberpunk = Color(0xFF4F665C)
+
+val IncomeColorCyberpunk = Color(0xFF00E676)
+val ExpenseColorCyberpunk = Color(0xFFFF5252)
+val SavingsColorCyberpunk = Color(0xFF00E5FF)
+val WarningCyberpunk = Color(0xFFFFD740)
+val TealColorCyberpunk = Color(0xFF1DE9B6)
+val AvailableColorCyberpunk = Color(0xFF76FF03)
+
+val IncomeCardBgCyberpunk = Color(0xFF0A1F14)
+val ExpenseCardBgCyberpunk = Color(0xFF2C1014)
+val SavingsCardBgCyberpunk = Color(0xFF0A1A22)
+val WarningCardBgCyberpunk = Color(0xFF1F1A08)
+val TealCardBgCyberpunk = Color(0xFF0A1F1C)
+val AvailableCardBgCyberpunk = Color(0xFF141F08)
 
 // ── Chart Colors ──
 val ChartColors = listOf(
