@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -82,10 +83,13 @@ fun GlassyButton(
 
     val buttonModifier = if (style == GlassyButtonStyle.Glassy) {
         // Glassy стиль
+        val isLightTheme = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+        val gradientBottom = if (isLightTheme) color.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.2f)
+
         val bgBrush = Brush.verticalGradient(
             colors = listOf(
                 color.copy(alpha = 0.15f),
-                Color.Black.copy(alpha = 0.2f)
+                gradientBottom
             )
         )
         val borderBrush = Brush.verticalGradient(

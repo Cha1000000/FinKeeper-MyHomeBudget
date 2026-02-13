@@ -41,6 +41,9 @@ fun SavingsScreen(
     }
 
     val semantic = AppTheme.semanticColors
+    val sortedGoals = remember(state.goals) { 
+        state.goals.sortedByDescending { it.currentAmount } 
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -61,10 +64,10 @@ fun SavingsScreen(
             )
         }
 
-        if (state.goals.isEmpty()) {
+        if (sortedGoals.isEmpty()) {
             item { EmptyState(Strings.NO_PIGGY_BANKS) }
         } else {
-            items(state.goals, key = { it.id }) { goal ->
+            items(sortedGoals, key = { it.id }) { goal ->
                 SavingsGoalCard(
                     goal = goal,
                     onEdit = { editingGoal = goal },
@@ -208,7 +211,7 @@ private fun SavingsGoalCard(
                     text = Strings.WITHDRAW,
                     modifier = Modifier.weight(1f),
                     color = semantic.expenseColor,
-                    textColor = Color.White,
+                    textColor = semantic.expenseColor,
                     style = GlassyButtonStyle.Glassy
                 )
             }
