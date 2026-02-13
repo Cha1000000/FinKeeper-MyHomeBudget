@@ -1,12 +1,7 @@
 #!/bin/bash
 
-# If started with sh, re-run with bash for proper trap handling
-if [ -z "$BASH_VERSION" ]; then
-    exec /bin/bash "$0" "$@"
-fi
-
-# Home Budget - Startup Script
-# Автоматически освобождает порты и запускает серверы
+# Home Budget - Startup Script (Fire and Forget Mode)
+# Automatically frees ports and starts servers, then exits immediately
 
 # Resolve absolute path to the script's directory
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -23,15 +18,13 @@ sleep 1
 
 echo "🚀 Запуск Backend (порт 3002)..."
 cd "$PROJECT_ROOT/server"
-node index.js &
-BACKEND_PID=$!
+nohup node index.js > backend.log 2>&1 &
 
 sleep 1
 
 echo "🌐 Запуск Frontend (порт 5174)..."
 cd "$PROJECT_ROOT/client"
-npm run dev -- --host 0.0.0.0 --port 5174 &
-FRONTEND_PID=$!
+nohup npm run dev -- --host 0.0.0.0 --port 5174 > frontend.log 2>&1 &
 
 echo ""
 echo "✅ Приложение запущено!"
@@ -40,21 +33,5 @@ echo "   Backend:  http://217.114.8.82:3002"
 echo ""
 echo "⚠️ ВНИМАНИЕ: Это режим для разработки. Для реального использования соберите проект командой 'npm run start:prod'."
 echo ""
-echo "Для остановки нажмите Ctrl+C"
 
-# Trap Ctrl+C to cleanup
-cleanup() {
-    echo ""
-    echo "🛑 Останавливаем серверы..."
-    kill $BACKEND_PID 2>/dev/null
-    kill $FRONTEND_PID 2>/dev/null
-    # Secondary cleanup to be sure
-    lsof -ti:3002,5174 | xargs kill -9 2>/dev/null
-    echo "👋 До свидания!"
-    exit 0
-}
-
-trap cleanup SIGINT SIGTERM
-
-# Wait for processes
-wait
+echo "Скрипт завершён. Серверы работают в фоне. Для остановки используйте: lsof -ti:3002,5174 | xargs kill -9"

@@ -8,6 +8,7 @@ import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
+import { useWebSocket, useDataChanged } from '../hooks/useWebSocket';
 
 const Layout: React.FC = () => {
     const [currentMonth, setCurrentMonth] = useState('');
@@ -17,6 +18,9 @@ const Layout: React.FC = () => {
     const { user, logout, uiSettings } = useAuth();
     const mainRef = useRef<HTMLElement>(null);
     const scrollTimeout = useRef<any>(null);
+
+    // Establish WebSocket connection (one per Layout mount)
+    useWebSocket();
 
     const navItems = [
         { name: 'Обзор', path: '/', icon: LayoutDashboard },
@@ -98,6 +102,22 @@ const Layout: React.FC = () => {
             window.removeEventListener('savingsUpdated', handleSavingsUpdate);
         };
     }, []);
+
+    // Refresh sidebar financial data on any WebSocket data change
+    useDataChanged(null, async () => {
+        try {
+            const now = new Date();
+            const monthRes = await ensureMonth(now.getFullYear(), now.getMonth() + 1);
+            const summaryRes = await getMonthSummary(monthRes.data.id);
+            const goalsRes = await getSavingsGoals();
+            const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
+            const available = summaryRes.data.income - summaryRes.data.expenses;
+            setAvailableBalance(available);
+            setTotalAssets(available + savingsTotal);
+        } catch (e) {
+            console.error('WS refresh error:', e);
+        }
+    });
 
     return (
         <div className="flex h-screen overflow-hidden">

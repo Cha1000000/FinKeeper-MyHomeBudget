@@ -5,6 +5,7 @@ import { getSavingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, 
 import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
 import Modal from '../components/Modal';
+import { useDataChanged } from '../hooks/useWebSocket';
 
 const Savings: React.FC = () => {
     const [goals, setGoals] = useState<SavingsGoal[]>([]);
@@ -37,6 +38,9 @@ const Savings: React.FC = () => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         loadData(); 
     }, []);
+
+    // Refresh on WebSocket data changes
+    useDataChanged(['savings_goal', 'savings_transaction', 'all'], () => { loadData(); });
 
     const handleCreateGoal = async (e: React.FormEvent) => {
         e.preventDefault();

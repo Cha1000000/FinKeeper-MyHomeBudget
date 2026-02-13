@@ -4,6 +4,8 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const http = require('http');
+const { WebSocketServer } = require('ws');
 const { initialCategories, initialSavings, initialIncomeSources } = require('./default_data');
 
 const app = express();
@@ -289,13 +291,14 @@ app.post('/api/user/restore', (req, res) => {
         const insertBudget = db.prepare('INSERT INTO budgets (id, month_id, category_id, limit_amount) VALUES (?, ?, ?, ?)');
         data.budgets.forEach(row => insertBudget.run(row.id, row.month_id, row.category_id, row.limit_amount));
         
-        const insertTrans = db.prepare('INSERT INTO savings_transactions (id, goal_id, amount, date, month_id) VALUES (?, ?, ?, ?, ?)');
-        data.savings_transactions.forEach(row => insertTrans.run(row.id, row.goal_id, row.amount, row.date, row.month_id));
+        const insertTrans = db.prepare('INSERT INTO savings_transactions (id, goal_id, amount, date, month_id, is_adjustment) VALUES (?, ?, ?, ?, ?, ?)');
+        data.savings_transactions.forEach(row => insertTrans.run(row.id, row.goal_id, row.amount, row.date, row.month_id, row.is_adjustment || 0));
     });
 
     try {
         restoreTransact();
         res.json({ success: true });
+        broadcastChange(req.user.id, 'all', 'restored');
     } catch (e) {
         console.error("Restore failed", e);
         res.status(500).json({ error: e.message });
@@ -317,6 +320,7 @@ app.post('/api/categories', (req, res) => {
     
     const info = db.prepare('INSERT INTO categories (user_id, name, sort_order) VALUES (?, ?, ?)').run(req.user.id, name, nextOrder);
     res.json({ id: info.lastInsertRowid, name, is_active: 1, sort_order: nextOrder });
+    broadcastChange(req.user.id, 'category', 'created');
 });
 
 app.put('/api/categories/reorder', (req, res) => {
@@ -338,6 +342,7 @@ app.put('/api/categories/reorder', (req, res) => {
     try {
         transact(ids);
         res.json({ success: true });
+        broadcastChange(req.user.id, 'category', 'updated');
     } catch (err) {
         console.error("Reorder failed", err);
         res.status(500).json({ error: err.message });
@@ -349,6 +354,7 @@ app.put('/api/categories/:id', (req, res) => {
     const result = db.prepare('UPDATE categories SET name = ?, is_active = ? WHERE id = ? AND user_id = ?').run(name, is_active, req.params.id, req.user.id);
     if (result.changes === 0) return res.status(404).json({error: 'Category not found'});
     res.json({ success: true });
+    broadcastChange(req.user.id, 'category', 'updated');
 });
 
 // Income Sources
@@ -363,6 +369,7 @@ app.post('/api/income_sources', (req, res) => {
         const stmt = db.prepare('INSERT INTO income_sources (user_id, name) VALUES (?, ?)');
         const result = stmt.run(req.user.id, name);
         res.json({ id: result.lastInsertRowid, name, is_active: 1 });
+        broadcastChange(req.user.id, 'income_source', 'created');
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -376,6 +383,7 @@ app.put('/api/income_sources/:id', (req, res) => {
         const result = stmt.run(name, is_active ?? 1, id, req.user.id);
         if (result.changes === 0) return res.status(404).json({error: 'Income source not found'});
         res.json({ id, name, is_active: is_active ?? 1 });
+        broadcastChange(req.user.id, 'income_source', 'updated');
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -388,6 +396,7 @@ app.delete('/api/income_sources/:id', (req, res) => {
         const result = stmt.run(id, req.user.id);
         if (result.changes === 0) return res.status(404).json({error: 'Income source not found'});
         res.json({ success: true });
+        broadcastChange(req.user.id, 'income_source', 'deleted');
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -422,6 +431,7 @@ app.post('/api/incomes', (req, res) => {
 
     const info = db.prepare('INSERT INTO incomes (month_id, source, amount, date) VALUES (?, ?, ?, ?)').run(month_id, source, amount, date);
     res.json({ id: info.lastInsertRowid, ...req.body });
+    broadcastChange(req.user.id, 'income', 'created');
 });
 
 app.put('/api/incomes/:id', (req, res) => {
@@ -433,6 +443,7 @@ app.put('/api/incomes/:id', (req, res) => {
 
     db.prepare('UPDATE incomes SET amount = ? WHERE id = ?').run(amount, req.params.id);
     res.json({ success: true });
+    broadcastChange(req.user.id, 'income', 'updated');
 });
 
 app.delete('/api/incomes/:id', (req, res) => {
@@ -442,6 +453,7 @@ app.delete('/api/incomes/:id', (req, res) => {
 
     db.prepare('DELETE FROM incomes WHERE id = ?').run(req.params.id);
     res.json({ success: true });
+    broadcastChange(req.user.id, 'income', 'deleted');
 });
 
 // Expenses
@@ -468,6 +480,7 @@ app.post('/api/expenses', (req, res) => {
 
     const info = db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment) VALUES (?, ?, ?, ?, ?)').run(month_id, category_id, amount, date, comment || '');
     res.json({ id: info.lastInsertRowid, ...req.body });
+    broadcastChange(req.user.id, 'expense', 'created');
 });
 
 app.put('/api/expenses/:id', (req, res) => {
@@ -479,6 +492,7 @@ app.put('/api/expenses/:id', (req, res) => {
 
     db.prepare('UPDATE expenses SET amount = ? WHERE id = ?').run(amount, req.params.id);
     res.json({ success: true });
+    broadcastChange(req.user.id, 'expense', 'updated');
 });
 
 app.delete('/api/expenses/:id', (req, res) => {
@@ -488,6 +502,7 @@ app.delete('/api/expenses/:id', (req, res) => {
 
     db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);
     res.json({ success: true });
+    broadcastChange(req.user.id, 'expense', 'deleted');
 });
 
 // Budgets (Limits)
@@ -518,6 +533,7 @@ app.post('/api/budgets', (req, res) => {
         const info = db.prepare('INSERT INTO budgets (month_id, category_id, limit_amount) VALUES (?, ?, ?)').run(month_id, category_id, limit_amount);
         res.json({ id: info.lastInsertRowid, month_id, category_id, limit_amount });
     }
+    broadcastChange(req.user.id, 'budget', 'updated');
 });
 
 // Savings
@@ -530,6 +546,7 @@ app.post('/api/savings_goals', (req, res) => {
     const { name, target_amount } = req.body;
     const info = db.prepare('INSERT INTO savings_goals (user_id, name, target_amount, current_amount) VALUES (?, ?, ?, 0)').run(req.user.id, name, target_amount || 0);
     res.json({ id: info.lastInsertRowid, name, target_amount, current_amount: 0 });
+    broadcastChange(req.user.id, 'savings_goal', 'created');
 });
 
 app.put('/api/savings_goals/:id', (req, res) => {
@@ -561,6 +578,7 @@ app.put('/api/savings_goals/:id', (req, res) => {
     const sql = `UPDATE savings_goals SET ${updates.join(', ')} WHERE id = ?`;
     db.prepare(sql).run(...values, req.params.id);
     res.json({ success: true });
+    broadcastChange(req.user.id, 'savings_goal', 'updated');
 });
 
 app.delete('/api/savings_goals/:id', (req, res) => {
@@ -572,6 +590,7 @@ app.delete('/api/savings_goals/:id', (req, res) => {
     // Then delete the goal
     db.prepare('DELETE FROM savings_goals WHERE id = ?').run(req.params.id);
     res.json({ success: true });
+    broadcastChange(req.user.id, 'savings_goal', 'deleted');
 });
 
 app.post('/api/savings_transactions', (req, res) => {
@@ -617,6 +636,7 @@ app.post('/api/savings_transactions', (req, res) => {
 
     const info = transact();
     res.json({ id: info.lastInsertRowid, ...req.body });
+    broadcastChange(req.user.id, 'savings_transaction', 'created');
 });
 
 app.get('/api/savings_transactions/:goalId', (req, res) => {
@@ -680,6 +700,60 @@ app.get(/.*/, (req, res) => {
     res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
+// --- WebSocket Server ---
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+// Track authenticated WebSocket connections
+wss.on('connection', (ws, req) => {
+    // Parse token from query string: ws://host:port?token=JWT
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+
+    if (!token) {
+        ws.close(4001, 'Authentication required');
+        return;
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        ws.userId = decoded.id;
+        ws.isAlive = true;
+        console.log(`WebSocket connected: user ${decoded.id}`);
+    } catch (err) {
+        ws.close(4003, 'Invalid token');
+        return;
+    }
+
+    ws.on('pong', () => { ws.isAlive = true; });
+    ws.on('close', () => { console.log(`WebSocket disconnected: user ${ws.userId}`); });
+});
+
+// Heartbeat: ping every 30s, terminate dead connections
+setInterval(() => {
+    wss.clients.forEach(ws => {
+        if (!ws.isAlive) return ws.terminate();
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
+/**
+ * Broadcast a data-change event to all authenticated clients of a given user.
+ * @param {number} userId - The user whose clients should be notified
+ * @param {string} entity - Entity type: 'income', 'expense', 'category', 'budget', 'savings_goal', 'savings_transaction', 'income_source'
+ * @param {string} action - 'created' | 'updated' | 'deleted'
+ * @param {number|null} senderId - Optional: ws that triggered the change (to skip echo). Not used for REST — all clients get notified.
+ */
+function broadcastChange(userId, entity, action) {
+    const message = JSON.stringify({ type: 'data_changed', entity, action });
+    wss.clients.forEach(ws => {
+        if (ws.readyState === 1 && ws.userId === userId) {
+            ws.send(message);
+        }
+    });
+}
+
+server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });

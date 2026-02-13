@@ -7,6 +7,7 @@ import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
 import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals } from '../api';
 import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
+import { useDataChanged } from '../hooks/useWebSocket';
 
 const COLORS = ['#6b8e23', '#2f3e30', '#d4a017', '#8fbc8f', '#a0522d', '#556b2f', '#c0c0c0', '#bdb76b'];
 
@@ -35,11 +36,10 @@ const Dashboard: React.FC = () => {
     const [expenseStructure, setExpenseStructure] = useState<ExpenseStructureItem[]>([]);
     const [totalSavings, setTotalSavings] = useState<number>(0);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // 1. Trend Data
-                const trendRes = await getAnalyticsTrend();
+    const fetchData = async () => {
+        try {
+            // 1. Trend Data
+            const trendRes = await getAnalyticsTrend();
                 setTrendData(trendRes.data);
 
                 // 2. Current Month Summary
@@ -73,10 +73,12 @@ const Dashboard: React.FC = () => {
                 const totalSavingsAmount = savingsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + goal.current_amount, 0);
                 setTotalSavings(totalSavingsAmount);
 
-            } catch (e) {
-                console.error(e);
-            }
-        };
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    useEffect(() => {
         fetchData();
         
         // Listen for savings updates
@@ -87,6 +89,9 @@ const Dashboard: React.FC = () => {
             window.removeEventListener('savingsUpdated', handleSavingsUpdate);
         };
     }, []);
+
+    // Refresh on WebSocket data changes
+    useDataChanged(null, () => { fetchData(); });
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto">
