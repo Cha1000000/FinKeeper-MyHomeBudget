@@ -2,7 +2,16 @@ package ru.homebudget.finkeeper.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -29,8 +38,6 @@ import ru.homebudget.finkeeper.ui.theme.ChartColors
 import ru.homebudget.finkeeper.ui.viewmodel.ExpenseCategoryBreakdown
 import ru.homebudget.finkeeper.util.formatCurrency
 import ru.homebudget.finkeeper.util.shortMonthName
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.round
 
 /**
@@ -215,7 +222,7 @@ private fun LineChartCanvas(
         }
 
         // Рисуем подписи месяцев
-        data.forEachIndexed { index, item ->
+        data.forEachIndexed { index, _ ->
             val x = padding + (chartWidth / (data.size - 1).coerceAtLeast(1)) * index
             
             // Рисуем текст подписи (упрощенно)
@@ -411,6 +418,9 @@ fun FinancialDynamicsChart(
                         .height(200.dp)
                 )
 
+                Spacer(modifier = Modifier.height(8.dp))
+                MonthLabelsRow(trendData = trendData)
+
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -441,7 +451,6 @@ private fun BarChartCanvas(
 ) {
     val semantic = AppTheme.semanticColors
     val gridColorVal = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-    val onSurfaceVariantColorVal = MaterialTheme.colorScheme.onSurfaceVariant
 
     Canvas(modifier = modifier) {
         val canvasWidth = size.width
@@ -511,15 +520,50 @@ private fun BarChartCanvas(
                 size = Size(barWidth, savingsHeight),
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
             )
-
-            // Рисуем подпись месяца под группой столбцов
-            val monthLabelX = startX + groupWidth / 2
-            val monthLabelY = canvasHeight - 10f
-            drawCircle(
-                color = onSurfaceVariantColorVal,
-                radius = 2.dp.toPx(),
-                center = Offset(monthLabelX, monthLabelY)
-            )
         }
     }
+}
+
+@Composable
+private fun MonthLabelsRow(trendData: List<TrendItem>) {
+    val barWidth = 12.dp
+    val barGap = 4.dp
+    val groupGap = 16.dp
+    val groupWidth = barWidth * 3 + barGap * 2
+    val totalGroupsWidth = groupWidth * trendData.size + groupGap * (trendData.size - 1).coerceAtLeast(0)
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Row(
+            modifier = Modifier.width(totalGroupsWidth),
+            horizontalArrangement = Arrangement.spacedBy(groupGap)
+        ) {
+            trendData.forEach { item ->
+                Box(
+                    modifier = Modifier.width(groupWidth),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = formatTrendMonthLabel(item.month),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatTrendMonthLabel(rawMonth: String): String {
+    val parts = rawMonth.split("/")
+    if (parts.size != 2) return rawMonth
+
+    val month = parts[0].toIntOrNull() ?: return rawMonth
+    val year = parts[1].toIntOrNull() ?: return rawMonth
+    val shortYear = (year % 100).toString().padStart(2, '0')
+    return "${shortMonthName(month).lowercase()}.$shortYear"
 }
