@@ -195,7 +195,11 @@ fun AppNavigation(
 
     if (isDesktop) {
         // Desktop layout: sidebar + content
-        Row(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
             DesktopSidebar(
                 currentScreen = currentScreen,
                 onScreenSelected = { currentScreen = it },

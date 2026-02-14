@@ -154,7 +154,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.1.0"
     }
 
     compileOptions {
@@ -218,14 +218,14 @@ compose.desktop {
             packageVersion = "1.1.0"
 
             macOS {
-                iconFile.set(project.file("src/desktopMain/resources/icon.png"))
+                iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
                 bundleID = "ru.homebudget.finkeeper"
                 packageName = "FinKeeper"
                 dockName = "FinKeeper"
             }
 
             windows {
-                iconFile.set(project.file("src/desktopMain/resources/icon.png"))
+                iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
                 packageName = "FinKeeper"
                 description = "FinKeeper - Personal Finance Manager"
                 vendor = "HomeBudget"
@@ -234,6 +234,7 @@ compose.desktop {
             }
 
             linux {
+                iconFile.set(project.file("src/desktopMain/resources/icon.png"))
                 packageName = "finkeeper"
                 debMaintainer = "finkeeper@homebudget.ru"
                 appCategory = "Office"
