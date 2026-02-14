@@ -205,10 +205,12 @@ compose.desktop {
         mainClass = "ru.homebudget.finkeeper.MainKt"
 
         nativeDistributions {
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg)
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Pkg)
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Pkg,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
+            )
 
             modules("java.instrument", "java.management", "java.prefs", "java.sql", "jdk.unsupported")
 
