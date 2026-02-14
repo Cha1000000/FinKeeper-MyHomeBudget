@@ -35,13 +35,13 @@ jobs:
     - name: Upload Windows EXE
       uses: actions/upload-artifact@v4
       with:
-        name: FinKeeper-Setup
+        name: FinKeeper-Setup-EXE
         path: mobile_app_client/composeApp/build/compose/binaries/main/exe/*.exe
     
     - name: Upload Windows MSI
       uses: actions/upload-artifact@v4
       with:
-        name: FinKeeper-Setup
+        name: FinKeeper-Setup-MSI
         path: mobile_app_client/composeApp/build/compose/binaries/main/msi/*.msi
 
   build-macos:

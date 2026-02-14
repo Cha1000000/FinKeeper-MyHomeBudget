@@ -15,6 +15,7 @@ import ru.homebudget.finkeeper.ui.components.*
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesState
 import ru.homebudget.finkeeper.data.model.Category
+import ru.homebudget.finkeeper.util.isDesktop
 
 @Composable
 fun CategoriesScreen(
@@ -55,7 +56,9 @@ fun CategoriesScreen(
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().then(
+        if (isDesktop) Modifier.padding(top = 16.dp) else Modifier
+    )) {
         ScreenHeader(title = Strings.REFERENCE_BOOKS)
 
         TabRow(

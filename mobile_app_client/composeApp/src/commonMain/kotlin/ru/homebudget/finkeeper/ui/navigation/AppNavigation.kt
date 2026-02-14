@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,6 +61,9 @@ import ru.homebudget.finkeeper.ui.viewmodel.DashboardViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.MonthViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.SettingsViewModel
+import ru.homebudget.finkeeper.util.AppLogoIcon
+import ru.homebudget.finkeeper.util.DraggableArea
+import ru.homebudget.finkeeper.util.LocalWindowControls
 import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.util.formatCurrency
 
@@ -194,28 +198,43 @@ fun AppNavigation(
     }
 
     if (isDesktop) {
-        // Desktop layout: sidebar + content
+        val windowControls = LocalWindowControls.current
+        // Desktop layout: sidebar + content (undecorated window, draggable)
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            DesktopSidebar(
-                currentScreen = currentScreen,
-                onScreenSelected = { currentScreen = it },
-                onLogout = { showLogoutConfirm = true },
-                isDark = isDark,
-                semantic = semantic,
-                username = authState.user?.username ?: "",
-                totalAssets = dashboardState.totalAssets,
-                available = dashboardState.available,
-            )
+            DraggableArea {
+                DesktopSidebar(
+                    currentScreen = currentScreen,
+                    onScreenSelected = { currentScreen = it },
+                    onLogout = { showLogoutConfirm = true },
+                    isDark = isDark,
+                    semantic = semantic,
+                    username = authState.user?.username ?: "",
+                    totalAssets = dashboardState.totalAssets,
+                    available = dashboardState.available,
+                )
+            }
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                screenContent()
+                DraggableArea {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        screenContent()
+                    }
+                }
+                // Custom window control buttons (top-right corner)
+                DesktopWindowControls(
+                    onClose = windowControls.onClose,
+                    onMinimize = windowControls.onMinimize,
+                    onToggleFullscreen = windowControls.onToggleFullscreen,
+                    isDark = isDark,
+                    modifier = Modifier.align(Alignment.TopEnd),
+                )
             }
         }
     } else {
@@ -414,7 +433,7 @@ private fun DesktopSidebar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IconDashboard(activeColor, size = 28.dp)
+            AppLogoIcon()
             Text(
                 text = "FinKeeper",
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -535,6 +554,82 @@ private fun DesktopSidebar(
                 text = "Домашняя бухгалтерия v1.0",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                 color = inactiveColor.copy(alpha = 0.6f),
+            )
+        }
+    }
+}
+
+// ── Desktop Window Controls (close, minimize, fullscreen) ──
+
+@Composable
+private fun DesktopWindowControls(
+    onClose: () -> Unit,
+    onMinimize: () -> Unit,
+    onToggleFullscreen: () -> Unit,
+    isDark: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .padding(top = 10.dp, end = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Minimize (yellow)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(Color(0xFFFBBF24))
+                .clickable(onClick = onMinimize)
+                .widthIn(min = 16.dp)
+                .height(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "−",
+                color = Color.Black,
+                fontSize = 11.sp,
+                lineHeight = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.offset(y = (1).dp),
+            )
+        }
+        // Fullscreen (green)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(Color(0xFF34D399))
+                .clickable(onClick = onToggleFullscreen)
+                .widthIn(min = 16.dp)
+                .height(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "☐",
+                color = Color.Black,
+                fontSize = 10.sp,
+                lineHeight = 10.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.offset(y = (1).dp),
+            )
+        }
+        // Close (red)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(Color(0xFFEF4444))
+                .clickable(onClick = onClose)
+                .widthIn(min = 16.dp)
+                .height(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "✕",
+                color = Color.Black,
+                fontSize = 9.sp,
+                lineHeight = 9.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.offset(y = (0).dp),
             )
         }
     }

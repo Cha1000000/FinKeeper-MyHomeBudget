@@ -58,6 +58,7 @@ import ru.homebudget.finkeeper.ui.viewmodel.GroupedExpense
 import ru.homebudget.finkeeper.ui.viewmodel.MonthViewState
 import ru.homebudget.finkeeper.util.formatCurrency
 import ru.homebudget.finkeeper.util.formatDate
+import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.util.monthName
 
 @Composable
@@ -95,7 +96,9 @@ fun MonthViewScreen(
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().then(
+        if (isDesktop) Modifier.padding(top = 16.dp) else Modifier
+    )) {
         ScreenHeader(title = Strings.MONTH_TITLE)
 
         // Month navigation header
