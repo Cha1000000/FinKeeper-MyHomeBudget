@@ -22,6 +22,7 @@ import ru.homebudget.finkeeper.ui.components.SummaryCard
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.DashboardState
 import ru.homebudget.finkeeper.util.formatCurrency
+import ru.homebudget.finkeeper.util.isDesktop
 
 @Composable
 fun DashboardScreen(
@@ -51,86 +52,165 @@ fun DashboardScreen(
             )
         }
 
-        // Summary cards - 2 per row
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SummaryCard(
-                    title = Strings.INCOMES,
-                    value = formatCurrency(state.totalIncome),
-                    backgroundColor = semantic.incomeCardBg,
-                    contentColor = semantic.incomeColor,
-                    modifier = Modifier.weight(1f)
-                )
-                SummaryCard(
-                    title = Strings.EXPENSES,
-                    value = formatCurrency(state.totalExpense),
-                    backgroundColor = semantic.expenseCardBg,
-                    contentColor = semantic.expenseColor,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SummaryCard(
-                    title = Strings.SAVINGS,
-                    value = formatCurrency(state.totalSavings),
-                    backgroundColor = semantic.tealCardBg,
-                    contentColor = semantic.tealColor,
-                    modifier = Modifier.weight(1f)
-                )
-                SummaryCard(
-                    title = Strings.SAVINGS_PERCENT,
-                    value = "${kotlin.math.round(state.savingsPercent).toInt()}%",
-                    backgroundColor = semantic.savingsCardBg,
-                    contentColor = semantic.savingsColor,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SummaryCard(
-                    title = Strings.AVAILABLE,
-                    value = formatCurrency(state.available),
-                    backgroundColor = if (state.available >= 0) semantic.availableCardBg
-                        else semantic.expenseCardBg,
-                    contentColor = if (state.available >= 0) semantic.availableColor
-                        else semantic.expenseColor,
-                    modifier = Modifier.weight(1f)
-                )
-                SummaryCard(
-                    title = Strings.TOTAL_ASSETS,
-                    value = formatCurrency(state.totalAssets),
-                    backgroundColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        // Trend line chart
-        if (state.trendData.isNotEmpty()) {
+        if (isDesktop) {
+            // Desktop: 3 cards per row (like web version)
             item {
-                FinancialDynamicsChart(state.trendData)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SummaryCard(
+                        title = Strings.INCOMES,
+                        value = formatCurrency(state.totalIncome),
+                        backgroundColor = semantic.incomeCardBg,
+                        contentColor = semantic.incomeColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryCard(
+                        title = Strings.EXPENSES,
+                        value = formatCurrency(state.totalExpense),
+                        backgroundColor = semantic.expenseCardBg,
+                        contentColor = semantic.expenseColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryCard(
+                        title = Strings.SAVINGS,
+                        value = formatCurrency(state.totalSavings),
+                        backgroundColor = semantic.tealCardBg,
+                        contentColor = semantic.tealColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SummaryCard(
+                        title = Strings.SAVINGS_PERCENT,
+                        value = "${kotlin.math.round(state.savingsPercent).toInt()}%",
+                        backgroundColor = semantic.savingsCardBg,
+                        contentColor = semantic.savingsColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryCard(
+                        title = Strings.AVAILABLE,
+                        value = formatCurrency(state.available),
+                        backgroundColor = if (state.available >= 0) semantic.availableCardBg
+                            else semantic.expenseCardBg,
+                        contentColor = if (state.available >= 0) semantic.availableColor
+                            else semantic.expenseColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryCard(
+                        title = Strings.TOTAL_ASSETS,
+                        value = formatCurrency(state.totalAssets),
+                        backgroundColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        } else {
+            // Mobile: 2 cards per row
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SummaryCard(
+                        title = Strings.INCOMES,
+                        value = formatCurrency(state.totalIncome),
+                        backgroundColor = semantic.incomeCardBg,
+                        contentColor = semantic.incomeColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryCard(
+                        title = Strings.EXPENSES,
+                        value = formatCurrency(state.totalExpense),
+                        backgroundColor = semantic.expenseCardBg,
+                        contentColor = semantic.expenseColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SummaryCard(
+                        title = Strings.SAVINGS,
+                        value = formatCurrency(state.totalSavings),
+                        backgroundColor = semantic.tealCardBg,
+                        contentColor = semantic.tealColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryCard(
+                        title = Strings.SAVINGS_PERCENT,
+                        value = "${kotlin.math.round(state.savingsPercent).toInt()}%",
+                        backgroundColor = semantic.savingsCardBg,
+                        contentColor = semantic.savingsColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SummaryCard(
+                        title = Strings.AVAILABLE,
+                        value = formatCurrency(state.available),
+                        backgroundColor = if (state.available >= 0) semantic.availableCardBg
+                            else semantic.expenseCardBg,
+                        contentColor = if (state.available >= 0) semantic.availableColor
+                            else semantic.expenseColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryCard(
+                        title = Strings.TOTAL_ASSETS,
+                        value = formatCurrency(state.totalAssets),
+                        backgroundColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
 
-        // Expense pie chart
-        if (state.expenseBreakdown.isNotEmpty()) {
+        // Charts: side-by-side on desktop, stacked on mobile
+        if (isDesktop && state.trendData.isNotEmpty() && state.expenseBreakdown.isNotEmpty()) {
             item {
-                ExpensePieChart(state.expenseBreakdown)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    FinancialDynamicsChart(
+                        trendData = state.trendData,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ExpensePieChart(
+                        breakdown = state.expenseBreakdown,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        } else {
+            if (state.trendData.isNotEmpty()) {
+                item {
+                    FinancialDynamicsChart(state.trendData)
+                }
+            }
+            if (state.expenseBreakdown.isNotEmpty()) {
+                item {
+                    ExpensePieChart(state.expenseBreakdown)
+                }
             }
         }
     }

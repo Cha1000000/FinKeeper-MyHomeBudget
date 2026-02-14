@@ -9,14 +9,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -32,7 +36,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.IconCalendar
 import ru.homebudget.finkeeper.ui.components.IconDashboard
@@ -54,6 +60,8 @@ import ru.homebudget.finkeeper.ui.viewmodel.DashboardViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.MonthViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.SettingsViewModel
+import ru.homebudget.finkeeper.util.isDesktop
+import ru.homebudget.finkeeper.util.formatCurrency
 
 enum class Screen(
     val title: String,
@@ -89,18 +97,10 @@ fun AppNavigation(
     val semantic = AppTheme.semanticColors
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
-    Scaffold(
-        bottomBar = {
-            GradientBottomBar(
-                currentScreen = currentScreen,
-                onScreenSelected = { currentScreen = it },
-                onLogout = { showLogoutConfirm = true },
-                isDark = isDark,
-                semantic = semantic,
-            )
-        },
-    ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+    val desktopPadding = if (isDesktop) 32.dp else 0.dp
+
+    val screenContent: @Composable () -> Unit = {
+        Box(modifier = Modifier.padding(horizontal = desktopPadding)) {
             when (currentScreen) {
                 Screen.Dashboard ->
                     PullToRefreshWrapper(
@@ -189,6 +189,46 @@ fun AppNavigation(
                         currentThemeMode = currentThemeMode,
                         onThemeModeChange = onThemeModeChange,
                     )
+            }
+        }
+    }
+
+    if (isDesktop) {
+        // Desktop layout: sidebar + content
+        Row(modifier = Modifier.fillMaxSize()) {
+            DesktopSidebar(
+                currentScreen = currentScreen,
+                onScreenSelected = { currentScreen = it },
+                onLogout = { showLogoutConfirm = true },
+                isDark = isDark,
+                semantic = semantic,
+                username = authState.user?.username ?: "",
+                totalAssets = dashboardState.totalAssets,
+                available = dashboardState.available,
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            ) {
+                screenContent()
+            }
+        }
+    } else {
+        // Mobile layout: bottom bar + content
+        Scaffold(
+            bottomBar = {
+                GradientBottomBar(
+                    currentScreen = currentScreen,
+                    onScreenSelected = { currentScreen = it },
+                    onLogout = { showLogoutConfirm = true },
+                    isDark = isDark,
+                    semantic = semantic,
+                )
+            },
+        ) { innerPadding ->
+            Box(modifier = Modifier.padding(innerPadding)) {
+                screenContent()
             }
         }
     }
@@ -319,6 +359,217 @@ private fun NavBarItem(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
+            color = color,
+        )
+    }
+}
+
+// ── Desktop Sidebar ──
+
+@Composable
+private fun DesktopSidebar(
+    currentScreen: Screen,
+    onScreenSelected: (Screen) -> Unit,
+    onLogout: () -> Unit,
+    isDark: Boolean,
+    semantic: AppSemanticColors,
+    username: String,
+    totalAssets: Double,
+    available: Double,
+) {
+    val gradientBrush =
+        if (isDark) {
+            Brush.verticalGradient(
+                colors = listOf(semantic.navBarColor, semantic.navBarColor),
+            )
+        } else {
+            Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF064E3B), // emerald-900
+                    Color(0xFF047857), // emerald-700
+                    Color(0xFF0D9488), // teal-600
+                ),
+            )
+        }
+
+    val activeColor = if (isDark) semantic.navBarContent else Color.White
+    val inactiveColor = if (isDark) semantic.navBarContentInactive else Color(0xBBD1FAE5)
+
+    Column(
+        modifier = Modifier
+            .width(200.dp)
+            .fillMaxHeight()
+            .background(gradientBrush)
+            .padding(vertical = 16.dp),
+    ) {
+        // Logo / App name
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IconDashboard(activeColor, size = 28.dp)
+            Text(
+                text = "FinKeeper",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                ),
+                color = activeColor,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Navigation items (without Settings)
+        val navScreens = listOf(
+            Screen.Dashboard,
+            Screen.MonthView,
+            Screen.Categories,
+            Screen.Savings,
+        )
+        navScreens.forEach { screen ->
+            SidebarNavItem(
+                icon = { color ->
+                    when (screen) {
+                        Screen.Dashboard -> IconDashboard(color)
+                        Screen.MonthView -> IconCalendar(color)
+                        Screen.Categories -> IconReceipt(color)
+                        Screen.Savings -> IconPiggyBank(color)
+                        else -> {}
+                    }
+                },
+                label = screen.title,
+                isSelected = currentScreen == screen,
+                activeColor = activeColor,
+                inactiveColor = inactiveColor,
+                onClick = { onScreenSelected(screen) },
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Bottom section: username, settings, logout
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+        ) {
+            // Username + settings + logout row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = username,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = activeColor,
+                    modifier = Modifier.weight(1f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onScreenSelected(Screen.Settings) }
+                            .padding(6.dp),
+                    ) {
+                        IconSettings(inactiveColor, size = 20.dp)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onLogout)
+                            .padding(6.dp),
+                    ) {
+                        IconLogOut(inactiveColor, size = 20.dp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Financial summary
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(activeColor.copy(alpha = 0.1f))
+                    .padding(12.dp),
+            ) {
+                Text(
+                    text = "Всего активов",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = inactiveColor,
+                )
+                Text(
+                    text = formatCurrency(totalAssets),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = activeColor,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Доступно",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = inactiveColor,
+                )
+                Text(
+                    text = formatCurrency(available),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = if (available >= 0) activeColor else Color(0xFFEF4444),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Version
+            Text(
+                text = "Домашняя бухгалтерия v1.0",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                color = inactiveColor.copy(alpha = 0.6f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SidebarNavItem(
+    icon: @Composable (Color) -> Unit,
+    label: String,
+    isSelected: Boolean,
+    activeColor: Color,
+    inactiveColor: Color,
+    onClick: () -> Unit,
+) {
+    val color = if (isSelected) activeColor else inactiveColor
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .then(
+                if (isSelected) {
+                    Modifier.background(activeColor.copy(alpha = 0.15f))
+                } else {
+                    Modifier
+                },
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        icon(color)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            ),
             color = color,
         )
     }

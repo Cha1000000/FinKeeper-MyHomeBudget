@@ -17,6 +17,7 @@ import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsState
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.util.formatCurrency
+import ru.homebudget.finkeeper.util.isDesktop
 
 @Composable
 fun SavingsScreen(
@@ -66,6 +67,30 @@ fun SavingsScreen(
 
         if (sortedGoals.isEmpty()) {
             item { EmptyState(Strings.NO_PIGGY_BANKS) }
+        } else if (isDesktop) {
+            // Desktop: 2-column grid (like web version)
+            val chunked = sortedGoals.chunked(2)
+            items(chunked.size) { index ->
+                val pair = chunked[index]
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    pair.forEach { goal ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            SavingsGoalCard(
+                                goal = goal,
+                                onEdit = { editingGoal = goal },
+                                onDeposit = { transactionGoal = goal; isDeposit = true },
+                                onWithdraw = { transactionGoal = goal; isDeposit = false }
+                            )
+                        }
+                    }
+                    if (pair.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
         } else {
             items(sortedGoals, key = { it.id }) { goal ->
                 SavingsGoalCard(
