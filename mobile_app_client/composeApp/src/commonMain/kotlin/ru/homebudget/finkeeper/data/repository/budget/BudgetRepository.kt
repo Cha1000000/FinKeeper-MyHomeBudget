@@ -5,6 +5,8 @@ import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import ru.homebudget.finkeeper.data.local.dao.BudgetDao
+import ru.homebudget.finkeeper.data.local.dao.CategoryDao
+import ru.homebudget.finkeeper.data.local.dao.MonthDao
 import ru.homebudget.finkeeper.data.local.model.EntityType
 import ru.homebudget.finkeeper.data.local.model.SyncOperation
 import ru.homebudget.finkeeper.data.local.model.SyncStatus
@@ -20,6 +22,8 @@ import ru.homebudget.finkeeper.data.model.Budget as RemoteBudget
  */
 class BudgetRepository(
     private val budgetDao: BudgetDao,
+    private val monthDao: MonthDao,
+    private val categoryDao: CategoryDao,
     private val apiClient: ApiClient,
     private val tokenStorage: TokenStorage,
 ) : KoinComponent {
@@ -159,30 +163,41 @@ class BudgetRepository(
     ): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
-                val remoteBudgets = apiClient.getBudgets(monthId.toInt())
+                // monthId здесь — локальный ID, нужен serverId для API
+                val month = monthDao.getById(monthId)
+                val serverMonthId = month?.serverId?.toIntOrNull() ?: return@withContext Result.success(Unit)
+
+                val remoteBudgets = apiClient.getBudgets(serverMonthId)
+
+                // Предзагрузка категорий для резолва серверного categoryId → локальный
+                val allCategories = categoryDao.getAllByUser(userId)
+
+                // Удаляем все synced-бюджеты месяца перед вставкой,
+                // чтобы избежать UNIQUE constraint при исправлении categoryId
+                val existingBudgets = budgetDao.getByMonth(monthId)
+                for (existing in existingBudgets) {
+                    if (existing.syncStatus == SyncStatus.SYNCED.value) {
+                        budgetDao.deleteById(existing.id)
+                    }
+                }
 
                 for (remote in remoteBudgets) {
-                    val existing = budgetDao.getByServerId(remote.id.toString())
-
-                    if (existing != null) {
-                        budgetDao.update(
-                            id = existing.id,
-                            monthId = monthId,
-                            categoryId = remote.categoryId.toLong(),
-                            limitAmount = remote.limitAmount.toLong(),
-                            serverId = remote.id.toString(),
-                            syncStatus = SyncStatus.SYNCED.value,
-                        )
-                    } else {
-                        budgetDao.insert(
-                            userId = userId,
-                            monthId = monthId,
-                            categoryId = remote.categoryId.toLong(),
-                            limitAmount = remote.limitAmount.toLong(),
-                            serverId = remote.id.toString(),
-                            syncStatus = SyncStatus.SYNCED.value,
-                        )
+                    // remote.categoryId — серверный ID, находим локальный
+                    val localCategory = allCategories
+                        .find { it.serverId == remote.categoryId.toString() }
+                    if (localCategory == null) {
+                        continue
                     }
+                    val localCategoryId = localCategory.id
+
+                    budgetDao.insert(
+                        userId = userId,
+                        monthId = monthId,
+                        categoryId = localCategoryId,
+                        limitAmount = remote.limitAmount.toLong(),
+                        serverId = remote.id.toString(),
+                        syncStatus = SyncStatus.SYNCED.value,
+                    )
                 }
 
                 Result.success(Unit)

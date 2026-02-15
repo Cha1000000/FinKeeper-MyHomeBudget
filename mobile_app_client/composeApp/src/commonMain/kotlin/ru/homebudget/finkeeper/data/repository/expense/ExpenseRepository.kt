@@ -298,10 +298,31 @@ class ExpenseRepository(
 
                     // Удаляем призрачные записи: локальные synced-записи, отсутствующие на сервере
                     val remoteServerIds = remoteExpenses.map { it.id.toString() }.toSet()
-                    val localSyncedExpenses = expenseDao.getByMonth(monthId).filter { it.serverId != null && it.syncStatus == SyncStatus.SYNCED.value }
+                    val allLocalExpenses = expenseDao.getByMonth(monthId)
+                    val localSyncedExpenses = allLocalExpenses.filter { it.serverId != null && it.syncStatus == SyncStatus.SYNCED.value }
                     for (local in localSyncedExpenses) {
                         if (local.serverId !in remoteServerIds) {
                             expenseDao.deleteById(local.id)
+                        }
+                    }
+
+                    // Дедупликация: удаляем pending-записи с serverId=null,
+                    // если существует synced-запись с таким же содержимым
+                    // (расход был отправлен на сервер, но serverId не вернулся обратно)
+                    val pendingNoServer = allLocalExpenses.filter {
+                        it.serverId == null && it.syncStatus == SyncStatus.PENDING.value
+                    }
+                    val syncedExpenses = allLocalExpenses.filter {
+                        it.serverId != null && it.syncStatus == SyncStatus.SYNCED.value
+                    }
+                    for (pending in pendingNoServer) {
+                        val hasSyncedDuplicate = syncedExpenses.any { synced ->
+                            synced.categoryId == pending.categoryId &&
+                                synced.amount == pending.amount &&
+                                synced.description.equals(pending.description, ignoreCase = true)
+                        }
+                        if (hasSyncedDuplicate) {
+                            expenseDao.deleteById(pending.id)
                         }
                     }
                 }

@@ -45,7 +45,7 @@ val appModule =
         single { IncomeRepository(get(), get(), get(), get(), get()) }
         single { ExpenseRepository(get(), get(), get(), get(), get()) }
         single { MonthRepository(get(), get(), get()) }
-        single { BudgetRepository(get(), get(), get()) }
+        single { BudgetRepository(get(), get(), get(), get(), get()) }
         single { SavingsGoalRepository(get(), get(), get()) }
         single { SavingsTransactionRepository(get(), get(), get()) }
 
