@@ -101,7 +101,7 @@ fun AppNavigation(
     val semantic = AppTheme.semanticColors
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
-    val desktopPadding = if (isDesktop) 32.dp else 0.dp
+    val desktopPadding = if (isDesktop) 128.dp else 0.dp
 
     val screenContent: @Composable () -> Unit = {
         Box(modifier = Modifier.padding(horizontal = desktopPadding)) {
@@ -551,7 +551,7 @@ private fun DesktopSidebar(
 
             // Version
             Text(
-                text = "Домашняя бухгалтерия v1.0",
+                text = "Домашняя бухгалтерия ${ru.homebudget.finkeeper.BuildConfig.APP_VERSION}",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                 color = inactiveColor.copy(alpha = 0.6f),
             )

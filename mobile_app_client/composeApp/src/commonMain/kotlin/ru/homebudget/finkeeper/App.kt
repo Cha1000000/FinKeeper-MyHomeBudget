@@ -37,7 +37,7 @@ fun App() {
         }
 
         when {
-            authState.isLoading || !isSplashTimeFinished -> SplashScreen()
+            authState.isLoading || !isSplashTimeFinished -> SplashScreen(version = BuildConfig.APP_VERSION)
             authState.user == null -> LoginScreen(
                 state = authState,
                 onLogin = { u, p -> authViewModel.login(u, p) },

@@ -10,6 +10,7 @@ buildscript {
         multiplatform_settings_version = '1.1.1'
         koin_version = '3.5.6'
         sqldelight_version = '1.5.5'
+        app_version = '1.1.0'
     }
     repositories {
         google()
@@ -154,7 +155,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 1
-        versionName = "1.1.0"
+        versionName = app_version
     }
 
     compileOptions {
@@ -200,6 +201,35 @@ android {
 }
 
 // Compose Desktop packaging configuration
+// Generate BuildConfig with app version for commonMain
+def generatedDir = layout.buildDirectory.dir("generated/buildconfig/commonMain/kotlin")
+def appVersionStr = app_version
+
+tasks.register('generateBuildConfig') {
+    def outputDir = generatedDir
+    def version = appVersionStr
+    outputs.dir(outputDir)
+    doLast {
+        def dir = new File(outputDir.get().asFile, "ru/homebudget/finkeeper")
+        dir.mkdirs()
+        new File(dir, "BuildConfig.kt").text = """\
+package ru.homebudget.finkeeper
+
+object BuildConfig {
+    const val APP_VERSION = "v${version}"
+}
+"""
+    }
+}
+
+kotlin.sourceSets.commonMain {
+    kotlin.srcDir(generatedDir)
+}
+
+tasks.matching { it.name.startsWith("compileKotlin") }.configureEach {
+    dependsOn("generateBuildConfig")
+}
+
 compose.desktop {
     application {
         mainClass = "ru.homebudget.finkeeper.MainKt"
@@ -215,7 +245,7 @@ compose.desktop {
             modules("java.instrument", "java.management", "java.prefs", "java.sql", "jdk.unsupported")
 
             packageName = "FinKeeper"
-            packageVersion = "1.1.0"
+            packageVersion = app_version
 
             macOS {
                 iconFile.set(project.file("src/desktopMain/resources/icon.icns"))

@@ -16,7 +16,7 @@ import ru.homebudget.finkeeper.ui.Strings
 
 @Composable
 fun SplashScreen(
-    version: String = "v1.0.0"
+    version: String = ru.homebudget.finkeeper.BuildConfig.APP_VERSION
 ) {
     val gradient = Brush.verticalGradient(
         colors = listOf(
