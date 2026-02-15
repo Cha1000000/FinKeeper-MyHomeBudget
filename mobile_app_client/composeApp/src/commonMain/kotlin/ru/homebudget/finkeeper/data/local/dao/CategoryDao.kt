@@ -179,6 +179,13 @@ class CategoryDao(
     }
 
     /**
+     * Update only sort_order for a category
+     */
+    fun updateSortOrder(id: Long, sortOrder: Long) {
+        queries.updateCategorySortOrder(sort_order = sortOrder, id = id)
+    }
+
+    /**
      * Get max sort order for a user's categories
      */
     fun getMaxSortOrder(userId: Long): Long? {

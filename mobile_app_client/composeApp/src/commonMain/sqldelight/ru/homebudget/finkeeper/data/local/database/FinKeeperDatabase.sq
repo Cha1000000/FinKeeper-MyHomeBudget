@@ -222,6 +222,9 @@ SELECT * FROM categories WHERE sync_status != 'synced';
 getCategoriesPendingSyncCount:
 SELECT COUNT(*) FROM categories WHERE sync_status != 'synced';
 
+updateCategorySortOrder:
+UPDATE categories SET sort_order = ?, updated_at = datetime('now') WHERE id = ?;
+
 getMaxCategorySortOrder:
 SELECT COALESCE(MAX(sort_order), 0) FROM categories WHERE user_id = ?;
 

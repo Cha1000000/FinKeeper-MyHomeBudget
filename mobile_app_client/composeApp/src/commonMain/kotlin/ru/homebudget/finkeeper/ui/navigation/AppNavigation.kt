@@ -138,6 +138,7 @@ fun AppNavigation(
                             onAddIncomeSource = { monthViewModel.addIncomeSource(it) },
                             onConfirmAddIncomeSource = { monthViewModel.confirmAddIncomeSource() },
                             onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
+                            onReorderExpenseGroups = { monthViewModel.reorderExpenseGroups(it) },
                             onRefresh = { monthViewModel.loadData() },
                         )
                     }

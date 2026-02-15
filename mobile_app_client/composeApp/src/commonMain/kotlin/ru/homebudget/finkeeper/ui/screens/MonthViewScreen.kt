@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -60,7 +62,10 @@ import ru.homebudget.finkeeper.util.formatCurrency
 import ru.homebudget.finkeeper.util.formatDate
 import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.util.monthName
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MonthViewScreen(
     state: MonthViewState,
@@ -78,6 +83,7 @@ fun MonthViewScreen(
     onAddIncomeSource: (String) -> Unit,
     onConfirmAddIncomeSource: () -> Unit,
     onCancelAddIncomeSource: () -> Unit,
+    onReorderExpenseGroups: (List<GroupedExpense>) -> Unit,
     onRefresh: () -> Unit,
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -86,6 +92,11 @@ fun MonthViewScreen(
     var deleteIncomeId by remember { mutableStateOf<Int?>(null) }
     var deleteExpenseId by remember { mutableStateOf<Int?>(null) }
     var editingExpense by remember { mutableStateOf<Pair<Int, Double>?>(null) }
+
+    var localGroupedExpenses by remember { mutableStateOf(state.groupedExpenses) }
+    LaunchedEffect(state.groupedExpenses) {
+        localGroupedExpenses = state.groupedExpenses
+    }
 
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -206,11 +217,24 @@ fun MonthViewScreen(
         }
 
         // Content
+        val lazyListState = rememberLazyListState()
+        val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
+            // Offset by 1 because the first item is the header
+            val fromIndex = from.index - 1
+            val toIndex = to.index - 1
+            if (fromIndex >= 0 && toIndex >= 0 && fromIndex < localGroupedExpenses.size && toIndex < localGroupedExpenses.size) {
+                localGroupedExpenses = localGroupedExpenses.toMutableList().apply {
+                    add(toIndex, removeAt(fromIndex))
+                }
+            }
+        }
+
         LazyColumn(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
+            state = lazyListState,
             contentPadding = PaddingValues(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -234,16 +258,26 @@ fun MonthViewScreen(
                     }
                 }
 
-                if (state.groupedExpenses.isEmpty()) {
+                if (localGroupedExpenses.isEmpty()) {
                     item { EmptyState(Strings.NO_EXPENSES_THIS_MONTH) }
                 } else {
-                    items(state.groupedExpenses, key = { it.categoryId }) { group ->
-                        ExpenseGroupCard(
-                            group = group,
-                            onDeleteExpense = { deleteExpenseId = it },
-                            onEditExpense = { id, amount -> editingExpense = Pair(id, amount) },
-                            onAddExpenseInCategory = { showAddExpenseForCategory = group.categoryId },
-                        )
+                    itemsIndexed(localGroupedExpenses, key = { _, group -> group.categoryId }) { _, group ->
+                        ReorderableItem(reorderableLazyListState, key = group.categoryId) { isDragging ->
+                            val elevation = if (isDragging) 8.dp else 0.dp
+                            ExpenseGroupCard(
+                                group = group,
+                                onDeleteExpense = { deleteExpenseId = it },
+                                onEditExpense = { id, amount -> editingExpense = Pair(id, amount) },
+                                onAddExpenseInCategory = { showAddExpenseForCategory = group.categoryId },
+                                modifier = Modifier
+                                    .longPressDraggableHandle(
+                                        onDragStopped = {
+                                            onReorderExpenseGroups(localGroupedExpenses)
+                                        },
+                                    ),
+                                elevation = elevation,
+                            )
+                        }
                     }
                 }
             } else {
@@ -385,19 +419,21 @@ private fun ExpenseGroupCard(
     onDeleteExpense: (Int) -> Unit,
     onEditExpense: (Int, Double) -> Unit,
     onAddExpenseInCategory: () -> Unit,
+    modifier: Modifier = Modifier,
+    elevation: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val glowColor = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
     // Возвращаем умеренный радиус
     val glowRadius = if (group.isOverLimit) 16.dp else 12.dp
 
     Card(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .neonGlow(glowColor, radius = glowRadius)
                 .clickable { expanded = !expanded },
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
         shape = RoundedCornerShape(12.dp),
         colors =
             CardDefaults.cardColors(

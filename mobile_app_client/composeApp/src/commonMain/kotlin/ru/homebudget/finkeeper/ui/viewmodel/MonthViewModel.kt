@@ -467,6 +467,19 @@ class MonthViewModel(
         }
     }
 
+    fun reorderExpenseGroups(newOrder: List<GroupedExpense>) {
+        viewModelScope.launch {
+            try {
+                newOrder.forEachIndexed { index, group ->
+                    categoryRepository.updateCategorySortOrder(group.categoryId.toLong(), index.toLong())
+                }
+                _state.value = _state.value.copy(groupedExpenses = newOrder)
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = e.message ?: "Ошибка сортировки")
+            }
+        }
+    }
+
     private fun buildGroupedExpenses(
         expenses: List<Expense>,
         categories: List<Category>,

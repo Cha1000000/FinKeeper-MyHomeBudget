@@ -286,4 +286,10 @@ class CategoryRepository(
                 Result.error(e)
             }
         }
+
+    suspend fun updateCategorySortOrder(categoryId: Long, sortOrder: Long) {
+        withContext(Dispatchers.Default) {
+            categoryDao.updateSortOrder(categoryId, sortOrder)
+        }
+    }
 }
