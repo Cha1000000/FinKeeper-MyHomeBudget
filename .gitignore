@@ -1,10 +1,13 @@
 .DS_Store
 
+/node_modules
+/server/node_modules
+/client/node_modules
 
 .windsurfrules
 .niuma-local/dialog-trigger.js
 .niuma-local/port_1ffd91cb89.txt
-
-/node_modules
-/server/node_modules
-/client/node_modules
+.niuma-local/last_response.md
+.niuma-local/stats.json
+.niuma-local/history/2026-02-17_16-19-11.md
+.niuma-local/

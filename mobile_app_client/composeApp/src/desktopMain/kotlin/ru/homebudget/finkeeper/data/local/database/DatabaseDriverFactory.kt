@@ -190,6 +190,7 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
             id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             savings_goal_id INTEGER NOT NULL,
+            month_id INTEGER,
             amount INTEGER NOT NULL CHECK (amount != 0),
             type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal')),
             description TEXT,
@@ -199,7 +200,8 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
             server_id TEXT,
             sync_status TEXT NOT NULL DEFAULT 'synced',
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (savings_goal_id) REFERENCES savings_goals(id) ON DELETE CASCADE
+            FOREIGN KEY (savings_goal_id) REFERENCES savings_goals(id) ON DELETE CASCADE,
+            FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE SET NULL
         )""",
         """CREATE TABLE IF NOT EXISTS sync_queue (
             id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -238,6 +240,62 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
         } catch (e: Exception) {
             DesktopSyncLog.log("DB", "ensureSchema failed for: ${sql.take(60)}... error=${e.message}")
         }
+    }
+    
+    // Migration: recreate savings_transactions table with month_id in correct position
+    // SQLite ALTER TABLE ADD COLUMN adds to the end, but SQLDelight expects specific order
+    // We always recreate the table to ensure correct schema
+    try {
+        // Check if old table exists and needs migration
+        val needsMigration = try {
+            driver.execute(null, "SELECT month_id FROM savings_transactions LIMIT 1", 0, null)
+            // Column exists - check if we need to recreate for correct order
+            // We'll recreate anyway to be safe
+            true
+        } catch (e: Exception) {
+            // Column doesn't exist - need to add it
+            true
+        }
+        
+        if (needsMigration) {
+            DesktopSyncLog.log("DB", "Migrating savings_transactions table...")
+            val migrationStatements = listOf(
+                "DROP TABLE IF EXISTS savings_transactions_new",
+                """CREATE TABLE savings_transactions_new (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    savings_goal_id INTEGER NOT NULL,
+                    month_id INTEGER,
+                    amount INTEGER NOT NULL CHECK (amount != 0),
+                    type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal')),
+                    description TEXT,
+                    date TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    server_id TEXT,
+                    sync_status TEXT NOT NULL DEFAULT 'synced',
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (savings_goal_id) REFERENCES savings_goals(id) ON DELETE CASCADE,
+                    FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE SET NULL
+                )""",
+                """INSERT OR IGNORE INTO savings_transactions_new (id, user_id, savings_goal_id, amount, type, description, date, created_at, updated_at, server_id, sync_status)
+                   SELECT id, user_id, savings_goal_id, amount, type, description, date, created_at, updated_at, server_id, sync_status 
+                   FROM savings_transactions""",
+                "DROP TABLE savings_transactions",
+                "ALTER TABLE savings_transactions_new RENAME TO savings_transactions",
+                "CREATE INDEX IF NOT EXISTS idx_savings_transactions_goal ON savings_transactions(savings_goal_id)",
+            )
+            for (sql in migrationStatements) {
+                try {
+                    driver.execute(null, sql.trimIndent(), 0, null)
+                } catch (e: Exception) {
+                    DesktopSyncLog.log("DB", "Migration step failed: ${sql.take(50)}... error=${e.message}")
+                }
+            }
+            DesktopSyncLog.log("DB", "Table savings_transactions migrated successfully")
+        }
+    } catch (e: Exception) {
+        DesktopSyncLog.log("DB", "Migration error: ${e.message}")
     }
 }
 

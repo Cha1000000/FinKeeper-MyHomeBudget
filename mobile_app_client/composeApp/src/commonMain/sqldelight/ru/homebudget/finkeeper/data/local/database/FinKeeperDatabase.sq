@@ -124,6 +124,7 @@ CREATE TABLE savings_transactions (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     savings_goal_id INTEGER NOT NULL,
+    month_id INTEGER,
     amount INTEGER NOT NULL CHECK (amount != 0),
     type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal')),
     description TEXT,
@@ -133,7 +134,8 @@ CREATE TABLE savings_transactions (
     server_id TEXT,
     sync_status TEXT NOT NULL DEFAULT 'synced',
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (savings_goal_id) REFERENCES savings_goals(id) ON DELETE CASCADE
+    FOREIGN KEY (savings_goal_id) REFERENCES savings_goals(id) ON DELETE CASCADE,
+    FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE SET NULL
 );
 
 CREATE TABLE sync_queue (
@@ -533,11 +535,11 @@ DELETE FROM savings_goals;
 
 -- Savings Transaction queries
 insertSavingsTransaction:
-INSERT INTO savings_transactions (user_id, savings_goal_id, amount, type, description, date, created_at, updated_at, server_id, sync_status)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO savings_transactions (user_id, savings_goal_id, month_id, amount, type, description, date, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateSavingsTransactionById:
-UPDATE savings_transactions SET savings_goal_id = ?, amount = ?, type = ?, description = ?, date = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+UPDATE savings_transactions SET savings_goal_id = ?, month_id = ?, amount = ?, type = ?, description = ?, date = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
 
 updateSavingsTransactionSyncStatus:
 UPDATE savings_transactions SET sync_status = ?, server_id = ? WHERE id = ?;

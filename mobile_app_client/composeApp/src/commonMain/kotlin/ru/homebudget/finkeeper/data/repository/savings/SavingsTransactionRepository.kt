@@ -57,17 +57,19 @@ class SavingsTransactionRepository(
     suspend fun createTransaction(
         userId: Long,
         goalId: Long,
+        monthId: Long? = null,
         amount: Double,
         date: String,
         type: String = "deposit",
     ): Result<RemoteSavingsTransaction> =
         withContext(Dispatchers.Default) {
-            println("[SAVINGS-TX] createTransaction START: userId=$userId, goalId=$goalId, amount=$amount, type=$type")
+            println("[SAVINGS-TX] createTransaction START: userId=$userId, goalId=$goalId, monthId=$monthId, amount=$amount, type=$type")
             try {
                 val localId =
                     savingsTransactionDao.insert(
                         userId = userId,
                         savingsGoalId = goalId,
+                        monthId = monthId,
                         amount = amount.toLong(),
                         type = type,
                         description = null,

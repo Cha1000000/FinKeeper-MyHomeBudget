@@ -689,12 +689,18 @@ class SyncManager(
                 val goalServerId = resolveSavingsGoalServerId(transaction.savingsGoalId)
                     ?: throw IllegalStateException("Cannot sync savings transaction: goal serverId is null for goalId=${transaction.savingsGoalId}")
 
-                println("[SYNC] syncSavingsTransactionToServer: INSERT goalServerId=$goalServerId, amount=${transaction.amount}")
+                // Resolve month serverId for proper expense creation on server
+                val monthServerId = transaction.monthId?.let { localMonthId ->
+                    monthDao.getById(localMonthId)?.serverId?.toIntOrNull()
+                }
+
+                println("[SYNC] syncSavingsTransactionToServer: INSERT goalServerId=$goalServerId, monthServerId=$monthServerId, amount=${transaction.amount}")
                 val serverTransaction = apiClient.addSavingsTransaction(
                     AddSavingsTransactionRequest(
                         goalId = goalServerId.toInt(),
                         amount = transaction.amount.toDouble(),
                         date = transaction.date,
+                        monthId = monthServerId,
                     ),
                 )
                 println("[SYNC] syncSavingsTransactionToServer: INSERT OK, serverTransaction.id=${serverTransaction.id}")
@@ -711,6 +717,11 @@ class SyncManager(
                     transaction.serverId?.toIntOrNull()
                         ?: throw IllegalStateException("Cannot sync savings transaction update: transaction serverId is null for entityId=${item.entityId}")
 
+                // Resolve month serverId for proper expense creation on server
+                val monthServerId = transaction.monthId?.let { localMonthId ->
+                    monthDao.getById(localMonthId)?.serverId?.toIntOrNull()
+                }
+
                 apiClient.updateSavingsTransaction(
                     id = serverId,
                     request =
@@ -718,6 +729,7 @@ class SyncManager(
                             goalId = goalServerId.toInt(),
                             amount = transaction.amount.toDouble(),
                             date = transaction.date,
+                            monthId = monthServerId,
                         ),
                 )
                 savingsTransactionDao.updateSyncStatus(

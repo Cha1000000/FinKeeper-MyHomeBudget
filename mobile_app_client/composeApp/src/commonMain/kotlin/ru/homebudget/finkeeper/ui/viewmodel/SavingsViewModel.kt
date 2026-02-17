@@ -182,9 +182,11 @@ class SavingsViewModel(
                 println("[SAVINGS-VM] addTransaction: goal updated locally, newAmount=$newAmount")
 
                 // Создаём транзакцию (enqueueSync запустит scheduleProcessQueue)
+                val monthId = monthResult.getOrNull()?.localId
                 savingsTransactionRepository.createTransaction(
                     userId = currentUserId,
                     goalId = goalId.toLong(),
+                    monthId = monthId,
                     amount = amount,
                     date = currentIsoDate(),
                     type = if (amount >= 0) "deposit" else "withdrawal",

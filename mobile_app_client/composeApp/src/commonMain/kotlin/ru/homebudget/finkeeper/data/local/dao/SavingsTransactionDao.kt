@@ -34,6 +34,7 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
     fun insert(
         userId: Long,
         savingsGoalId: Long,
+        monthId: Long? = null,
         amount: Long,
         type: String,
         description: String? = null,
@@ -46,6 +47,7 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
             queries.insertSavingsTransaction(
                 user_id = userId,
                 savings_goal_id = savingsGoalId,
+                month_id = monthId,
                 amount = amount,
                 type = type,
                 description = description,
@@ -65,6 +67,7 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
     fun update(
         id: Long,
         savingsGoalId: Long,
+        monthId: Long? = null,
         amount: Long,
         type: String,
         description: String? = null,
@@ -75,6 +78,7 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
         val now = getCurrentDateTime()
         queries.updateSavingsTransactionById(
             savings_goal_id = savingsGoalId,
+            month_id = monthId,
             amount = amount,
             type = type,
             description = description,
@@ -156,6 +160,7 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
             id = entity.id,
             userId = entity.user_id,
             savingsGoalId = entity.savings_goal_id,
+            monthId = entity.month_id,
             amount = entity.amount,
             type = entity.type,
             description = entity.description,
@@ -180,6 +185,7 @@ data class SavingsTransaction(
     val id: Long,
     val userId: Long,
     val savingsGoalId: Long,
+    val monthId: Long?,
     val amount: Long,
     val type: String,
     val description: String?,
