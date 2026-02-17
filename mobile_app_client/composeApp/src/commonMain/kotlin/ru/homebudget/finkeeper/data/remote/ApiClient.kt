@@ -320,12 +320,13 @@ class ApiClient(
         checkResponse(response)
     }
 
-    suspend fun addSavingsTransaction(request: AddSavingsTransactionRequest) {
+    suspend fun addSavingsTransaction(request: AddSavingsTransactionRequest): SavingsTransaction {
         val response =
             client.post("$baseUrl/savings_transactions") {
                 setBody(request)
             }
         checkResponse(response)
+        return response.body()
     }
 
     suspend fun getSavingsTransactions(goalId: Int): List<SavingsTransaction> {

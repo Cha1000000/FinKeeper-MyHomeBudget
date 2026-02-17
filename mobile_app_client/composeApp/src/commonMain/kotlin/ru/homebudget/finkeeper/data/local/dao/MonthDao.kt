@@ -22,16 +22,18 @@ class MonthDao(
         syncStatus: String = "synced",
     ): Long {
         val now = getCurrentTimestamp()
-        queries.insertMonth(
-            user_id = userId,
-            year = year,
-            month = month,
-            created_at = now,
-            updated_at = now,
-            server_id = serverId,
-            sync_status = syncStatus,
-        )
-        return queries.lastInsertRowId().executeAsOne()
+        return database.transactionWithResult {
+            queries.insertMonth(
+                user_id = userId,
+                year = year,
+                month = month,
+                created_at = now,
+                updated_at = now,
+                server_id = serverId,
+                sync_status = syncStatus,
+            )
+            queries.lastInsertRowId().executeAsOne()
+        }
     }
 
     /**

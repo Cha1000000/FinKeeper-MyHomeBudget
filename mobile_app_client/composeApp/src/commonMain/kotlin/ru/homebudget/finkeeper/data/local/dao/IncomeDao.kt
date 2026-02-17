@@ -54,19 +54,21 @@ class IncomeDao(
         syncStatus: String = "synced"
     ): Long {
         val now = getCurrentTimestamp()
-        queries.insertIncome(
-            user_id = userId,
-            month_id = monthId,
-            income_source_id = incomeSourceId,
-            amount = amount,
-            description = description,
-            date = date,
-            created_at = now,
-            updated_at = now,
-            server_id = serverId,
-            sync_status = syncStatus
-        )
-        return queries.lastInsertRowId().executeAsOne()
+        return database.transactionWithResult {
+            queries.insertIncome(
+                user_id = userId,
+                month_id = monthId,
+                income_source_id = incomeSourceId,
+                amount = amount,
+                description = description,
+                date = date,
+                created_at = now,
+                updated_at = now,
+                server_id = serverId,
+                sync_status = syncStatus
+            )
+            queries.lastInsertRowId().executeAsOne()
+        }
     }
 
     /**

@@ -13,6 +13,7 @@ import ru.homebudget.finkeeper.data.local.dao.MonthDao
 import ru.homebudget.finkeeper.data.local.model.EntityType
 import ru.homebudget.finkeeper.data.local.model.SyncOperation
 import ru.homebudget.finkeeper.data.local.model.SyncStatus
+import ru.homebudget.finkeeper.data.model.AddExpenseRequest
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
@@ -100,6 +101,7 @@ class ExpenseRepository(
         date: String,
     ): Result<RemoteExpense> =
         withContext(Dispatchers.Default) {
+            println("[EXPENSE] createExpense START: userId=$userId, monthId=$monthId, categoryId=$categoryId, amount=$amount")
             try {
                 val now = Clock.System.now().toString()
                 val localId =
@@ -119,9 +121,85 @@ class ExpenseRepository(
 
                 val localExpense = expenseDao.getById(localId)!!
 
+                // Попытка немедленной синхронизации на сервер
+                var serverExpense: RemoteExpense? = null
+                var directSyncError: String? = null
+                try {
+                    val month = monthDao.getById(monthId)
+                    val category = categoryDao.getById(categoryId)
+                    println("[EXPENSE] Direct sync: monthId=$monthId, month.serverId=${month?.serverId}, categoryId=$categoryId, category.serverId=${category?.serverId}")
+
+                    val monthServerId =
+                        when {
+                            month?.serverId != null -> month.serverId.toIntOrNull()
+                            month != null -> {
+                                val remoteMonth = apiClient.ensureMonth(month.year.toInt(), month.month.toInt())
+                                monthDao.updateServerId(month.id, remoteMonth.id.toString())
+                                remoteMonth.id
+                            }
+                            else -> null
+                        }
+
+                    val categoryServerId =
+                        when {
+                            category?.serverId != null -> category.serverId.toIntOrNull()
+                            category != null -> {
+                                val remoteCategory = apiClient.createCategory(category.name)
+                                categoryDao.updateSyncStatus(
+                                    id = category.id,
+                                    syncStatus = SyncStatus.SYNCED.value,
+                                    serverId = remoteCategory.id.toString(),
+                                )
+                                remoteCategory.id
+                            }
+                            else -> null
+                        }
+
+                    println("[EXPENSE] Direct sync: resolved monthServerId=$monthServerId, categoryServerId=$categoryServerId")
+
+                    if (monthServerId != null && categoryServerId != null) {
+                        serverExpense = apiClient.addExpense(
+                            AddExpenseRequest(
+                                monthId = monthServerId,
+                                categoryId = categoryServerId,
+                                amount = amount,
+                                comment = description,
+                                date = date,
+                            )
+                        )
+                        println("[EXPENSE] Direct sync OK: serverExpense.id=${serverExpense.id}")
+                        // Обновляем локальную запись с serverId
+                        expenseDao.updateSyncStatus(
+                            id = localId,
+                            syncStatus = SyncStatus.SYNCED.value,
+                            serverId = serverExpense.id.toString(),
+                        )
+                    } else {
+                        directSyncError = "Direct sync skipped: monthServerId=$monthServerId, categoryServerId=$categoryServerId"
+                        println("[EXPENSE] $directSyncError")
+                    }
+                } catch (e: Exception) {
+                    directSyncError = "Direct sync failed: ${e.message}"
+                    println("[EXPENSE] $directSyncError")
+                }
+
+                // Если прямая синхронизация не удалась, добавляем в очередь
+                if (serverExpense == null) {
+                    if (directSyncError != null) {
+                        syncManager.reportSyncError("Expense: $directSyncError")
+                    }
+                    syncManager.enqueueSync(
+                        userId = userId,
+                        entityType = EntityType.EXPENSE.value,
+                        entityId = localId,
+                        operation = SyncOperation.INSERT.value,
+                        payload = null,
+                    )
+                }
+
                 val result =
                     RemoteExpense(
-                        id = localExpense.id.toInt(),
+                        id = serverExpense?.id ?: localExpense.id.toInt(),
                         monthId = localExpense.monthId.toInt(),
                         categoryId = localExpense.categoryId.toInt(),
                         amount = localExpense.amount.toDouble(),
@@ -130,17 +208,10 @@ class ExpenseRepository(
                         categoryName = null,
                     )
 
-                // Добавляем операцию в очередь синхронизации
-                syncManager.enqueueSync(
-                    userId = currentUserId,
-                    entityType = EntityType.EXPENSE.value,
-                    entityId = localId,
-                    operation = SyncOperation.INSERT.value,
-                    payload = null,
-                )
-
                 Result.success(result)
             } catch (e: Exception) {
+                println("[EXPENSE] createExpense ERROR: ${e.message}")
+                e.printStackTrace()
                 Result.error(e)
             }
         }
@@ -173,7 +244,7 @@ class ExpenseRepository(
 
                 // Добавляем операцию в очередь синхронизации
                 syncManager.enqueueSync(
-                    userId = currentUserId,
+                    userId = existing.userId,
                     entityType = EntityType.EXPENSE.value,
                     entityId = id,
                     operation = SyncOperation.UPDATE.value,
@@ -201,7 +272,7 @@ class ExpenseRepository(
                 // Добавляем операцию в очередь синхронизации с serverId в payload
                 if (serverId != null) {
                     syncManager.enqueueSync(
-                        userId = currentUserId,
+                        userId = expense.userId,
                         entityType = EntityType.EXPENSE.value,
                         entityId = id,
                         operation = SyncOperation.DELETE.value,

@@ -3,6 +3,7 @@ package ru.homebudget.finkeeper.ui.viewmodel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -279,27 +280,33 @@ class ViewModelStateTest {
     }
 
     @Test
-    fun authViewModel_login_validData_clearsError() {
+    fun authViewModel_login_validData_passesValidation() {
         val viewModel = createAuthViewModel()
 
+        // Пустые данные не проходят валидацию
         viewModel.login("", "")
         assertEquals("Введите имя пользователя и пароль", viewModel.state.value.error)
+        assertFalse(viewModel.state.value.isLoading) // Запрос не начался
 
-        viewModel.login("user", "123456")
-
-        assertNull(viewModel.state.value.error)
+        // Короткий пароль не проходит валидацию
+        viewModel.login("user", "123")
+        assertEquals("Пароль должен быть не короче 6 символов", viewModel.state.value.error)
+        assertFalse(viewModel.state.value.isLoading) // Запрос не начался
     }
 
     @Test
-    fun authViewModel_register_validData_clearsError() {
+    fun authViewModel_register_validData_passesValidation() {
         val viewModel = createAuthViewModel()
 
+        // Пустые данные не проходят валидацию
         viewModel.register("", "")
         assertEquals("Введите имя пользователя и пароль", viewModel.state.value.error)
+        assertFalse(viewModel.state.value.isLoading) // Запрос не начался
 
-        viewModel.register("user", "123456")
-
-        assertNull(viewModel.state.value.error)
+        // Короткий пароль не проходит валидацию
+        viewModel.register("user", "123")
+        assertEquals("Пароль должен быть не короче 6 символов", viewModel.state.value.error)
+        assertFalse(viewModel.state.value.isLoading) // Запрос не начался
     }
 
     private fun createAuthViewModel(): AuthViewModel {

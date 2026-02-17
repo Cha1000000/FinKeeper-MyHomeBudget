@@ -84,7 +84,7 @@ class SavingsGoalRepository(
 
                 // Добавляем операцию в очередь синхронизации
                 syncManager.enqueueSync(
-                    userId = currentUserId,
+                    userId = userId,
                     entityType = EntityType.SAVINGS_GOAL.value,
                     entityId = localId,
                     operation = SyncOperation.INSERT.value,
@@ -110,11 +110,14 @@ class SavingsGoalRepository(
             try {
                 val existing = savingsGoalDao.getById(id) ?: return@withContext Result.error(Exception("Savings goal not found"))
 
+                val newCurrentAmount = currentAmount?.toLong() ?: existing.currentAmount
+                println("[SAVINGS-GOAL] updateSavingsGoal: id=$id, oldCurrentAmount=${existing.currentAmount}, newCurrentAmount=$newCurrentAmount")
+                
                 savingsGoalDao.update(
                     id = id,
                     name = name ?: existing.name,
                     targetAmount = targetAmount?.toLong() ?: existing.targetAmount,
-                    currentAmount = currentAmount?.toLong() ?: existing.currentAmount,
+                    currentAmount = newCurrentAmount,
                     color = existing.color,
                     icon = existing.icon,
                     targetDate = existing.targetDate,
@@ -122,14 +125,52 @@ class SavingsGoalRepository(
                     serverId = existing.serverId,
                     syncStatus = SyncStatus.PENDING.value,
                 )
+                
+                // Проверяем что данные записались
+                val updated = savingsGoalDao.getById(id)
+                println("[SAVINGS-GOAL] updateSavingsGoal: verified currentAmount=${updated?.currentAmount}")
 
                 // Добавляем операцию в очередь синхронизации
                 syncManager.enqueueSync(
-                    userId = currentUserId,
+                    userId = existing.userId,
                     entityType = EntityType.SAVINGS_GOAL.value,
                     entityId = id,
                     operation = SyncOperation.UPDATE.value,
                     payload = null,
+                )
+
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.error(e)
+            }
+        }
+
+    /**
+     * Обновление currentAmount только локально (без синхронизации на сервер).
+     * Используется при добавлении транзакции копилки, т.к. сервер сам обновляет currentAmount
+     * при получении savings_transaction.
+     */
+    suspend fun updateCurrentAmountLocally(
+        id: Long,
+        currentAmount: Double,
+    ): Result<Unit> =
+        withContext(Dispatchers.Default) {
+            try {
+                val existing = savingsGoalDao.getById(id) ?: return@withContext Result.error(Exception("Savings goal not found"))
+
+                println("[SAVINGS-GOAL] updateCurrentAmountLocally: id=$id, newCurrentAmount=${currentAmount.toLong()}")
+                
+                savingsGoalDao.update(
+                    id = id,
+                    name = existing.name,
+                    targetAmount = existing.targetAmount,
+                    currentAmount = currentAmount.toLong(),
+                    color = existing.color,
+                    icon = existing.icon,
+                    targetDate = existing.targetDate,
+                    isAchieved = existing.isAchieved,
+                    serverId = existing.serverId,
+                    syncStatus = existing.syncStatus, // Не меняем статус синхронизации
                 )
 
                 Result.success(Unit)
@@ -151,7 +192,7 @@ class SavingsGoalRepository(
 
                 if (serverId != null) {
                     syncManager.enqueueSync(
-                        userId = currentUserId,
+                        userId = goal.userId,
                         entityType = EntityType.SAVINGS_GOAL.value,
                         entityId = id,
                         operation = SyncOperation.DELETE.value,

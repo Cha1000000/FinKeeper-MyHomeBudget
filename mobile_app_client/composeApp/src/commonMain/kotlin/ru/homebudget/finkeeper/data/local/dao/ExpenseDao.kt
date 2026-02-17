@@ -59,20 +59,22 @@ class ExpenseDao(
         syncStatus: String = "synced",
         isHidden: Long = 0L
     ): Long {
-        queries.insertExpense(
-            user_id = userId,
-            month_id = monthId,
-            category_id = categoryId,
-            amount = amount,
-            description = description,
-            date = date,
-            created_at = createdAt,
-            updated_at = updatedAt,
-            server_id = serverId,
-            sync_status = syncStatus,
-            is_hidden = isHidden
-        )
-        return queries.lastInsertRowId().executeAsOne()
+        return database.transactionWithResult {
+            queries.insertExpense(
+                user_id = userId,
+                month_id = monthId,
+                category_id = categoryId,
+                amount = amount,
+                description = description,
+                date = date,
+                created_at = createdAt,
+                updated_at = updatedAt,
+                server_id = serverId,
+                sync_status = syncStatus,
+                is_hidden = isHidden
+            )
+            queries.lastInsertRowId().executeAsOne()
+        }
     }
 
     /**

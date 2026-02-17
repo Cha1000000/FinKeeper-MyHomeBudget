@@ -14,12 +14,18 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
+import ru.homebudget.finkeeper.data.repository.SyncService
+import ru.homebudget.finkeeper.data.repository.WebSocketService
 import ru.homebudget.finkeeper.di.appModule
 import ru.homebudget.finkeeper.di.desktopAppModule
 import ru.homebudget.finkeeper.util.LocalWindowControls
 import ru.homebudget.finkeeper.util.WindowControlActions
 import ru.homebudget.finkeeper.util.desktopAwtWindow
+import java.io.File
+import java.io.FileOutputStream
+import java.io.PrintStream
 import java.util.prefs.Preferences
 
 private const val PREF_WINDOW_WIDTH = "window_width"
@@ -66,9 +72,44 @@ private fun saveWindowState(
  * Supports macOS, Windows, and Linux
  */
 fun main() {
+    // Redirect stdout/stderr to log file for diagnostics
+    try {
+        val logDir = File(System.getProperty("user.home"), ".finkeeper")
+        if (!logDir.exists()) logDir.mkdirs()
+        val logFile = File(logDir, "sync_debug.log")
+        val logStream = PrintStream(FileOutputStream(logFile, true), true)
+        val originalOut = System.out
+        val originalErr = System.err
+        // Tee: write to both console and file
+        System.setOut(PrintStream(object : java.io.OutputStream() {
+            override fun write(b: Int) { originalOut.write(b); logStream.write(b) }
+            override fun write(b: ByteArray, off: Int, len: Int) { originalOut.write(b, off, len); logStream.write(b, off, len) }
+            override fun flush() { originalOut.flush(); logStream.flush() }
+        }, true))
+        System.setErr(PrintStream(object : java.io.OutputStream() {
+            override fun write(b: Int) { originalErr.write(b); logStream.write(b) }
+            override fun write(b: ByteArray, off: Int, len: Int) { originalErr.write(b, off, len); logStream.write(b, off, len) }
+            override fun flush() { originalErr.flush(); logStream.flush() }
+        }, true))
+        println("[DESKTOP] Log file: ${logFile.absolutePath}")
+    } catch (e: Exception) {
+        println("[DESKTOP] Failed to set up log file: ${e.message}")
+    }
+
     // Initialize Koin DI
     startKoin {
         modules(appModule, desktopAppModule)
+    }
+
+    // Start sync services (same as Android's FinKeeperApp)
+    try {
+        val syncService = GlobalContext.get().getOrNull<SyncService>()
+        syncService?.start()
+        val webSocketService = GlobalContext.get().getOrNull<WebSocketService>()
+        webSocketService?.start()
+        println("[DESKTOP] SyncService and WebSocketService started")
+    } catch (e: Exception) {
+        println("[DESKTOP] Failed to start sync services: ${e.message}")
     }
 
     val (savedSize, savedPosition, wasMaximized) = loadWindowState()

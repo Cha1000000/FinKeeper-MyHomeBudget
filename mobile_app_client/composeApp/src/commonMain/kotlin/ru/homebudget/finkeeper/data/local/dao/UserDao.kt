@@ -15,12 +15,14 @@ class UserDao(
      * Вставка нового пользователя
      */
     fun insert(username: String, email: String, passwordHash: String): Long {
-        queries.insertUser(
-            username = username,
-            email = email,
-            password_hash = passwordHash
-        )
-        return queries.lastInsertRowId().executeAsOne()
+        return database.transactionWithResult {
+            queries.insertUser(
+                username = username,
+                email = email,
+                password_hash = passwordHash
+            )
+            queries.lastInsertRowId().executeAsOne()
+        }
     }
 
     /**

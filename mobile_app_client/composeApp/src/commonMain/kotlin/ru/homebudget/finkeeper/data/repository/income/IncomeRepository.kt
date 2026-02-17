@@ -111,6 +111,7 @@ class IncomeRepository(
                     )
 
                 val localIncome = incomeDao.getById(localId)!!
+                println("[INCOME] Created locally: id=$localId, monthId=$monthId, sourceId=$incomeSourceId, userId=$userId")
 
                 val result =
                     RemoteIncome(
@@ -123,7 +124,7 @@ class IncomeRepository(
 
                 // Добавляем операцию в очередь синхронизации
                 syncManager.enqueueSync(
-                    userId = currentUserId,
+                    userId = userId,
                     entityType = EntityType.INCOME.value,
                     entityId = localId,
                     operation = SyncOperation.INSERT.value,
@@ -161,7 +162,7 @@ class IncomeRepository(
 
                 // Добавляем операцию в очередь синхронизации
                 syncManager.enqueueSync(
-                    userId = currentUserId,
+                    userId = existing.userId,
                     entityType = EntityType.INCOME.value,
                     entityId = id,
                     operation = SyncOperation.UPDATE.value,
@@ -187,7 +188,7 @@ class IncomeRepository(
 
                 if (serverId != null) {
                     syncManager.enqueueSync(
-                        userId = currentUserId,
+                        userId = income.userId,
                         entityType = EntityType.INCOME.value,
                         entityId = id,
                         operation = SyncOperation.DELETE.value,

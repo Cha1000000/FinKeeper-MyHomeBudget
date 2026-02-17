@@ -59,20 +59,22 @@ class CategoryDao(
         serverId: String? = null,
         syncStatus: String = "synced"
     ): Long {
-        queries.insertCategory(
-            user_id = userId,
-            name = name,
-            type = type,
-            icon = icon,
-            color = color,
-            sort_order = sortOrder,
-            is_active = isActive,
-            created_at = createdAt,
-            updated_at = updatedAt,
-            server_id = serverId,
-            sync_status = syncStatus
-        )
-        return queries.lastInsertRowId().executeAsOne()
+        return database.transactionWithResult {
+            queries.insertCategory(
+                user_id = userId,
+                name = name,
+                type = type,
+                icon = icon,
+                color = color,
+                sort_order = sortOrder,
+                is_active = isActive,
+                created_at = createdAt,
+                updated_at = updatedAt,
+                server_id = serverId,
+                sync_status = syncStatus
+            )
+            queries.lastInsertRowId().executeAsOne()
+        }
     }
 
     /**

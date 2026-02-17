@@ -135,7 +135,11 @@ class IncomeSourceRepository(
                     id = id,
                     name = name ?: existing.name,
                     sortOrder = existing.sortOrder,
-                    isActive = if (isActive == true) 1L else 0L,
+                    isActive = when (isActive) {
+                        true -> 1L
+                        false -> 0L
+                        null -> existing.isActive
+                    },
                     serverId = existing.serverId,
                     syncStatus = SyncStatus.PENDING.value,
                 )

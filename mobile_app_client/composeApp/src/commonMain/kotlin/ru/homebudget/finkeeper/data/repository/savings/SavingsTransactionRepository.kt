@@ -62,6 +62,7 @@ class SavingsTransactionRepository(
         type: String = "deposit",
     ): Result<RemoteSavingsTransaction> =
         withContext(Dispatchers.Default) {
+            println("[SAVINGS-TX] createTransaction START: userId=$userId, goalId=$goalId, amount=$amount, type=$type")
             try {
                 val localId =
                     savingsTransactionDao.insert(
@@ -76,6 +77,7 @@ class SavingsTransactionRepository(
                     )
 
                 val localTransaction = savingsTransactionDao.getById(localId)!!
+                println("[SAVINGS-TX] Created locally: id=$localId, goalId=$goalId, userId=$userId, amount=$amount")
 
                 val result =
                     RemoteSavingsTransaction(
@@ -88,7 +90,7 @@ class SavingsTransactionRepository(
 
                 // Добавляем операцию в очередь синхронизации
                 syncManager.enqueueSync(
-                    userId = currentUserId,
+                    userId = userId,
                     entityType = EntityType.SAVINGS_TRANSACTION.value,
                     entityId = localId,
                     operation = SyncOperation.INSERT.value,
@@ -97,6 +99,8 @@ class SavingsTransactionRepository(
 
                 Result.success(result)
             } catch (e: Exception) {
+                println("[SAVINGS-TX] createTransaction ERROR: ${e.message}")
+                e.printStackTrace()
                 Result.error(e)
             }
         }
@@ -114,7 +118,7 @@ class SavingsTransactionRepository(
 
                 if (serverId != null) {
                     syncManager.enqueueSync(
-                        userId = currentUserId,
+                        userId = transaction.userId,
                         entityType = EntityType.SAVINGS_TRANSACTION.value,
                         entityId = id,
                         operation = SyncOperation.DELETE.value,

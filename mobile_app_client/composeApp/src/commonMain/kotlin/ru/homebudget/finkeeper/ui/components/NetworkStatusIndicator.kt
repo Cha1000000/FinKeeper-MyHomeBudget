@@ -3,6 +3,7 @@ package ru.homebudget.finkeeper.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -41,53 +42,68 @@ fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
     val isOnlineState: State<Boolean> = networkMonitor.isOnline.collectAsState()
     val isSyncingState: State<Boolean> = syncManager.isSyncing.collectAsState()
     val pendingCountState: State<Long> = syncManager.pendingCount.collectAsState()
+    val lastSyncErrorState: State<String?> = syncManager.lastSyncError.collectAsState()
     
     val isOnline = isOnlineState.value
     val isSyncing = isSyncingState.value
     val pendingCount = pendingCountState.value
+    val lastSyncError = lastSyncErrorState.value
 
-    Row(
+    Column(
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        if (isSyncing) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(14.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (isSyncing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
 
-        if (pendingCount > 0 && !isSyncing) {
+            if (pendingCount > 0 && !isSyncing) {
+                Box(
+                    modifier =
+                        Modifier
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.error)
+                            .padding(horizontal = 5.dp, vertical = 1.dp),
+                ) {
+                    Text(
+                        text = pendingCount.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                    )
+                }
+            }
+
+            Text(
+                text = if (isOnline) "В сети" else "Нет связи",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isOnline) Color(0xFF4CAF50) else Color(0xFFF44336),
+            )
+
             Box(
                 modifier =
                     Modifier
+                        .size(10.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.error)
-                        .padding(horizontal = 5.dp, vertical = 1.dp),
-            ) {
-                Text(
-                    text = pendingCount.toString(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
-                )
-            }
+                        .background(if (isOnline) Color(0xFF4CAF50) else Color(0xFFF44336)),
+            )
         }
 
-        Text(
-            text = if (isOnline) "В сети" else "Нет связи",
-            style = MaterialTheme.typography.labelMedium,
-            color = if (isOnline) Color(0xFF4CAF50) else Color(0xFFF44336),
-        )
-
-        Box(
-            modifier =
-                Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(if (isOnline) Color(0xFF4CAF50) else Color(0xFFF44336)),
-        )
+        if (!lastSyncError.isNullOrBlank()) {
+            Text(
+                text = "Sync error: ${lastSyncError.take(90)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
 

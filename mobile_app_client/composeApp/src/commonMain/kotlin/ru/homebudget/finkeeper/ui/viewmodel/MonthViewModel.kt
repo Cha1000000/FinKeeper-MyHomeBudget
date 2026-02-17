@@ -266,7 +266,12 @@ class MonthViewModel(
         source: String,
         amount: Double,
     ) {
-        val md = _state.value.monthData ?: return
+        val md = _state.value.monthData
+        if (md == null) {
+            println("[MONTH-VM] addIncome: SKIPPED, monthData is null")
+            return
+        }
+        println("[MONTH-VM] addIncome: source=$source, amount=$amount, monthId=${md.localId}, userId=$currentUserId")
         viewModelScope.launch {
             try {
                 val sourceId =
@@ -274,6 +279,7 @@ class MonthViewModel(
                         .find { it.name.equals(source, ignoreCase = true) }
                         ?.id
                         ?.toLong() ?: 0L
+                println("[MONTH-VM] addIncome: sourceId=$sourceId")
 
                 incomeRepository.createIncome(
                     userId = currentUserId,
@@ -282,9 +288,12 @@ class MonthViewModel(
                     amount = amount,
                     date = currentIsoDate(),
                 )
+                println("[MONTH-VM] addIncome: createIncome completed")
 
-                loadData()
+                loadData(syncFromServer = false)
             } catch (e: Exception) {
+                println("[MONTH-VM] addIncome ERROR: ${e.message}")
+                e.printStackTrace()
                 _state.value = _state.value.copy(error = e.message)
             }
         }
@@ -347,7 +356,12 @@ class MonthViewModel(
         amount: Double,
         comment: String?,
     ) {
-        val md = _state.value.monthData ?: return
+        val md = _state.value.monthData
+        if (md == null) {
+            println("[MONTH-VM] addExpense: SKIPPED, monthData is null")
+            return
+        }
+        println("[MONTH-VM] addExpense: categoryId=$categoryId, amount=$amount, monthId=${md.localId}, userId=$currentUserId")
         viewModelScope.launch {
             try {
                 expenseRepository.createExpense(
@@ -358,9 +372,12 @@ class MonthViewModel(
                     description = comment,
                     date = currentIsoDate(),
                 )
+                println("[MONTH-VM] addExpense: createExpense completed")
 
-                loadData()
+                loadData(syncFromServer = false)
             } catch (e: Exception) {
+                println("[MONTH-VM] addExpense ERROR: ${e.message}")
+                e.printStackTrace()
                 _state.value = _state.value.copy(error = e.message)
             }
         }
@@ -444,7 +461,7 @@ class MonthViewModel(
                     limitAmount = limit,
                 )
 
-                loadData()
+                loadData(syncFromServer = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }
@@ -460,7 +477,7 @@ class MonthViewModel(
                     name = name,
                 )
 
-                loadData()
+                loadData(syncFromServer = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message ?: "Ошибка добавления источника")
             }

@@ -74,7 +74,7 @@ kotlin {
                 implementation compose.materialIconsExtended
                 implementation compose.ui
                 implementation compose.components.resources
-                implementation 'org.jetbrains.compose.ui:ui-tooling-preview:1.6.10'
+                implementation compose.components.uiToolingPreview
 
                 // Ktor
                 implementation "io.ktor:ktor-client-core:$ktor_version"
@@ -92,8 +92,9 @@ kotlin {
                 // Multiplatform Settings
                 implementation "com.russhwolf:multiplatform-settings-no-arg:$multiplatform_settings_version"
 
-                // Koin - core only in common
+                // Koin - core and compose for multiplatform
                 implementation "io.insert-koin:koin-core:$koin_version"
+                implementation "io.insert-koin:koin-compose:1.2.0-Beta4"
 
                 // SQLDelight
                 implementation "com.squareup.sqldelight:runtime:$sqldelight_version"
@@ -106,6 +107,7 @@ kotlin {
         androidMain {
             dependencies {
                 implementation 'androidx.activity:activity-compose:1.9.0'
+                implementation 'androidx.compose.ui:ui-tooling-preview:1.6.8'
                 implementation "io.ktor:ktor-client-okhttp:$ktor_version"
                 implementation "io.insert-koin:koin-android:$koin_version"
                 implementation "io.insert-koin:koin-androidx-compose:$koin_version"
@@ -132,6 +134,12 @@ kotlin {
                 implementation "com.squareup.sqldelight:sqlite-driver:$sqldelight_version"
                 // Lifecycle for desktop
                 implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0"
+            }
+        }
+        desktopTest {
+            dependencies {
+                implementation 'org.jetbrains.kotlin:kotlin-test'
+                implementation "com.squareup.sqldelight:sqlite-driver:$sqldelight_version"
             }
         }
         commonTest {
@@ -233,6 +241,16 @@ tasks.matching { it.name.startsWith("compileKotlin") }.configureEach {
 compose.desktop {
     application {
         mainClass = "ru.homebudget.finkeeper.MainKt"
+
+        javaHome = providers.environmentVariable("COMPOSE_JDK").orElse(
+            providers.environmentVariable("JAVA_HOME")
+        ).orElse(
+            provider {
+                def proc = ["bash", "-c", "/usr/libexec/java_home 2>/dev/null || echo ''"].execute()
+                proc.waitFor()
+                proc.text.trim() ?: null
+            }
+        ).orNull
 
         nativeDistributions {
             targetFormats(

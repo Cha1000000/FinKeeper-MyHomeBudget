@@ -23,17 +23,19 @@ class BudgetDao(
         syncStatus: String = "synced"
     ): Long {
         val now = getCurrentTimestamp()
-        queries.insertBudget(
-            user_id = userId,
-            month_id = monthId,
-            category_id = categoryId,
-            limit_amount = limitAmount,
-            created_at = now,
-            updated_at = now,
-            server_id = serverId,
-            sync_status = syncStatus
-        )
-        return queries.lastInsertRowId().executeAsOne()
+        return database.transactionWithResult {
+            queries.insertBudget(
+                user_id = userId,
+                month_id = monthId,
+                category_id = categoryId,
+                limit_amount = limitAmount,
+                created_at = now,
+                updated_at = now,
+                server_id = serverId,
+                sync_status = syncStatus
+            )
+            queries.lastInsertRowId().executeAsOne()
+        }
     }
 
     /**

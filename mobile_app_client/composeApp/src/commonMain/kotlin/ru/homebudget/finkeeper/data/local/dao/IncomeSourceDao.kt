@@ -23,17 +23,19 @@ class IncomeSourceDao(
         syncStatus: String = "synced"
     ): Long {
         val now = getCurrentTimestamp()
-        queries.insertIncomeSource(
-            user_id = userId,
-            name = name,
-            sort_order = sortOrder,
-            is_active = isActive,
-            created_at = now,
-            updated_at = now,
-            server_id = serverId,
-            sync_status = syncStatus
-        )
-        return queries.lastInsertRowId().executeAsOne()
+        return database.transactionWithResult {
+            queries.insertIncomeSource(
+                user_id = userId,
+                name = name,
+                sort_order = sortOrder,
+                is_active = isActive,
+                created_at = now,
+                updated_at = now,
+                server_id = serverId,
+                sync_status = syncStatus
+            )
+            queries.lastInsertRowId().executeAsOne()
+        }
     }
 
     /**

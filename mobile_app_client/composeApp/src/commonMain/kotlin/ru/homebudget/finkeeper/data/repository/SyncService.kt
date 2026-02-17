@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -27,6 +28,7 @@ class SyncService(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var isStarted = false
+    private var didSyncAfterLogin = false
 
     val dataUpdated: SharedFlow<Unit> get() = syncManager.dataUpdated
 
@@ -49,6 +51,20 @@ class SyncService(
                     syncManager.syncAll(monthId)
                 }
             }.launchIn(scope)
+
+        // Поллинг: ждём появления userId после логина и запускаем полную синхронизацию
+        scope.launch {
+            while (!didSyncAfterLogin) {
+                delay(5_000)
+                val userId = tokenStorage.userId
+                if (userId > 0L && networkMonitor.isNetworkAvailable) {
+                    println("[SYNC-SERVICE] Post-login sync triggered for userId=$userId")
+                    didSyncAfterLogin = true
+                    val monthId = getCurrentMonthLocalId()
+                    syncManager.syncAll(monthId)
+                }
+            }
+        }
     }
 
     /**

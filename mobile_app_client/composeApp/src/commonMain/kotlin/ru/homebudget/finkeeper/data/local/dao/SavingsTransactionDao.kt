@@ -42,19 +42,21 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
         syncStatus: String = "synced"
     ): Long {
         val now = getCurrentDateTime()
-        queries.insertSavingsTransaction(
-            user_id = userId,
-            savings_goal_id = savingsGoalId,
-            amount = amount,
-            type = type,
-            description = description,
-            date = date,
-            created_at = now,
-            updated_at = now,
-            server_id = serverId,
-            sync_status = syncStatus
-        )
-        return queries.lastInsertRowId().executeAsOne()
+        return database.transactionWithResult {
+            queries.insertSavingsTransaction(
+                user_id = userId,
+                savings_goal_id = savingsGoalId,
+                amount = amount,
+                type = type,
+                description = description,
+                date = date,
+                created_at = now,
+                updated_at = now,
+                server_id = serverId,
+                sync_status = syncStatus
+            )
+            queries.lastInsertRowId().executeAsOne()
+        }
     }
     
     /**

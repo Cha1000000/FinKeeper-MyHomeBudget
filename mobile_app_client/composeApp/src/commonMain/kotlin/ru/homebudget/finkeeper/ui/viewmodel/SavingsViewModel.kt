@@ -154,31 +154,54 @@ class SavingsViewModel(
         goalId: Int,
         amount: Double,
     ) {
+        println("[SAVINGS-VM] addTransaction: goalId=$goalId, amount=$amount, userId=$currentUserId")
         viewModelScope.launch {
             try {
                 val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
 
-                // Получаем или создаём месяц
+                // Получаем или создаём месяц (нужен для корректной работы синхронизации)
                 val monthResult = monthRepository.getOrCreateMonth(currentUserId, now.year, now.monthNumber)
-                val monthData =
-                    if (monthResult.isSuccess) {
-                        monthResult.getOrNull()!!
-                    } else {
-                        throw Exception("Failed to get or create month")
-                    }
+                if (!monthResult.isSuccess) {
+                    throw Exception("Failed to get or create month")
+                }
+                println("[SAVINGS-VM] addTransaction: monthId=${monthResult.getOrNull()?.localId}")
 
-                // Сначала сохраняем локально через репозиторий
+                // Получаем текущую цель для обновления currentAmount
+                val currentGoals = _state.value.goals
+                val goal = currentGoals.find { it.id == goalId }
+                val oldAmount = goal?.currentAmount ?: 0.0
+                val newAmount = oldAmount + amount
+                println("[SAVINGS-VM] addTransaction: oldAmount=$oldAmount, newAmount=$newAmount")
+
+                // Обновляем currentAmount только локально (без синхронизации на сервер).
+                // Сервер сам обновит currentAmount при получении savings_transaction.
+                savingsGoalRepository.updateCurrentAmountLocally(
+                    id = goalId.toLong(),
+                    currentAmount = newAmount,
+                )
+                println("[SAVINGS-VM] addTransaction: goal updated locally, newAmount=$newAmount")
+
+                // Создаём транзакцию (enqueueSync запустит scheduleProcessQueue)
                 savingsTransactionRepository.createTransaction(
                     userId = currentUserId,
                     goalId = goalId.toLong(),
                     amount = amount,
                     date = currentIsoDate(),
-                    type = "deposit",
+                    type = if (amount >= 0) "deposit" else "withdrawal",
                 )
+                println("[SAVINGS-VM] addTransaction: transaction created")
 
-                loadData()
+                // Обновляем UI напрямую с новой суммой (без вызова loadData/syncWithServer)
+                val updatedGoals = _state.value.goals.map { g ->
+                    if (g.id == goalId) g.copy(currentAmount = newAmount) else g
+                }
+                _state.value = _state.value.copy(goals = updatedGoals)
+                println("[SAVINGS-VM] addTransaction: UI updated with newAmount=$newAmount")
+                
                 notifySavingsUpdated()
             } catch (e: Exception) {
+                println("[SAVINGS-VM] addTransaction ERROR: ${e.message}")
+                e.printStackTrace()
                 _state.value = _state.value.copy(error = e.message)
             }
         }

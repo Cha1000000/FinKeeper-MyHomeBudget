@@ -44,21 +44,23 @@ class SavingsGoalDao(private val database: FinKeeperDatabase) {
         syncStatus: String = "synced"
     ): Long {
         val now = getCurrentDateTime()
-        queries.insertSavingsGoal(
-            user_id = userId,
-            name = name,
-            target_amount = targetAmount,
-            current_amount = currentAmount,
-            color = color,
-            icon = icon,
-            target_date = targetDate,
-            is_achieved = isAchieved,
-            created_at = now,
-            updated_at = now,
-            server_id = serverId,
-            sync_status = syncStatus
-        )
-        return queries.lastInsertRowId().executeAsOne()
+        return database.transactionWithResult {
+            queries.insertSavingsGoal(
+                user_id = userId,
+                name = name,
+                target_amount = targetAmount,
+                current_amount = currentAmount,
+                color = color,
+                icon = icon,
+                target_date = targetDate,
+                is_achieved = isAchieved,
+                created_at = now,
+                updated_at = now,
+                server_id = serverId,
+                sync_status = syncStatus
+            )
+            queries.lastInsertRowId().executeAsOne()
+        }
     }
     
     /**
