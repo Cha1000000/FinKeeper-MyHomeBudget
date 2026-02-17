@@ -1,0 +1,10 @@
+.DS_Store
+
+
+.windsurfrules
+.niuma-local/dialog-trigger.js
+.niuma-local/port_1ffd91cb89.txt
+
+/node_modules
+/server/node_modules
+/client/node_modules
