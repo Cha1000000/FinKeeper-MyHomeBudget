@@ -38,9 +38,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ru.homebudget.finkeeper.ui.components.ConfirmDialog
+import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.ui.components.AppButton
+import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.IconCalendar
 import ru.homebudget.finkeeper.ui.components.IconDashboard
 import ru.homebudget.finkeeper.ui.components.IconLogOut
@@ -101,7 +105,7 @@ fun AppNavigation(
     val semantic = AppTheme.semanticColors
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
-    val desktopPadding = if (isDesktop) 128.dp else 0.dp
+    val desktopPadding = if (isDesktop) 80.dp else 0.dp
 
     val screenContent: @Composable () -> Unit = {
         Box(modifier = Modifier.padding(horizontal = desktopPadding)) {
@@ -199,47 +203,32 @@ fun AppNavigation(
     }
 
     if (isDesktop) {
-        val windowControls = LocalWindowControls.current
-        // Desktop layout: sidebar + content (undecorated window, draggable)
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+            modifier = Modifier.fillMaxSize()
         ) {
-            DraggableArea {
-                DesktopSidebar(
-                    currentScreen = currentScreen,
-                    onScreenSelected = { currentScreen = it },
-                    onLogout = { showLogoutConfirm = true },
-                    isDark = isDark,
-                    semantic = semantic,
-                    username = authState.user?.username ?: "",
-                    totalAssets = dashboardState.totalAssets,
-                    available = dashboardState.available,
-                )
-            }
+            DesktopSidebar(
+                currentScreen = currentScreen,
+                onScreenSelected = { currentScreen = it },
+                onLogout = { showLogoutConfirm = true },
+                isDark = isDark,
+                semantic = semantic,
+                username = authState.user?.username ?: "",
+                totalAssets = dashboardState.totalAssets,
+                available = dashboardState.available,
+            )
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                DraggableArea {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        screenContent()
-                    }
+                Column(modifier = Modifier.fillMaxSize().then(
+                    if (ru.homebudget.finkeeper.util.isDesktop) Modifier.padding(top = 40.dp) else Modifier
+                )) {
+                    screenContent()
                 }
-                // Custom window control buttons (top-right corner)
-                DesktopWindowControls(
-                    onClose = windowControls.onClose,
-                    onMinimize = windowControls.onMinimize,
-                    onToggleFullscreen = windowControls.onToggleFullscreen,
-                    isDark = isDark,
-                    modifier = Modifier.align(Alignment.TopEnd),
-                )
             }
         }
     } else {
-        // Mobile layout: bottom bar + content
         Scaffold(
             bottomBar = {
                 GradientBottomBar(
@@ -258,16 +247,67 @@ fun AppNavigation(
     }
 
     if (showLogoutConfirm) {
-        ConfirmDialog(
-            title = "Выход",
-            message = "Вы уверены, что хотите выйти?",
-            onConfirm = {
-                authViewModel.logout()
-                showLogoutConfirm = false
-            },
-            onDismiss = { showLogoutConfirm = false },
-            isDestructive = true,
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+                .clickable(enabled = true, onClick = { showLogoutConfirm = false }),
+            contentAlignment = Alignment.Center
+        ) {
+            GlassyCard(
+                modifier = Modifier
+                    .widthIn(max = 400.dp)
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .clickable(enabled = true, onClick = {}),
+                shape = RoundedCornerShape(24.dp),
+                baseColor = MaterialTheme.colorScheme.surface,
+                highlightColor = MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = Strings.LOGOUT_TITLE,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = Strings.LOGOUT_CONFIRM,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        AppButton(
+                            text = Strings.CANCEL,
+                            onClick = { showLogoutConfirm = false },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = GlassyButtonStyle.Glassy
+                        )
+                        AppButton(
+                            text = Strings.LOGOUT_BUTTON,
+                            onClick = {
+                                authViewModel.logout()
+                                showLogoutConfirm = false
+                            },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = Color.White,
+                            style = GlassyButtonStyle.Glassy
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -282,20 +322,15 @@ private fun GradientBottomBar(
     val gradientBrush =
         if (isDark) {
             Brush.horizontalGradient(
-                colors =
-                    listOf(
-                        semantic.navBarColor,
-                        semantic.navBarColor,
-                    ),
+                colors = listOf(semantic.navBarColor, semantic.navBarColor),
             )
         } else {
             Brush.horizontalGradient(
-                colors =
-                    listOf(
-                        Color(0xFF064E3B), // emerald-900
-                        Color(0xFF047857), // emerald-700
-                        Color(0xFF134E4A), // teal-900
-                    ),
+                colors = listOf(
+                    Color(0xFF064E3B),
+                    Color(0xFF047857),
+                    Color(0xFF134E4A),
+                ),
             )
         }
 
@@ -304,19 +339,17 @@ private fun GradientBottomBar(
 
     val navigationBarInsets = WindowInsets.navigationBars
     Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(gradientBrush)
-                .windowInsetsPadding(navigationBarInsets),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(gradientBrush)
+            .windowInsetsPadding(navigationBarInsets),
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 8.dp)
-                    .padding(top = 6.dp, bottom = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp)
+                .padding(top = 6.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Screen.entries.forEach { screen ->
@@ -339,10 +372,9 @@ private fun GradientBottomBar(
                     onClick = { onScreenSelected(screen) },
                 )
             }
-            // Logout button
             NavBarItem(
                 icon = { IconLogOut(inactiveColor) },
-                label = "Выход",
+                label = Strings.LOGOUT_BUTTON,
                 isSelected = false,
                 activeColor = activeColor,
                 inactiveColor = inactiveColor,
@@ -364,18 +396,17 @@ private fun NavBarItem(
     val color = if (isSelected) activeColor else inactiveColor
 
     Column(
-        modifier =
-            Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .then(
-                    if (isSelected) {
-                        Modifier.background(activeColor.copy(alpha = 0.15f))
-                    } else {
-                        Modifier
-                    },
-                ).clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .widthIn(min = 56.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .then(
+                if (isSelected) {
+                    Modifier.background(activeColor.copy(alpha = 0.15f))
+                } else {
+                    Modifier
+                },
+            ).clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .widthIn(min = 56.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         icon()
@@ -387,8 +418,6 @@ private fun NavBarItem(
         )
     }
 }
-
-// ── Desktop Sidebar ──
 
 @Composable
 private fun DesktopSidebar(
@@ -409,9 +438,9 @@ private fun DesktopSidebar(
         } else {
             Brush.verticalGradient(
                 colors = listOf(
-                    Color(0xFF064E3B), // emerald-900
-                    Color(0xFF047857), // emerald-700
-                    Color(0xFF0D9488), // teal-600
+                    Color(0xFF064E3B),
+                    Color(0xFF047857),
+                    Color(0xFF0D9488),
                 ),
             )
         }
@@ -426,7 +455,6 @@ private fun DesktopSidebar(
             .background(gradientBrush)
             .padding(vertical = 16.dp),
     ) {
-        // Logo / App name
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -436,7 +464,7 @@ private fun DesktopSidebar(
         ) {
             AppLogoIcon()
             Text(
-                text = "FinKeeper",
+                text = Strings.APP_TITLE,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
@@ -447,7 +475,6 @@ private fun DesktopSidebar(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Navigation items (without Settings)
         val navScreens = listOf(
             Screen.Dashboard,
             Screen.MonthView,
@@ -475,13 +502,11 @@ private fun DesktopSidebar(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Bottom section: username, settings, logout
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),
         ) {
-            // Username + settings + logout row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -517,7 +542,6 @@ private fun DesktopSidebar(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Financial summary
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -526,7 +550,7 @@ private fun DesktopSidebar(
                     .padding(12.dp),
             ) {
                 Text(
-                    text = "Всего активов",
+                    text = Strings.TOTAL_ASSETS,
                     style = MaterialTheme.typography.labelSmall,
                     color = inactiveColor,
                 )
@@ -537,7 +561,7 @@ private fun DesktopSidebar(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Доступно",
+                    text = Strings.AVAILABLE,
                     style = MaterialTheme.typography.labelSmall,
                     color = inactiveColor,
                 )
@@ -550,9 +574,8 @@ private fun DesktopSidebar(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Version
             Text(
-                text = "Домашняя бухгалтерия ${ru.homebudget.finkeeper.BuildConfig.APP_VERSION}",
+                text = "${Strings.APP_TITLE} ${ru.homebudget.finkeeper.BuildConfig.APP_VERSION}",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                 color = inactiveColor.copy(alpha = 0.6f),
             )
@@ -560,10 +583,8 @@ private fun DesktopSidebar(
     }
 }
 
-// ── Desktop Window Controls (close, minimize, fullscreen) ──
-
 @Composable
-private fun DesktopWindowControls(
+fun DesktopWindowControls(
     onClose: () -> Unit,
     onMinimize: () -> Unit,
     onToggleFullscreen: () -> Unit,
@@ -576,7 +597,6 @@ private fun DesktopWindowControls(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Minimize (yellow)
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
@@ -595,7 +615,6 @@ private fun DesktopWindowControls(
                 modifier = Modifier.offset(y = (1).dp),
             )
         }
-        // Fullscreen (green)
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
@@ -614,7 +633,6 @@ private fun DesktopWindowControls(
                 modifier = Modifier.offset(y = (1).dp),
             )
         }
-        // Close (red)
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))

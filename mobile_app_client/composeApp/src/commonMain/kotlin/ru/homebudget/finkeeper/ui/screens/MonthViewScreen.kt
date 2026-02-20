@@ -2,17 +2,7 @@ package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -20,25 +10,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,14 +20,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.Strings
-import ru.homebudget.finkeeper.ui.components.AppTextField
-import ru.homebudget.finkeeper.ui.components.ConfirmDialog
-import ru.homebudget.finkeeper.ui.components.EmptyState
-import ru.homebudget.finkeeper.ui.components.LoadingScreen
-import ru.homebudget.finkeeper.ui.components.ProgressBar
-import ru.homebudget.finkeeper.ui.components.SummaryCard
-import ru.homebudget.finkeeper.ui.components.ScreenHeader
-import ru.homebudget.finkeeper.ui.components.neonGlow
+import ru.homebudget.finkeeper.ui.components.*
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.GroupedExpense
 import ru.homebudget.finkeeper.ui.viewmodel.MonthViewState
@@ -108,44 +74,45 @@ fun MonthViewScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().then(
-        if (isDesktop) Modifier.padding(top = 16.dp) else Modifier
+        if (ru.homebudget.finkeeper.util.isDesktop) Modifier.padding(top = 16.dp) else Modifier
     )) {
         ScreenHeader(title = Strings.MONTH_TITLE)
 
         // Month navigation header
-        Card(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 8.dp),
+        GlassyCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            baseColor = MaterialTheme.colorScheme.surface,
+            highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
         ) {
             Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onPrevMonth) { Text(Strings.PREV_MONTH) }
+                TextButton(onClick = onPrevMonth) {
+                    Text(Strings.PREV_MONTH_ICON, style = MaterialTheme.typography.bodyLarge)
+                }
                 Text(
                     text = "${monthName(state.month)} ${state.year}",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                TextButton(onClick = onNextMonth) { Text(Strings.NEXT_MONTH) }
+                TextButton(onClick = onNextMonth) {
+                    Text(Strings.NEXT_MONTH_ICON, style = MaterialTheme.typography.bodyLarge)
+                }
             }
         }
 
         // Summary cards
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SummaryCard(
@@ -165,14 +132,13 @@ fun MonthViewScreen(
         }
 
         if (state.totalLimit > 0) {
-            Card(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .neonGlow(semantic.warningColor, radius = 10.dp),
+            GlassyCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = semantic.warningCardBg),
+                baseColor = semantic.warningCardBg,
+                highlightColor = semantic.warningColor.copy(alpha = 0.2f)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Row(
@@ -219,7 +185,6 @@ fun MonthViewScreen(
         // Content
         val lazyListState = rememberLazyListState()
         val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
-            // Offset by 1 because the first item is the header
             val fromIndex = from.index - 1
             val toIndex = to.index - 1
             if (fromIndex >= 0 && toIndex >= 0 && fromIndex < localGroupedExpenses.size && toIndex < localGroupedExpenses.size) {
@@ -230,10 +195,9 @@ fun MonthViewScreen(
         }
 
         LazyColumn(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
             state = lazyListState,
             contentPadding = PaddingValues(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -246,14 +210,34 @@ fun MonthViewScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(Strings.EXPENSES_BY_CATEGORIES, style = MaterialTheme.typography.titleMedium)
-                        Row {
-                            TextButton(onClick = { showBudgetDialog = true }) {
-                                Text(Strings.BUDGET, style = MaterialTheme.typography.labelMedium)
-                            }
-                            TextButton(onClick = { showAddDialog = true }) {
-                                Text(Strings.ADD, style = MaterialTheme.typography.labelMedium)
-                            }
+                        Text(
+                            Strings.EXPENSES_BY_CATEGORIES,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AppButton(
+                                text = Strings.BUDGET,
+                                onClick = { showBudgetDialog = true },
+                                containerColor = Color(0xFF0D47A1),
+                                contentColor = Color.White,
+                                style = GlassyButtonStyle.Glassy,
+                                modifier = Modifier.height(32.dp).widthIn(min = 90.dp),
+                                textStyle = MaterialTheme.typography.labelLarge
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            AppButton(
+                                text = Strings.ADD,
+                                onClick = { showAddDialog = true },
+                                containerColor = Color(0xFF1B5E20),
+                                contentColor = Color.White,
+                                style = GlassyButtonStyle.Glassy,
+                                modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
+                                textStyle = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
                 }
@@ -288,15 +272,26 @@ fun MonthViewScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(Strings.INCOMES_TAB, style = MaterialTheme.typography.titleMedium)
-                        TextButton(onClick = { showAddDialog = true }) {
-                            Text(Strings.ADD, style = MaterialTheme.typography.labelMedium)
-                        }
+                        Text(
+                            Strings.INCOMES_TAB,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+
+                        )
+                        AppButton(
+                            text = Strings.ADD,
+                            onClick = { showAddDialog = true },
+                            containerColor = Color(0xFF1B5E20),
+                            contentColor = Color.White,
+                            style = GlassyButtonStyle.Glassy,
+                            modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
+                            textStyle = MaterialTheme.typography.labelLarge
+                        )
                     }
                 }
 
                 if (state.incomesWithSources.isEmpty()) {
-                    item { EmptyState("Нет доходов за этот месяц") }
+                    item { EmptyState(Strings.NO_INCOMES_THIS_MONTH) }
                 } else {
                     items(state.incomesWithSources, key = { it.id }) { income ->
                         IncomeItemCard(
@@ -368,8 +363,8 @@ fun MonthViewScreen(
     // Delete confirmations
     deleteIncomeId?.let { id ->
         ConfirmDialog(
-            title = "Удалить доход",
-            message = "Вы уверены, что хотите удалить этот доход?",
+            title = Strings.DELETE_INCOME,
+            message = Strings.CONFIRM_DELETE,
             onConfirm = {
                 onDeleteIncome(id)
                 deleteIncomeId = null
@@ -381,8 +376,8 @@ fun MonthViewScreen(
 
     deleteExpenseId?.let { id ->
         ConfirmDialog(
-            title = "Удалить расход",
-            message = "Вы уверены, что хотите удалить этот расход?",
+            title = Strings.DELETE_EXPENSE,
+            message = Strings.CONFIRM_DELETE_EXPENSE,
             onConfirm = {
                 onDeleteExpense(id)
                 deleteExpenseId = null
@@ -395,10 +390,10 @@ fun MonthViewScreen(
     // Confirm new income source dialog from ViewModel state
     if (state.showSourceConfirm) {
         ConfirmDialog(
-            title = "Подтверждение",
-            message = "Источник дохода \"${state.pendingSourceName ?: ""}\" не найден. Создать его и добавить доход?",
-            confirmText = "Да",
-            dismissText = "Отмена",
+            title = Strings.CONFIRMATION,
+            message = Strings.SOURCE_NOT_FOUND.replace("%1\$s", state.pendingSourceName ?: ""),
+            confirmText = Strings.YES,
+            dismissText = Strings.CANCEL,
             onConfirm = {
                 onConfirmAddIncomeSource()
                 showAddDialog = false
@@ -423,28 +418,15 @@ private fun ExpenseGroupCard(
     elevation: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val glowColor = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-    // Возвращаем умеренный радиус
-    val glowRadius = if (group.isOverLimit) 16.dp else 12.dp
-
-    Card(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .neonGlow(glowColor, radius = glowRadius)
-                .clickable { expanded = !expanded },
-        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+    val semantic = AppTheme.semanticColors
+    
+    GlassyCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
         shape = RoundedCornerShape(12.dp),
-        colors =
-            CardDefaults.cardColors(
-                // Используем семантические цвета из темы - они плотные и подобраны под фон
-                containerColor =
-                    if (group.isOverLimit) {
-                        AppTheme.semanticColors.expenseCardBg
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    },
-            ),
+        baseColor = if (group.isOverLimit) semantic.expenseCardBg else MaterialTheme.colorScheme.surface,
+        highlightColor = (if (group.isOverLimit) semantic.expenseColor else MaterialTheme.colorScheme.primary).copy(alpha = 0.1f)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -464,27 +446,17 @@ private fun ExpenseGroupCard(
                         Text(
                             text = "${formatCurrency(group.total)} / ${formatCurrency(group.limit)}",
                             style = MaterialTheme.typography.bodySmall,
-                            color =
-                                if (group.isOverLimit) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
+                            color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
                 Text(
                     text = formatCurrency(group.total),
                     style = MaterialTheme.typography.titleMedium,
-                    color =
-                        if (group.isOverLimit) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
+                    color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = if (expanded) "▲" else "▼",
+                    text = if (expanded) Strings.COLLAPSE_ICON else Strings.EXPAND_ICON,
                     modifier = Modifier.padding(start = 8.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -494,25 +466,19 @@ private fun ExpenseGroupCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 ProgressBar(
                     progress = (group.total / group.limit).toFloat(),
-                    color =
-                        if (group.isOverLimit) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
+                    color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     height = 3,
                 )
             }
 
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
-                    // Add expense button pinned after header
                     TextButton(
                         onClick = onAddExpenseInCategory,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            text = "+ Добавить расход в \"${group.categoryName}\"",
+                            text = Strings.ADD_EXPENSE_FOR_CATEGORY.replace("%1\$s", group.categoryName),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -521,10 +487,9 @@ private fun ExpenseGroupCard(
 
                     group.items.forEach { expense ->
                         Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -532,6 +497,7 @@ private fun ExpenseGroupCard(
                                 Text(
                                     text = formatCurrency(expense.amount),
                                     style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 if (!expense.comment.isNullOrBlank()) {
                                     Text(
@@ -546,37 +512,27 @@ private fun ExpenseGroupCard(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(0.dp),
-                            ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                                 TextButton(
                                     onClick = { onEditExpense(expense.id, expense.amount) },
                                     modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
                                     contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                                    colors =
-                                        ButtonDefaults.textButtonColors(
-                                            contentColor = MaterialTheme.colorScheme.primary,
-                                        ),
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                                 ) {
-                                    Text(Strings.EDIT, style = MaterialTheme.typography.bodyLarge)
+                                    Text(Strings.EDIT_ICON, style = MaterialTheme.typography.bodyLarge)
                                 }
                                 TextButton(
                                     onClick = { onDeleteExpense(expense.id) },
                                     modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
                                     contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                                    colors =
-                                        ButtonDefaults.textButtonColors(
-                                            contentColor = MaterialTheme.colorScheme.error,
-                                        ),
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                                 ) {
-                                    Text(Strings.DELETE, style = MaterialTheme.typography.bodyLarge)
+                                    Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge)
                                 }
                             }
                         }
                         if (expense != group.items.last()) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                         }
                     }
                 }
@@ -592,24 +548,25 @@ private fun IncomeItemCard(
     date: String,
     onDelete: () -> Unit,
 ) {
-    Card(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .neonGlow(AppTheme.semanticColors.incomeColor, radius = 12.dp),
+    GlassyCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        baseColor = MaterialTheme.colorScheme.surface,
+        highlightColor = AppTheme.semanticColors.incomeColor.copy(alpha = 0.1f)
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = source, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    text = source,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Text(
                     text = date,
                     style = MaterialTheme.typography.labelSmall,
@@ -623,12 +580,9 @@ private fun IncomeItemCard(
             )
             TextButton(
                 onClick = onDelete,
-                colors =
-                    ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) {
-                Text("✕")
+                Text(Strings.DELETE_ICON)
             }
         }
     }
@@ -653,19 +607,20 @@ private fun AddEntryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isExpense) "Добавить расход" else "Добавить доход") },
+        title = { Text(if (isExpense) Strings.ADD_EXPENSE else Strings.ADD_INCOME) },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .then(if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (isExpense) {
-                    Text("Категория", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(Strings.CATEGORY, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Surface(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 200.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
@@ -673,11 +628,10 @@ private fun AddEntryDialog(
                         LazyColumn(modifier = Modifier.padding(4.dp)) {
                             items(categories, key = { it.id }) { cat ->
                                 Row(
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .clickable { selectedCategoryId = cat.id }
-                                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectedCategoryId = cat.id }
+                                        .padding(vertical = 4.dp, horizontal = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     RadioButton(
@@ -690,12 +644,11 @@ private fun AddEntryDialog(
                         }
                     }
                 } else {
-                    Text("Источник", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(Strings.SOURCE, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Surface(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 200.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
@@ -703,13 +656,12 @@ private fun AddEntryDialog(
                         LazyColumn(modifier = Modifier.padding(4.dp)) {
                             items(incomeSources, key = { it.name }) { src ->
                                 Row(
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                selectedSource = src.name
-                                                useCustomSource = false
-                                            }.padding(vertical = 4.dp, horizontal = 8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedSource = src.name
+                                            useCustomSource = false
+                                        }.padding(vertical = 4.dp, horizontal = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     RadioButton(
@@ -724,18 +676,17 @@ private fun AddEntryDialog(
                             }
                             item {
                                 Row(
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .clickable { useCustomSource = true }
-                                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { useCustomSource = true }
+                                        .padding(vertical = 4.dp, horizontal = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     RadioButton(
                                         selected = useCustomSource,
                                         onClick = { useCustomSource = true },
                                     )
-                                    Text("Другой:", modifier = Modifier.padding(start = 8.dp))
+                                    Text("${Strings.OTHER}:", modifier = Modifier.padding(start = 8.dp))
                                 }
                             }
                         }
@@ -744,7 +695,7 @@ private fun AddEntryDialog(
                         AppTextField(
                             value = customSource,
                             onValueChange = { customSource = it },
-                            label = "Новый источник",
+                            label = Strings.NEW_SOURCE,
                         )
                     }
                 }
@@ -752,7 +703,7 @@ private fun AddEntryDialog(
                 AppTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = "Сумма",
+                    label = Strings.AMOUNT,
                     keyboardType = KeyboardType.Decimal,
                 )
 
@@ -760,7 +711,7 @@ private fun AddEntryDialog(
                     AppTextField(
                         value = comment,
                         onValueChange = { comment = it },
-                        label = "Комментарий (необязательно)",
+                        label = Strings.COMMENT_OPTIONAL,
                     )
                 }
             }
@@ -772,22 +723,17 @@ private fun AddEntryDialog(
                     if (isExpense) {
                         onAddExpense(selectedCategoryId, amountVal, comment.ifBlank { null })
                     } else {
-                        val src =
-                            if (useCustomSource) {
-                                customSource
-                            } else {
-                                selectedSource
-                            }
+                        val src = if (useCustomSource) customSource else selectedSource
                         if (src.isNotBlank()) onAddIncome(src, amountVal)
                     }
                 },
                 enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0,
             ) {
-                Text("Добавить")
+                Text(Strings.ADD)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(Strings.CANCEL) }
         },
     )
 }
@@ -799,22 +745,23 @@ private fun BudgetDialog(
     onDismiss: () -> Unit,
     onSetBudget: (Int, Double) -> Unit,
 ) {
-    val budgetValues =
-        remember {
-            mutableStateMapOf<Int, String>().apply {
-                categories.forEach { cat ->
-                    val budget = budgets.find { it.categoryId == cat.id }
-                    put(cat.id, budget?.limitAmount?.let { if (it > 0) it.toLong().toString() else "" } ?: "")
-                }
+    val budgetValues = remember {
+        mutableStateMapOf<Int, String>().apply {
+            categories.forEach { cat ->
+                val budget = budgets.find { it.categoryId == cat.id }
+                put(cat.id, budget?.limitAmount?.let { if (it > 0) it.toLong().toString() else "" } ?: "")
             }
         }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Настройка бюджета") },
+        title = { Text(Strings.BUDGET_SETTINGS) },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .then(if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 categories.forEach { cat ->
@@ -835,11 +782,11 @@ private fun BudgetDialog(
                 }
                 onDismiss()
             }) {
-                Text("Сохранить")
+                Text(Strings.SAVE)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(Strings.CANCEL) }
         },
     )
 }
@@ -855,19 +802,22 @@ private fun AddExpenseForCategoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Добавить расход в \"$categoryName\"") },
+        title = { Text("${Strings.ADD_EXPENSE} в \"$categoryName\"") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.then(if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 AppTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = "Сумма",
+                    label = Strings.AMOUNT,
                     keyboardType = KeyboardType.Decimal,
                 )
                 AppTextField(
                     value = comment,
                     onValueChange = { comment = it },
-                    label = "Комментарий (необязательно)",
+                    label = Strings.COMMENT_OPTIONAL,
                 )
             }
         },
@@ -879,11 +829,11 @@ private fun AddExpenseForCategoryDialog(
                 },
                 enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0,
             ) {
-                Text("Добавить")
+                Text(Strings.ADD)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(Strings.CANCEL) }
         },
     )
 }
@@ -898,13 +848,16 @@ private fun EditExpenseDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Редактировать расход") },
+        title = { Text(Strings.EDIT_EXPENSE) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.then(if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 AppTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = "Сумма",
+                    label = Strings.AMOUNT,
                     keyboardType = KeyboardType.Decimal,
                 )
             }
@@ -917,11 +870,11 @@ private fun EditExpenseDialog(
                 },
                 enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0,
             ) {
-                Text("Сохранить")
+                Text(Strings.SAVE)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(Strings.CANCEL) }
         },
     )
 }

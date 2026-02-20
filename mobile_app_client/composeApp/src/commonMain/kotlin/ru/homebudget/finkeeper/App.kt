@@ -1,7 +1,19 @@
 package ru.homebudget.finkeeper
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.dp
+import ru.homebudget.finkeeper.util.DraggableArea
+import ru.homebudget.finkeeper.util.LocalWindowControls
+import ru.homebudget.finkeeper.util.isDesktop
+import ru.homebudget.finkeeper.ui.navigation.DesktopWindowControls
+import ru.homebudget.finkeeper.ui.theme.BackgroundDarkNight
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.data.remote.TokenStorage
@@ -36,37 +48,67 @@ fun App() {
             isSplashTimeFinished = true
         }
 
-        when {
-            authState.isLoading || !isSplashTimeFinished -> SplashScreen(version = BuildConfig.APP_VERSION)
-            authState.user == null -> LoginScreen(
-                state = authState,
-                onLogin = { u, p -> authViewModel.login(u, p) },
-                onRegister = { u, p -> authViewModel.register(u, p) },
-                onClearError = { authViewModel.clearError() },
-                onServerUrlChange = { authViewModel.updateServerUrl(it) },
-                currentServerUrl = authViewModel.currentServerUrl
-            )
-            else -> {
-                val dashboardViewModel = koinInject<DashboardViewModel>()
-                val monthViewModel = koinInject<MonthViewModel>()
-                val categoriesViewModel = koinInject<CategoriesViewModel>()
-                val savingsViewModel = koinInject<SavingsViewModel>()
-                val settingsViewModel = koinInject<SettingsViewModel>()
+        val content: @Composable () -> Unit = {
+            when {
+                authState.isLoading || !isSplashTimeFinished -> SplashScreen(version = BuildConfig.APP_VERSION)
+                authState.user == null -> LoginScreen(
+                    state = authState,
+                    onLogin = { u, p -> authViewModel.login(u, p) },
+                    onRegister = { u, p -> authViewModel.register(u, p) },
+                    onClearError = { authViewModel.clearError() },
+                    onServerUrlChange = { authViewModel.updateServerUrl(it) },
+                    currentServerUrl = authViewModel.currentServerUrl
+                )
+                else -> {
+                    val dashboardViewModel = koinInject<DashboardViewModel>()
+                    val monthViewModel = koinInject<MonthViewModel>()
+                    val categoriesViewModel = koinInject<CategoriesViewModel>()
+                    val savingsViewModel = koinInject<SavingsViewModel>()
+                    val settingsViewModel = koinInject<SettingsViewModel>()
 
-                AppNavigation(
-                    authViewModel = authViewModel,
-                    dashboardViewModel = dashboardViewModel,
-                    monthViewModel = monthViewModel,
-                    categoriesViewModel = categoriesViewModel,
-                    savingsViewModel = savingsViewModel,
-                    settingsViewModel = settingsViewModel,
-                    currentThemeMode = themeMode,
-                    onThemeModeChange = { mode ->
-                        tokenStorage.themeMode = mode
-                        themeMode = mode
+                    AppNavigation(
+                        authViewModel = authViewModel,
+                        dashboardViewModel = dashboardViewModel,
+                        monthViewModel = monthViewModel,
+                        categoriesViewModel = categoriesViewModel,
+                        savingsViewModel = savingsViewModel,
+                        settingsViewModel = settingsViewModel,
+                        currentThemeMode = themeMode,
+                        onThemeModeChange = { mode ->
+                            tokenStorage.themeMode = mode
+                            themeMode = mode
+                        }
+                    )
+                }
+            }
+        }
+
+        if (isDesktop) {
+            val windowControls = LocalWindowControls.current
+            val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                DraggableArea {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        content()
                     }
+                }
+                
+                // Глобальные кнопки управления окном для десктопа
+                DesktopWindowControls(
+                    onClose = windowControls.onClose,
+                    onMinimize = windowControls.onMinimize,
+                    onToggleFullscreen = windowControls.onToggleFullscreen,
+                    isDark = isDark,
+                    modifier = Modifier.align(Alignment.TopEnd)
                 )
             }
+        } else {
+            content()
         }
     }
 }

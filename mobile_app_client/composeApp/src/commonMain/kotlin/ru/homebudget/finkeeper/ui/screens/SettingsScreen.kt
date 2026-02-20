@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.Strings
@@ -31,6 +32,8 @@ import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
+import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
+import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SettingsState
 
 @Composable
@@ -117,7 +120,8 @@ fun SettingsScreen(
                     text = Strings.SAVE_NAME,
                     onClick = { showUsernameConfirm = true },
                     enabled = newUsername.isNotBlank() && newUsername != username,
-                    isLoading = state.isLoading
+                    isLoading = state.isLoading,
+                    style = GlassyButtonStyle.Glassy
                 )
             }
         }
@@ -155,7 +159,8 @@ fun SettingsScreen(
                     text = Strings.CHANGE_PASSWORD,
                     onClick = { showPasswordConfirm = true },
                     enabled = newPassword.isNotBlank() && newPassword == confirmPassword,
-                    isLoading = state.isLoading
+                    isLoading = state.isLoading,
+                    style = GlassyButtonStyle.Glassy
                 )
             }
         }
@@ -174,20 +179,23 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                val colors = AppTheme.semanticColors
                 AppButton(
                     text = Strings.CREATE_BACKUP,
                     onClick = onCreateBackup,
                     isLoading = state.isLoading,
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary
+                    containerColor = colors.backupBlue,
+                    contentColor = Color.White,
+                    style = GlassyButtonStyle.Glassy
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 AppButton(
                     text = Strings.RESTORE_FROM_BACKUP,
                     onClick = { showRestoreConfirm = true },
                     isLoading = state.isLoading,
-                    containerColor = MaterialTheme.colorScheme.tertiary,
-                    contentColor = MaterialTheme.colorScheme.onTertiary
+                    containerColor = colors.restorePink,
+                    contentColor = Color.White,
+                    style = GlassyButtonStyle.Glassy
                 )
             }
         }
@@ -240,8 +248,9 @@ fun SettingsScreen(
         AppButton(
             text = Strings.LOGOUT,
             onClick = { showLogoutConfirm = true },
-            containerColor = MaterialTheme.colorScheme.error,
-            contentColor = MaterialTheme.colorScheme.onError
+            containerColor = AppTheme.semanticColors.logoutRed,
+            contentColor = Color.White,
+            style = GlassyButtonStyle.Glassy
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -251,7 +260,7 @@ fun SettingsScreen(
     if (showUsernameConfirm) {
         ConfirmDialog(
             title = Strings.CHANGE_NAME,
-            message = Strings.CHANGE_NAME_CONFIRM.replace("\"%1\$s\"", "\"$newUsername\""),
+            message = Strings.CHANGE_NAME_CONFIRM.replace("%1\u0024s", newUsername),
             onConfirm = {
                 onUpdateUsername(newUsername) { newUsername = newUsername }
                 showUsernameConfirm = false

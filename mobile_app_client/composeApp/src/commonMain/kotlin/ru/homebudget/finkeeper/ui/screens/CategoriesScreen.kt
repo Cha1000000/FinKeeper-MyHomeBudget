@@ -11,7 +11,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import ru.homebudget.finkeeper.ui.components.*
+import ru.homebudget.finkeeper.ui.components.AppButton
+import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
+import ru.homebudget.finkeeper.ui.components.AppTextField
+import ru.homebudget.finkeeper.ui.components.ConfirmDialog
+import ru.homebudget.finkeeper.ui.components.EmptyState
+import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.ui.components.LoadingScreen
+import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesState
 import ru.homebudget.finkeeper.data.model.Category
@@ -99,13 +106,15 @@ fun CategoriesScreen(
                     } else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
-                    TextButton(onClick = { showAddDialog = true }) {
-                        Text(
-                            Strings.ADD_NEW,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    AppButton(
+                        text = Strings.ADD,
+                        onClick = { showAddDialog = true },
+                        containerColor = Color(0xFF1B5E20),
+                        contentColor = Color.White,
+                        style = GlassyButtonStyle.Glassy,
+                        modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
+                        textStyle = MaterialTheme.typography.labelLarge
+                    )
                 }
             }
 
@@ -173,7 +182,7 @@ fun CategoriesScreen(
 
     deleteId?.let { id ->
         ConfirmDialog(
-            title = Strings.DELETE_TITLE,
+            title = Strings.DELETE,
             message = Strings.DELETE_CONFIRMATION,
             onConfirm = {
                 if (state.activeTab == 0) onDeactivateCategory(id) else onDeactivateIncomeSource(id)
@@ -202,12 +211,12 @@ private fun EditableItemCard(
     onCancelEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
+    GlassyCard(
         modifier = Modifier
-            .fillMaxWidth()
-            .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        baseColor = MaterialTheme.colorScheme.surface,
+        highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     ) {
         if (isEditing) {
             Row(
@@ -222,8 +231,8 @@ private fun EditableItemCard(
                     label = Strings.NAME,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = onSaveEdit) { Text(Strings.CHECK) }
-                TextButton(onClick = onCancelEdit) { Text(Strings.DELETE) }
+                TextButton(onClick = onSaveEdit) { Text(Strings.CHECK, style = MaterialTheme.typography.bodyLarge) }
+                TextButton(onClick = onCancelEdit) { Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge) }
             }
         } else {
             Row(
@@ -241,7 +250,7 @@ private fun EditableItemCard(
                 )
                 Row {
                     TextButton(onClick = onStartEdit) {
-                        Text(Strings.EDIT, style = MaterialTheme.typography.bodyLarge)
+                        Text(Strings.EDIT_ICON, style = MaterialTheme.typography.bodyLarge)
                     }
                     TextButton(
                         onClick = onDelete,
@@ -249,7 +258,7 @@ private fun EditableItemCard(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text(Strings.DELETE, style = MaterialTheme.typography.bodyLarge)
+                        Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
@@ -293,14 +302,12 @@ private fun AddNameDialog(
 private fun ReorderableCategoryItem(
     name: String
 ) {
-    Card(
+    GlassyCard(
         modifier = Modifier
-            .fillMaxWidth()
-            .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), radius = 12.dp),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        baseColor = MaterialTheme.colorScheme.surface,
+        highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     ) {
         Row(
             modifier = Modifier

@@ -37,12 +37,12 @@ val NavBarContentLight = Color(0xFFFFFFFF)
 val NavBarContentInactiveLight = Color(0xBBD1FAE5) // emerald-100 with 73% alpha
 
 // Specific semantic colors for light theme
-val IncomeColorLight = Color(0xFF059669)      // emerald-600
-val ExpenseColorLight = Color(0xFFDC2626)     // red-600
-val SavingsColorLight = Color(0xFF2563EB)     // blue-600
-val WarningLight = Color(0xFFD4A017)          // --color-warning
-val TealColorLight = Color(0xFF0D9488)        // teal-600 for Накопления
-val AvailableColorLight = Color(0xFF6B8E23)   // brand color for Доступно
+val IncomeColorLight = Color(0xFF047857)      // emerald-700
+val ExpenseColorLight = Color(0xFFB91C1C)     // red-700
+val SavingsColorLight = Color(0xFF1D4ED8)     // blue-700
+val WarningLight = Color(0xFFB45309)          // amber-700
+val TealColorLight = Color(0xFF0F766E)        // teal-700 for Накопления
+val AvailableColorLight = Color(0xFF4D7C0F)   // lime-700 for Доступно
 
 // Card backgrounds for light
 val IncomeCardBgLight = Color(0xFFD1FAE5)     // emerald-100 (darker than bg for contrast)
@@ -180,16 +180,16 @@ val OnErrorDarkNight = Color(0xFF690005)
 val ErrorContainerDarkNight = Color(0xFF93000A)
 val OnErrorContainerDarkNight = Color(0xFFFFDAD6)
 
-val BackgroundDarkNight = Color(0xFF05010A)      // Deep dark background
+val BackgroundDarkNight = Color(0xFF0F111A)      // Midnight Blue background
 val OnBackgroundDarkNight = Color(0xFFECECEC)
-val SurfaceDarkNight = Color(0xFF120D18)         // Slightly lighter than bg
+val SurfaceDarkNight = Color(0xFF1B1E2E)         // Slightly lighter Midnight Blue
 val OnSurfaceDarkNight = Color(0xFFECECEC)
-val SurfaceVariantDarkNight = Color(0xFF2A2533)
+val SurfaceVariantDarkNight = Color(0xFF25293D)
 val OnSurfaceVariantDarkNight = Color(0xFFD3D3D3) // Grey text
-val OutlineDarkNight = Color(0xFF49454F)
-val OutlineVariantDarkNight = Color(0xFF2A2533)
+val OutlineDarkNight = Color(0xFF3F445E)
+val OutlineVariantDarkNight = Color(0xFF25293D)
 
-val NavBarDarkNight = Color(0xFF05010A)
+val NavBarDarkNight = Color(0xFF0F111A)
 val NavBarContentDarkNight = Color(0xFF9773FE)
 val NavBarContentInactiveDarkNight = Color(0xFF49454F)
 
@@ -206,3 +206,8 @@ val SavingsCardBgDarkNight = Color(0xFF140F1F)
 val WarningCardBgDarkNight = Color(0xFF1A160A)
 val TealCardBgDarkNight = Color(0xFF0A1A16)
 val AvailableCardBgDarkNight = Color(0xFF121A0A)
+
+// ── Settings Screen Specific Colors (Dark Night) ──
+val BackupBlueDarkNight = Color(0xFF1E88E5)       // Deep Blue
+val RestorePinkDarkNight = Color(0xFFAD1457)      // Dark Pink
+val LogoutRedDarkNight = Color(0xFFB71C1C)       // Deep Red

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.data.model.TrendItem
 import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.theme.ChartColors
 import ru.homebudget.finkeeper.ui.viewmodel.ExpenseCategoryBreakdown
@@ -50,10 +51,11 @@ fun TrendLineChart(
 ) {
     val semantic = AppTheme.semanticColors
 
-    Card(
+    GlassyCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        baseColor = MaterialTheme.colorScheme.surface,
+        highlightColor = semantic.incomeColor.copy(alpha = 0.1f)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -245,10 +247,11 @@ fun ExpensePieChart(
     breakdown: List<ExpenseCategoryBreakdown>,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    GlassyCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        baseColor = MaterialTheme.colorScheme.surface,
+        highlightColor = ChartColors.firstOrNull()?.copy(alpha = 0.1f) ?: Color.White.copy(alpha = 0.1f)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -397,10 +400,11 @@ fun FinancialDynamicsChart(
 ) {
     val semantic = AppTheme.semanticColors
 
-    Card(
+    GlassyCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        baseColor = MaterialTheme.colorScheme.surface,
+        highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(

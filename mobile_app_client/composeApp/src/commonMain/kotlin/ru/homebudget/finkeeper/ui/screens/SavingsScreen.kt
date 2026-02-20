@@ -2,6 +2,7 @@ package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.data.model.SavingsGoal
 import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.EmptyState
@@ -72,59 +75,61 @@ fun SavingsScreen(
         state.goals.sortedByDescending { it.currentAmount } 
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            ScreenHeader(
-                title = Strings.PIGGY_BANKS,
-                modifier = Modifier.padding(horizontal = 0.dp),
-                actions = {
-                    TextButton(onClick = { showCreateDialog = true }) {
-                        Text(Strings.CREATE, style = MaterialTheme.typography.labelLarge)
-                    }
-                },
-            )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screenWidth = maxWidth
+        val columns = when {
+            !isDesktop -> 1
+            screenWidth < 800.dp -> 2
+            screenWidth < 1200.dp -> 3
+            else -> 4
         }
+        val horizontalPadding = if (isDesktop) 24.dp else 16.dp
+        val spacing = if (isDesktop) 24.dp else 16.dp
 
-        if (sortedGoals.isEmpty()) {
-            item { EmptyState(Strings.NO_PIGGY_BANKS) }
-        } else if (isDesktop) {
-            // Desktop: 2-column grid (like web version)
-            val chunked = sortedGoals.chunked(2)
-            items(chunked.size) { index ->
-                val pair = chunked[index]
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    pair.forEach { goal ->
-                        Box(modifier = Modifier.weight(1f)) {
-                            SavingsGoalCard(
-                                goal = goal,
-                                onEdit = { editingGoal = goal },
-                                onDeposit = { transactionGoal = goal; isDeposit = true },
-                                onWithdraw = { transactionGoal = goal; isDeposit = false }
-                            )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = horizontalPadding),
+            contentPadding = PaddingValues(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(spacing)
+        ) {
+            item {
+                ScreenHeader(
+                    title = Strings.PIGGY_BANKS,
+                    modifier = Modifier.padding(horizontal = 0.dp),
+                    actions = {
+                        TextButton(onClick = { showCreateDialog = true }) {
+                            Text(Strings.CREATE, style = MaterialTheme.typography.labelLarge)
+                        }
+                    },
+                )
+            }
+
+            if (sortedGoals.isEmpty()) {
+                item { EmptyState(Strings.NO_PIGGY_BANKS) }
+            } else {
+                val chunked = sortedGoals.chunked(columns)
+                items(chunked.size) { index ->
+                    val rowItems = chunked[index]
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing)
+                    ) {
+                        rowItems.forEach { goal ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                SavingsGoalCard(
+                                    goal = goal,
+                                    onEdit = { editingGoal = goal },
+                                    onDeposit = { transactionGoal = goal; isDeposit = true },
+                                    onWithdraw = { transactionGoal = goal; isDeposit = false }
+                                )
+                            }
+                        }
+                        repeat(columns - rowItems.size) {
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
-                    if (pair.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
                 }
-            }
-        } else {
-            items(sortedGoals, key = { it.id }) { goal ->
-                SavingsGoalCard(
-                    goal = goal,
-                    onEdit = { editingGoal = goal },
-                    onDeposit = { transactionGoal = goal; isDeposit = true },
-                    onWithdraw = { transactionGoal = goal; isDeposit = false }
-                )
             }
         }
     }
@@ -192,7 +197,7 @@ private fun SavingsGoalCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         baseColor = MaterialTheme.colorScheme.surface,
-        highlightColor = MaterialTheme.colorScheme.primary
+        highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -206,7 +211,7 @@ private fun SavingsGoalCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 TextButton(onClick = onEdit) {
-                    Text(Strings.EDIT, style = MaterialTheme.typography.bodyLarge)
+                    Text(Strings.EDIT, style = MaterialTheme.typography.bodyMedium)
                 }
             }
 
@@ -249,20 +254,20 @@ private fun SavingsGoalCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                GlassyButton(
+                AppButton(
                     onClick = onDeposit,
                     text = Strings.DEPOSIT,
-                    modifier = Modifier.weight(1f),
-                    color = semantic.incomeColor,
-                    textColor = Color.White,
-                    style = GlassyButtonStyle.Solid
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    containerColor = semantic.incomeColor,
+                    contentColor = Color.White,
+                    style = GlassyButtonStyle.Glassy
                 )
-                GlassyButton(
+                AppButton(
                     onClick = onWithdraw,
                     text = Strings.WITHDRAW,
-                    modifier = Modifier.weight(1f),
-                    color = semantic.expenseColor,
-                    textColor = semantic.expenseColor,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    containerColor = semantic.expenseColor,
+                    contentColor = Color.White,
                     style = GlassyButtonStyle.Glassy
                 )
             }
@@ -283,11 +288,11 @@ private fun CreateGoalDialog(
         title = { Text(Strings.NEW_PIGGY_BANK) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppTextField(value = name, onValueChange = { name = it }, label = "Название")
+                AppTextField(value = name, onValueChange = { name = it }, label = Strings.NAME)
                 AppTextField(
                     value = target,
                     onValueChange = { target = it },
-                    label = "Целевая сумма",
+                    label = Strings.TARGET_AMOUNT,
                     keyboardType = KeyboardType.Decimal
                 )
             }
@@ -301,7 +306,7 @@ private fun CreateGoalDialog(
                 enabled = name.isNotBlank() && (target.toDoubleOrNull() ?: 0.0) > 0
             ) { Text(Strings.CREATE) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.CANCEL) } }
     )
 }
 
@@ -351,9 +356,9 @@ private fun EditGoalDialog(
                     target.toDoubleOrNull()?.takeIf { it != goal.targetAmount },
                     current.toDoubleOrNull()?.takeIf { it != goal.currentAmount }
                 )
-            }) { Text("Сохранить") }
+            }) { Text(Strings.SAVE) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.CANCEL) } }
     )
 }
 
@@ -392,6 +397,6 @@ private fun TransactionDialog(
                 enabled = (amount.toDoubleOrNull() ?: 0.0) > 0
             ) { Text(if (isDeposit) Strings.DEPOSIT else Strings.WITHDRAW) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.CANCEL) } }
     )
 }

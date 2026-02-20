@@ -17,8 +17,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
-import ru.homebudget.finkeeper.ui.components.neonGlow
+import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.util.isDesktop
+import ru.homebudget.finkeeper.ui.theme.BackgroundDarkNight
 import ru.homebudget.finkeeper.ui.viewmodel.AuthState
 
 @Composable
@@ -39,14 +42,16 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.primary)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .then(
+                    if (isDesktop) Modifier.padding(horizontal = 40.dp)
+                    else Modifier.padding(24.dp)
+                )
                 .verticalScroll(rememberScrollState())
-                .safeContentPadding()
-                .padding(24.dp),
+                .safeContentPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -71,15 +76,13 @@ fun LoginScreen(
             )
 
             // Form card
-            Card(
+            GlassyCard(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .neonGlow(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), radius = 16.dp),
+                    .widthIn(max = 500.dp)
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                baseColor = MaterialTheme.colorScheme.surface,
+                highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
             ) {
                 Column(
                     modifier = Modifier
@@ -151,7 +154,8 @@ fun LoginScreen(
                             else onLogin(u, p)
                         },
                         enabled = username.isNotBlank() && password.isNotBlank(),
-                        isLoading = state.isLoading
+                        isLoading = state.isLoading,
+                        style = GlassyButtonStyle.Glassy
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -184,14 +188,13 @@ fun LoginScreen(
             }
 
             AnimatedVisibility(visible = showServerSettings) {
-                Card(
+                GlassyCard(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .neonGlow(MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), radius = 12.dp),
+                        .widthIn(max = 500.dp)
+                        .fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-                    )
+                    baseColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    highlightColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp)
@@ -209,7 +212,8 @@ fun LoginScreen(
                         AppButton(
                             text = Strings.SAVE,
                             onClick = { onServerUrlChange(serverUrl) },
-                            containerColor = MaterialTheme.colorScheme.secondary
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            style = GlassyButtonStyle.Glassy
                         )
                     }
                 }

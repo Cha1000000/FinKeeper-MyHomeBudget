@@ -5,7 +5,29 @@ package ru.homebudget.finkeeper.ui
  * Используется для локализации и упрощения поддержки текстовых констант.
  */
 object Strings {
-    // === Экран входа ===
+    // === Общие (Common) ===
+    const val SAVE = "Сохранить"
+    const val CANCEL = "Отмена"
+    const val DELETE = "Удалить"
+    const val ADD = "Добавить"
+    const val EDIT = "Изменить"
+    const val YES = "Да"
+    const val NO = "Нет"
+    const val NAME = "Название"
+    const val AMOUNT = "Сумма"
+    const val OTHER = "Другой"
+    const val DONE = "Готово"
+    const val CREATE = "Создать"
+    const val CONFIRMATION = "Подтверждение"
+    const val LOGOUT_BUTTON = "Выйти"
+    const val LOGOUT_TITLE = "Выход"
+    const val LOGOUT_CONFIRM = "Вы уверены, что хотите выйти?"
+    const val CHECK = "✓"
+    const val PREV_MONTH = "◀"
+    const val NEXT_MONTH = "▶"
+    const val NEW_SOURCE = "Новый источник"
+
+    // === Экран входа (Login) ===
     const val APP_TITLE = "FinKeeper"
     const val APP_SUBTITLE = "Домашняя бухгалтерия"
     const val LOGIN_TITLE = "Вход"
@@ -19,7 +41,6 @@ object Strings {
     const val SERVER_SETTINGS = "⚙ Настройки сервера"
     const val SERVER_URL_LABEL = "URL сервера"
     const val SERVER_URL_PLACEHOLDER = "http://10.0.2.2:3002"
-    const val SAVE = "Сохранить"
 
     // === Экран обзора (Dashboard) ===
     const val DASHBOARD_TITLE = "Обзор"
@@ -39,29 +60,22 @@ object Strings {
     const val SPENDING_LIMIT = "Лимит трат"
     const val REMAINDER = "Остаток:"
     const val EXPENSES_BY_CATEGORIES = "Расходы по категориям"
-    const val BUDGET = "Бюджет"
-    const val ADD = "+ Добавить"
+    const val BUDGET = "Лимиты"
     const val NO_EXPENSES_THIS_MONTH = "Нет расходов за этот месяц"
     const val NO_INCOMES_THIS_MONTH = "Нет доходов за этот месяц"
     const val DELETE_INCOME = "Удалить доход"
     const val DELETE_EXPENSE = "Удалить расход"
     const val CONFIRM_DELETE = "Вы уверены, что хотите удалить этот доход?"
     const val CONFIRM_DELETE_EXPENSE = "Вы уверены, что хотите удалить этот расход?"
-    const val CONFIRMATION = "Подтверждение"
-    const val SOURCE_NOT_FOUND = "Источник дохода \"%1\$s\" не найден. Создать его и добавить доход?"
-    const val YES = "Да"
-    const val CANCEL = "Отмена"
-    const val ADD_EXPENSE_IN_CATEGORY = "+ Добавить расход в \"%1\$s\""
+    const val SOURCE_NOT_FOUND = "Источник дохода \"%1\u0024s\" не найден. Создать его и добавить доход?"
+    const val ADD_EXPENSE_IN_CATEGORY = "+ Добавить расход в \"%1\u0024s\""
     const val ADD_EXPENSE = "Добавить расход"
     const val ADD_INCOME = "Добавить доход"
     const val CATEGORY = "Категория"
     const val SOURCE = "Источник"
-    const val OTHER = "Другой:"
-    const val NEW_SOURCE = "Новый источник"
-    const val AMOUNT = "Сумма"
     const val COMMENT_OPTIONAL = "Комментарий (необязательно)"
     const val BUDGET_SETTINGS = "Настройка бюджета"
-    const val ADD_EXPENSE_FOR_CATEGORY = "Добавить расход в \"%1\$s\""
+    const val ADD_EXPENSE_FOR_CATEGORY = "Добавить расход в \"%1\u0024s\""
     const val EDIT_EXPENSE = "Редактировать расход"
 
     // === Экран справочников (Categories) ===
@@ -73,29 +87,25 @@ object Strings {
     const val NO_INCOME_SOURCES = "Нет источников дохода"
     const val NEW_CATEGORY = "Новая категория"
     const val NEW_INCOME_SOURCE = "Новый источник дохода"
-    const val DELETE_TITLE = "Удалить"
     const val DELETE_CONFIRMATION = "Вы уверены? Элемент будет деактивирован."
-    const val NAME = "Название"
     const val NEW_NAME = "Новая копилка"
     const val REORDER_MODE = "Режим сортировки"
-    const val DONE = "Готово"
     const val DRAG_HANDLE = "Перетащить"
 
     // === Экран копилок (Savings) ===
     const val PIGGY_BANKS = "Копилки"
-    const val CREATE = "Создать"
     const val NO_PIGGY_BANKS = "Нет копилок. Создайте первую!"
     const val FROM = "из"
-    const val PERCENT = "%1\$d%%"
+    const val PERCENT = "%1\u0024d%%"
     const val DEPOSIT = "Пополнить"
     const val WITHDRAW = "Снять"
     const val NEW_PIGGY_BANK = "Новая копилка"
     const val TARGET_AMOUNT = "Целевая сумма"
     const val CURRENT_AMOUNT = "Текущая сумма"
     const val EDIT_PIGGY_BANK = "Редактировать копилку"
-    const val DELETE_PIGGY_BANK = "Удалить копилка"
+    const val DELETE_PIGGY_BANK = "Удалить копилку"
     const val DELETE_PIGGY_BANK_CONFIRM = "Вы уверены? Все данные копилки будут удалены."
-    const val PIGGY_BANK_NAME = "Копилка: %1\$s"
+    const val PIGGY_BANK_NAME = "Копилка: %1\u0024s"
 
     // === Экран настроек (Settings) ===
     const val SETTINGS = "Настройки"
@@ -116,7 +126,7 @@ object Strings {
     const val THEME_CYBERPUNK = "Cyberpunk"
     const val LOGOUT = "Выйти из аккаунта"
     const val CHANGE_NAME = "Сменить имя"
-    const val CHANGE_NAME_CONFIRM = "Изменить имя пользователя на \"%1\$s\"?"
+    const val CHANGE_NAME_CONFIRM = "Изменить имя пользователя на \"%1\u0024s\"?"
     const val CHANGE_PASSWORD_CONFIRM = "Вы уверены, что хотите сменить пароль?"
     const val RESTORE_DATA = "Восстановить данные"
     const val RESTORE_DATA_CONFIRM = "Все текущие данные будут заменены данными из последней резервной копии. Продолжить?"
@@ -125,8 +135,6 @@ object Strings {
     const val BACKUP_RESTORE_BUTTON = "Восстановить"
     const val BACKUP_RESTORE_SUCCESS = "Бэкап успешно восстановлен"
     const val BACKUP_RESTORE_ERROR = "Ошибка восстановления бэкапа"
-    const val LOGOUT_CONFIRM = "Вы уверены, что хотите выйти?"
-    const val LOGOUT_TITLE = "Выход"
 
     // === Сообщения валидации и ошибок ===
     const val ENTER_USERNAME_AND_PASSWORD = "Введите имя пользователя и пароль"
@@ -157,19 +165,19 @@ object Strings {
     const val NAV_SETTINGS = "Настр."
     const val NAV_EXIT = "Выход"
 
-    // === Навигация месяца ===
-    const val PREV_MONTH = "◀"
-    const val NEXT_MONTH = "▶"
-    const val COLLAPSE = "▲"
-    const val EXPAND = "▼"
+    // === Навигация месяца (иконки) ===
+    const val PREV_MONTH_ICON = "◀"
+    const val NEXT_MONTH_ICON = "▶"
+    const val COLLAPSE_ICON = "▲"
+    const val EXPAND_ICON = "▼"
 
     // === Символы действий ===
-    const val EDIT = "✍︎"
-    const val DELETE = "✕"
-    const val CHECK = "✓"
+    const val EDIT_ICON = "✍︎"
+    const val DELETE_ICON = "✕"
+    const val CHECK_ICON = "✓"
 
     // === API ошибки ===
-    const val HTTP_ERROR = "HTTP %1\$d: %2\$s"
+    const val HTTP_ERROR = "HTTP %1\u0024d: %2\u0024s"
 
     // === Категории по умолчанию ===
     const val SAVINGS_CATEGORY = "Пополнение копилки"
@@ -177,5 +185,5 @@ object Strings {
 
     // === Диалоги ===
     const val NEW_INCOME_SOURCE_DIALOG = "Новый источник дохода"
-    const val SOURCE_NOT_FOUND_DIALOG = "Источник \"%1\$s\" не найден. Создать его?"
+    const val SOURCE_NOT_FOUND_DIALOG = "Источник \"%1\u0024s\" не найден. Создать его?"
 }

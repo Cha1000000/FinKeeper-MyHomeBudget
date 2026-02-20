@@ -22,7 +22,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.luminance
+import ru.homebudget.finkeeper.ui.theme.AppTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -52,6 +55,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 
 fun Modifier.neonGlow(
     color: Color,
@@ -80,13 +84,24 @@ fun SummaryCard(
     subtitle: String? = null,
     onClick: (() -> Unit)? = null
 ) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val isPrimary = backgroundColor == MaterialTheme.colorScheme.primary
+    
+    // Если карточка использует основной цвет темы (как "Всего активов"),
+    // мы делаем её чуть более прозрачной для эффекта стекла, но сохраняем акцент.
+    val finalBaseColor = if (isPrimary && isDark) {
+        backgroundColor.copy(alpha = 0.8f)
+    } else {
+        backgroundColor
+    }
+
     GlassyCard(
         modifier = modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = RoundedCornerShape(24.dp),
-        baseColor = backgroundColor,
-        highlightColor = contentColor
+        baseColor = finalBaseColor,
+        highlightColor = contentColor.copy(alpha = 0.2f)
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -211,7 +226,7 @@ fun AppTextField(
             unfocusedContainerColor = containerColor,
             disabledContainerColor = containerColor.copy(alpha = 0.2f),
             focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
         ),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         singleLine = singleLine,
@@ -224,11 +239,13 @@ fun AppTextField(
 fun AppButton(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.fillMaxWidth().height(56.dp),
     enabled: Boolean = true,
     isLoading: Boolean = false,
     containerColor: Color = MaterialTheme.colorScheme.primary,
-    contentColor: Color = MaterialTheme.colorScheme.onPrimary
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    style: GlassyButtonStyle = GlassyButtonStyle.Solid,
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleMedium
 ) {
     GlassyButton(
         text = text,
@@ -238,10 +255,12 @@ fun AppButton(
         isLoading = isLoading,
         color = containerColor,
         textColor = contentColor,
-        style = GlassyButtonStyle.Solid // По умолчанию яркий стиль, как на референсе
+        style = style,
+        textStyle = textStyle
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfirmDialog(
     title: String,
@@ -255,29 +274,64 @@ fun ConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
-        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
-        text = { Text(message, style = MaterialTheme.typography.bodyMedium) },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                enabled = !isLoading,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                )
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        content = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(enabled = true, onClick = onDismiss),
+                contentAlignment = Alignment.Center
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(confirmText)
+                GlassyCard(
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(16.dp)
+                        .clickable(enabled = true, onClick = {}),
+                    shape = RoundedCornerShape(24.dp),
+                    baseColor = MaterialTheme.colorScheme.surface,
+                    highlightColor = (if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary).copy(alpha = 0.15f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            AppButton(
+                                text = dismissText,
+                                onClick = onDismiss,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = GlassyButtonStyle.Glassy
+                            )
+                            AppButton(
+                                text = confirmText,
+                                onClick = onConfirm,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                containerColor = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                contentColor = Color.White,
+                                isLoading = isLoading,
+                                style = GlassyButtonStyle.Glassy
+                            )
+                        }
+                    }
                 }
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isLoading
-            ) {
-                Text(dismissText)
             }
         }
     )

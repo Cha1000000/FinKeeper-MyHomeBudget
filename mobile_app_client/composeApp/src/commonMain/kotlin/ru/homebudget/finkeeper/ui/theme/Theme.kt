@@ -135,6 +135,9 @@ data class AppSemanticColors(
     val navBarColor: androidx.compose.ui.graphics.Color,
     val navBarContent: androidx.compose.ui.graphics.Color,
     val navBarContentInactive: androidx.compose.ui.graphics.Color,
+    val backupBlue: androidx.compose.ui.graphics.Color,
+    val restorePink: androidx.compose.ui.graphics.Color,
+    val logoutRed: androidx.compose.ui.graphics.Color,
 )
 
 val LightSemanticColors = AppSemanticColors(
@@ -153,6 +156,9 @@ val LightSemanticColors = AppSemanticColors(
     navBarColor = NavBarLight,
     navBarContent = NavBarContentLight,
     navBarContentInactive = NavBarContentInactiveLight,
+    backupBlue = BackupBlueDarkNight, // Fallback to DarkNight colors if not defined for Light
+    restorePink = RestorePinkDarkNight,
+    logoutRed = LogoutRedDarkNight,
 )
 
 val DarkSemanticColors = AppSemanticColors(
@@ -171,6 +177,9 @@ val DarkSemanticColors = AppSemanticColors(
     navBarColor = NavBarDark,
     navBarContent = NavBarContentDark,
     navBarContentInactive = NavBarContentInactiveDark,
+    backupBlue = BackupBlueDarkNight,
+    restorePink = RestorePinkDarkNight,
+    logoutRed = LogoutRedDarkNight,
 )
 
 val DarkNightSemanticColors = AppSemanticColors(
@@ -189,6 +198,9 @@ val DarkNightSemanticColors = AppSemanticColors(
     navBarColor = NavBarDarkNight,
     navBarContent = NavBarContentDarkNight,
     navBarContentInactive = NavBarContentInactiveDarkNight,
+    backupBlue = BackupBlueDarkNight,
+    restorePink = RestorePinkDarkNight,
+    logoutRed = LogoutRedDarkNight,
 )
 
 val CyberpunkSemanticColors = AppSemanticColors(
@@ -207,6 +219,9 @@ val CyberpunkSemanticColors = AppSemanticColors(
     navBarColor = NavBarCyberpunk,
     navBarContent = NavBarContentCyberpunk,
     navBarContentInactive = NavBarContentInactiveCyberpunk,
+    backupBlue = BackupBlueDarkNight,
+    restorePink = RestorePinkDarkNight,
+    logoutRed = LogoutRedDarkNight,
 )
 
 val LocalSemanticColors = staticCompositionLocalOf { LightSemanticColors }
