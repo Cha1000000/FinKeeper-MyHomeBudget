@@ -34,6 +34,8 @@ private const val PIGGY_BANK_CATEGORY_NAME = "Пополнение копилк�
 data class DashboardState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
+    val year: Int = 0,
+    val month: Int = 0,
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
     val totalSavings: Double = 0.0,
@@ -61,6 +63,13 @@ class DashboardViewModel(
     val state: StateFlow<DashboardState> = _state.asStateFlow()
 
     init {
+        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        // Restore saved month or use current
+        val savedYear = tokenStorage.dashboardYear
+        val savedMonth = tokenStorage.dashboardMonth
+        val year = if (savedYear > 0 && savedMonth > 0) savedYear else now.year
+        val month = if (savedYear > 0 && savedMonth > 0) savedMonth else now.monthNumber
+        _state.value = _state.value.copy(year = year, month = month)
         observeSyncUpdates()
     }
 
@@ -87,11 +96,42 @@ class DashboardViewModel(
         }
     }
 
+    fun prevMonth() {
+        val s = _state.value
+        var y = s.year
+        var m = s.month - 1
+        if (m < 1) {
+            m = 12
+            y--
+        }
+        _state.value = s.copy(year = y, month = m)
+        saveSelectedMonth(y, m)
+        loadData()
+    }
+
+    fun nextMonth() {
+        val s = _state.value
+        var y = s.year
+        var m = s.month + 1
+        if (m > 12) {
+            m = 1
+            y++
+        }
+        _state.value = s.copy(year = y, month = m)
+        saveSelectedMonth(y, m)
+        loadData()
+    }
+
+    private fun saveSelectedMonth(year: Int, month: Int) {
+        tokenStorage.dashboardYear = year
+        tokenStorage.dashboardMonth = month
+    }
+
     private suspend fun loadDataSuspend() {
         try {
-            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-            val year = now.year
-            val month = now.monthNumber
+            val s = _state.value
+            val year = s.year
+            val month = s.month
 
             // Получаем или создаём месяц через репозиторий
             val monthResult = monthRepository.getOrCreateMonth(currentUserId, year, month)
@@ -170,7 +210,7 @@ class DashboardViewModel(
             val breakdown = buildExpenseBreakdown(visibleExpenses, categories)
 
             _state.value =
-                DashboardState(
+                _state.value.copy(
                     isLoading = false,
                     totalIncome = totalIncome,
                     totalExpense = totalExpense,

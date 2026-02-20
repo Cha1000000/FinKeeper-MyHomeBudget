@@ -118,6 +118,8 @@ fun AppNavigation(
                         DashboardScreen(
                             state = dashboardState,
                             onRefresh = { dashboardViewModel.loadData() },
+                            onPrevMonth = { dashboardViewModel.prevMonth() },
+                            onNextMonth = { dashboardViewModel.nextMonth() },
                         )
                     }
 

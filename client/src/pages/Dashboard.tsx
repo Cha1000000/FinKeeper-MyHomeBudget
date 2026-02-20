@@ -3,10 +3,12 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals } from '../api';
 import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { useDataChanged } from '../hooks/useWebSocket';
 
 const COLORS = ['#6b8e23', '#2f3e30', '#d4a017', '#8fbc8f', '#a0522d', '#556b2f', '#c0c0c0', '#bdb76b'];
@@ -30,11 +32,48 @@ interface ExpenseStructureItem {
     value: number;
 }
 
+const DASHBOARD_MONTH_KEY = 'dashboard_selected_month';
+
+const getInitialDate = (): Date => {
+    const saved = localStorage.getItem(DASHBOARD_MONTH_KEY);
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        return new Date(parsed.year, parsed.month - 1, 1);
+    }
+    return new Date();
+};
+
 const Dashboard: React.FC = () => {
+    const [currentDate, setCurrentDate] = useState(getInitialDate);
     const [trendData, setTrendData] = useState<TrendItem[]>([]);
     const [currentSummary, setCurrentSummary] = useState<SummaryData | null>(null);
     const [expenseStructure, setExpenseStructure] = useState<ExpenseStructureItem[]>([]);
     const [totalSavings, setTotalSavings] = useState<number>(0);
+
+    const saveMonth = (date: Date) => {
+        localStorage.setItem(DASHBOARD_MONTH_KEY, JSON.stringify({
+            year: date.getFullYear(),
+            month: date.getMonth() + 1
+        }));
+    };
+
+    const prevMonth = () => {
+        setCurrentDate(prev => {
+            const newDate = new Date(prev);
+            newDate.setMonth(newDate.getMonth() - 1);
+            saveMonth(newDate);
+            return newDate;
+        });
+    };
+
+    const nextMonth = () => {
+        setCurrentDate(prev => {
+            const newDate = new Date(prev);
+            newDate.setMonth(newDate.getMonth() + 1);
+            saveMonth(newDate);
+            return newDate;
+        });
+    };
 
     const fetchData = async () => {
         try {
@@ -42,9 +81,8 @@ const Dashboard: React.FC = () => {
             const trendRes = await getAnalyticsTrend();
                 setTrendData(trendRes.data);
 
-                // 2. Current Month Summary
-                const now = new Date();
-                const mRes = await ensureMonth(now.getFullYear(), now.getMonth() + 1);
+                // 2. Selected Month Summary
+                const mRes = await ensureMonth(currentDate.getFullYear(), currentDate.getMonth() + 1);
                 const summaryRes = await getMonthSummary(mRes.data.id);
                 setCurrentSummary(summaryRes.data);
 
@@ -88,7 +126,7 @@ const Dashboard: React.FC = () => {
         return () => {
             window.removeEventListener('savingsUpdated', handleSavingsUpdate);
         };
-    }, []);
+    }, [currentDate]);
 
     // Refresh on WebSocket data changes
     useDataChanged(null, () => { fetchData(); });
@@ -97,8 +135,27 @@ const Dashboard: React.FC = () => {
         <div className="space-y-8 max-w-7xl mx-auto">
             <header>
                 <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Обзор финансов</h2>
-                <p className="text-gray-500 text-sm mt-1">Сводка за текущий месяц и аналитика</p>
+                <p className="text-gray-500 text-sm mt-1">Сводка за выбранный месяц и аналитика</p>
             </header>
+
+            {/* Month Navigation */}
+            <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                <button
+                    onClick={prevMonth}
+                    className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                    <ChevronLeft className="w-5 h-5 text-slate-600" />
+                </button>
+                <span className="text-lg font-semibold text-slate-800 capitalize">
+                    {format(currentDate, 'LLLL yyyy', { locale: ru })}
+                </span>
+                <button
+                    onClick={nextMonth}
+                    className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                    <ChevronRight className="w-5 h-5 text-slate-600" />
+                </button>
+            </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">

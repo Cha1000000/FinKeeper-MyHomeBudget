@@ -7,12 +7,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.util.monthName
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.ExpensePieChart
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
@@ -27,7 +32,9 @@ import ru.homebudget.finkeeper.util.isDesktop
 @Composable
 fun DashboardScreen(
     state: DashboardState,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onPrevMonth: () -> Unit,
+    onNextMonth: () -> Unit
 ) {
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -50,6 +57,38 @@ fun DashboardScreen(
                 title = Strings.DASHBOARD_TITLE,
                 modifier = Modifier.padding(horizontal = 0.dp),
             )
+        }
+
+        // Month navigation header
+        item {
+            GlassyCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                shape = RoundedCornerShape(16.dp),
+                baseColor = MaterialTheme.colorScheme.surface,
+                highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onPrevMonth) {
+                        Text(Strings.PREV_MONTH_ICON, style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Text(
+                        text = "${monthName(state.month)} ${state.year}",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    TextButton(onClick = onNextMonth) {
+                        Text(Strings.NEXT_MONTH_ICON, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
         }
 
         if (isDesktop) {
