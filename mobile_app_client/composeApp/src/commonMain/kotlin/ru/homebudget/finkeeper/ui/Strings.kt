@@ -59,7 +59,7 @@ object Strings {
     const val INCOMES_TAB = "Доходы"
     const val SPENDING_LIMIT = "Лимит трат"
     const val REMAINDER = "Остаток:"
-    const val EXPENSES_BY_CATEGORIES = "Расходы по категориям"
+    const val EXPENSES_BY_CATEGORIES = "Категории расходов"
     const val BUDGET = "Лимиты"
     const val NO_EXPENSES_THIS_MONTH = "Нет расходов за этот месяц"
     const val NO_INCOMES_THIS_MONTH = "Нет доходов за этот месяц"

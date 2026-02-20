@@ -165,7 +165,23 @@ fun MonthViewScreen(
                     )
                 }
             }
-        }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).padding(end = 16.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+                ) {
+                AppButton(
+                    text = Strings.BUDGET,
+                    onClick = { showBudgetDialog = true },
+                    containerColor = Color(0xFF0D47A1),
+                    contentColor = Color.White,
+                    style = GlassyButtonStyle.Glassy,
+                    modifier = Modifier.height(32.dp).widthIn(min = 90.dp),
+                    textStyle = MaterialTheme.typography.labelLarge
+                )
+            } 
+        }  
 
         // Tabs
         TabRow(
@@ -206,7 +222,7 @@ fun MonthViewScreen(
                 // Expenses tab
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -215,30 +231,15 @@ fun MonthViewScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AppButton(
-                                text = Strings.BUDGET,
-                                onClick = { showBudgetDialog = true },
-                                containerColor = Color(0xFF0D47A1),
-                                contentColor = Color.White,
-                                style = GlassyButtonStyle.Glassy,
-                                modifier = Modifier.height(32.dp).widthIn(min = 90.dp),
-                                textStyle = MaterialTheme.typography.labelLarge
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            AppButton(
-                                text = Strings.ADD,
-                                onClick = { showAddDialog = true },
-                                containerColor = Color(0xFF1B5E20),
-                                contentColor = Color.White,
-                                style = GlassyButtonStyle.Glassy,
-                                modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
-                                textStyle = MaterialTheme.typography.labelLarge
-                            )
-                        }
+                        AppButton(
+                            text = Strings.ADD,
+                            onClick = { showAddDialog = true },
+                            containerColor = Color(0xFF1B5E20),
+                            contentColor = Color.White,
+                            style = GlassyButtonStyle.Glassy,
+                            modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
+                            textStyle = MaterialTheme.typography.labelLarge
+                        )
                     }
                 }
 
@@ -268,7 +269,7 @@ fun MonthViewScreen(
                 // Incomes tab
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
