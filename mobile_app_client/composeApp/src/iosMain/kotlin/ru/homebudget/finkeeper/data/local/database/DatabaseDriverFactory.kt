@@ -1,7 +1,7 @@
 package ru.homebudget.finkeeper.data.local.database
 
-import com.squareup.sqldelight.db.SqlDriver
-import com.squareup.sqldelight.drivers.native.NativeSqliteDriver
+import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.driver.native.NativeSqliteDriver
 
 /**
  * Database driver factory for iOS platform.

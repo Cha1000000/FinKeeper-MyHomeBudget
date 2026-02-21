@@ -1,6 +1,6 @@
 package ru.homebudget.finkeeper.data.local.database
 
-import com.squareup.sqldelight.db.SqlDriver
+import app.cash.sqldelight.db.SqlDriver
 
 /**
  * Провайдер базы данных

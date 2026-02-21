@@ -1,6 +1,7 @@
 package ru.homebudget.finkeeper.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -102,6 +103,10 @@ fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
                 text = "Sync error: ${lastSyncError.take(90)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.clickable {
+                    // При клике на ошибку очищаем её
+                    syncManager.clearSyncError()
+                },
             )
         }
     }

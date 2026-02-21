@@ -1,9 +1,7 @@
 package ru.homebudget.finkeeper.data.local.dao
 
-import com.squareup.sqldelight.runtime.coroutines.asFlow
-import com.squareup.sqldelight.runtime.coroutines.mapToList
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flow
 import ru.homebudget.finkeeper.data.local.database.FinKeeperDatabase
 import ru.homebudget.finkeeper.data.local.database.Sync_queue
 import ru.homebudget.finkeeper.data.local.model.SyncQueueStatus
@@ -148,17 +146,15 @@ class SyncQueueDao(
     /**
      * Flow для отслеживания ожидающих элементов
      */
-    fun observePendingItems(limit: Long = 50): Flow<List<SyncQueueItem>> {
-        return queries.getPendingSyncQueueItems(limit).asFlow().mapToList().map { list ->
-            list.map { toSyncQueueItem(it) }
-        }
+    fun observePendingItems(limit: Long = 50): Flow<List<SyncQueueItem>> = flow {
+        emit(getPendingItems(limit))
     }
 
     /**
      * Flow для отслеживания количества ожидающих элементов
      */
-    fun observePendingCount(): Flow<Long> {
-        return queries.getSyncQueueItemCount().asFlow().map { it.executeAsOne() }
+    fun observePendingCount(): Flow<Long> = flow {
+        emit(getPendingCount())
     }
 
     private fun toSyncQueueItem(entity: Sync_queue): SyncQueueItem {

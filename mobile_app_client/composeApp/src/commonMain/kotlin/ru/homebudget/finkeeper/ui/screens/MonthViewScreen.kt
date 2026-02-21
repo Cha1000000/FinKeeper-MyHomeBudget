@@ -2,7 +2,18 @@ package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -10,17 +21,40 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.Strings
-import ru.homebudget.finkeeper.ui.components.*
+import ru.homebudget.finkeeper.ui.components.AppButton
+import ru.homebudget.finkeeper.ui.components.AppTextField
+import ru.homebudget.finkeeper.ui.components.ConfirmDialog
+import ru.homebudget.finkeeper.ui.components.EmptyState
+import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
+import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.ui.components.LoadingScreen
+import ru.homebudget.finkeeper.ui.components.ProgressBar
+import ru.homebudget.finkeeper.ui.components.ScreenHeader
+import ru.homebudget.finkeeper.ui.components.SummaryCard
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.GroupedExpense
 import ru.homebudget.finkeeper.ui.viewmodel.MonthViewState
@@ -165,23 +199,25 @@ fun MonthViewScreen(
                     )
                 }
             }
+        }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).padding(end = 16.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-                ) {
-                AppButton(
-                    text = Strings.BUDGET,
-                    onClick = { showBudgetDialog = true },
-                    containerColor = Color(0xFF0D47A1),
-                    contentColor = Color.White,
-                    style = GlassyButtonStyle.Glassy,
-                    modifier = Modifier.height(32.dp).widthIn(min = 90.dp),
-                    textStyle = MaterialTheme.typography.labelLarge
-                )
-            } 
-        }  
+        val budgetButtonVerticalPadding = if (state.totalLimit > 0) 2.dp else 4.dp
+        // Кнопка Лимиты
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = budgetButtonVerticalPadding).padding(end = 16.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppButton(
+                text = Strings.BUDGET,
+                onClick = { showBudgetDialog = true },
+                containerColor = Color(0xFF0D47A1),
+                contentColor = Color.White,
+                style = GlassyButtonStyle.Glassy,
+                modifier = Modifier.height(32.dp).widthIn(min = 90.dp),
+                textStyle = MaterialTheme.typography.labelLarge
+            )
+        }
 
         // Tabs
         TabRow(

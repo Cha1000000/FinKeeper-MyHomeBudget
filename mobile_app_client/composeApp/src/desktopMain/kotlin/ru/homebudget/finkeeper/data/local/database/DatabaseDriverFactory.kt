@@ -1,10 +1,7 @@
 package ru.homebudget.finkeeper.data.local.database
 
-import com.squareup.sqldelight.Transacter
-import com.squareup.sqldelight.db.SqlCursor
-import com.squareup.sqldelight.db.SqlDriver
-import com.squareup.sqldelight.db.SqlPreparedStatement
-import com.squareup.sqldelight.sqlite.driver.JdbcSqliteDriver
+import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
@@ -66,8 +63,8 @@ fun createDesktopDatabaseDriver(databaseName: String = "finkeeper.db"): SqlDrive
         DesktopSyncLog.log("DB", "Opened existing database at $databasePath, ensured schema")
     }
 
-    // Wrap with thread-safe driver
-    return ThreadSafeSqlDriver(driver)
+    // JdbcSqliteDriver is already thread-safe in SQLDelight 2.x
+    return driver
 }
 
 /**
@@ -299,40 +296,3 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
     }
 }
 
-/**
- * Thread-safe wrapper around SqlDriver that synchronizes all database operations.
- * This ensures safe concurrent access from multiple coroutines on Desktop/JVM.
- */
-private class ThreadSafeSqlDriver(private val delegate: SqlDriver) : SqlDriver {
-    private val lock = Any()
-
-    override fun currentTransaction(): Transacter.Transaction? = synchronized(lock) {
-        delegate.currentTransaction()
-    }
-
-    override fun execute(
-        identifier: Int?,
-        sql: String,
-        parameters: Int,
-        binders: (SqlPreparedStatement.() -> Unit)?
-    ) = synchronized(lock) {
-        delegate.execute(identifier, sql, parameters, binders)
-    }
-
-    override fun executeQuery(
-        identifier: Int?,
-        sql: String,
-        parameters: Int,
-        binders: (SqlPreparedStatement.() -> Unit)?
-    ): SqlCursor = synchronized(lock) {
-        delegate.executeQuery(identifier, sql, parameters, binders)
-    }
-
-    override fun newTransaction(): Transacter.Transaction = synchronized(lock) {
-        delegate.newTransaction()
-    }
-
-    override fun close() = synchronized(lock) {
-        delegate.close()
-    }
-}

@@ -79,7 +79,12 @@ class MonthViewModel(
 
     init {
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-        _state.value = _state.value.copy(year = now.year, month = now.monthNumber)
+        // Restore saved month or use current
+        val savedYear = tokenStorage.monthViewYear
+        val savedMonth = tokenStorage.monthViewMonth
+        val year = if (savedYear > 0 && savedMonth > 0) savedYear else now.year
+        val month = if (savedYear > 0 && savedMonth > 0) savedMonth else now.monthNumber
+        _state.value = _state.value.copy(year = year, month = month)
         loadData()
         observeSyncUpdates()
     }
@@ -113,6 +118,7 @@ class MonthViewModel(
             y--
         }
         _state.value = s.copy(year = y, month = m)
+        saveSelectedMonth(y, m)
         loadData()
     }
 
@@ -125,7 +131,13 @@ class MonthViewModel(
             y++
         }
         _state.value = s.copy(year = y, month = m)
+        saveSelectedMonth(y, m)
         loadData()
+    }
+
+    private fun saveSelectedMonth(year: Int, month: Int) {
+        tokenStorage.monthViewYear = year
+        tokenStorage.monthViewMonth = month
     }
 
     fun loadData(syncFromServer: Boolean = true) {

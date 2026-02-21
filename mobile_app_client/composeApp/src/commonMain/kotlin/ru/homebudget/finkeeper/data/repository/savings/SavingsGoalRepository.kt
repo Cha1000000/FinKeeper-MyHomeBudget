@@ -111,11 +111,15 @@ class SavingsGoalRepository(
                 val existing = savingsGoalDao.getById(id) ?: return@withContext Result.error(Exception("Savings goal not found"))
 
                 val newCurrentAmount = currentAmount?.toLong() ?: existing.currentAmount
-                println("[SAVINGS-GOAL] updateSavingsGoal: id=$id, oldCurrentAmount=${existing.currentAmount}, newCurrentAmount=$newCurrentAmount")
+                println("[SAVINGS-GOAL] updateSavingsGoal: id=$id, name=$name, targetAmount=$targetAmount, currentAmount=$currentAmount")
+                println("[SAVINGS-GOAL] updateSavingsGoal: existing.name=${existing.name}, finalName=${name?.takeIf { it.isNotBlank() } ?: existing.name}")
+                
+                // Используем новое имя только если оно не null и не пустое, иначе сохраняем старое
+                val finalName = name?.takeIf { it.isNotBlank() } ?: existing.name
                 
                 savingsGoalDao.update(
                     id = id,
-                    name = name ?: existing.name,
+                    name = finalName,
                     targetAmount = targetAmount?.toLong() ?: existing.targetAmount,
                     currentAmount = newCurrentAmount,
                     color = existing.color,
@@ -218,6 +222,13 @@ class SavingsGoalRepository(
                     val existing = savingsGoalDao.getByServerId(remote.id.toString())
 
                     if (existing != null) {
+                        // Не перезаписываем локально изменённые записи (PENDING статус)
+                        // чтобы не потерять локальные изменения, которые ещё не синхронизированы
+                        if (existing.syncStatus == SyncStatus.PENDING.value) {
+                            println("[SAVINGS-GOAL] syncWithServer: skipping update for id=${existing.id}, name='${existing.name}' - local changes pending")
+                            continue
+                        }
+                        
                         savingsGoalDao.update(
                             id = existing.id,
                             name = remote.name,

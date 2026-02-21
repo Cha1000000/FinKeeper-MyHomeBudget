@@ -268,12 +268,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun setBudget(request: SetBudgetRequest) {
+    suspend fun setBudget(request: SetBudgetRequest): Budget {
         val response =
             client.post("$baseUrl/budgets") {
                 setBody(request)
             }
         checkResponse(response)
+        return response.body()
     }
 
     suspend fun updateBudget(

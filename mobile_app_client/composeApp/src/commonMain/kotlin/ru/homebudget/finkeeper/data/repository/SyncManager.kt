@@ -70,6 +70,8 @@ class SyncManager(
 
     init {
         updatePendingCount()
+        // Очищаем старую ошибку при инициализации
+        _lastSyncError.value = null
     }
 
     /**
@@ -79,6 +81,14 @@ class SyncManager(
     fun reportSyncError(message: String) {
         println("[SYNC] reportSyncError: $message")
         _lastSyncError.value = message
+    }
+
+    /**
+     * Очищает сообщение об ошибке синхронизации.
+     * Вызывается из UI когда пользователь хочет скрыть сообщение об ошибке.
+     */
+    fun clearSyncError() {
+        _lastSyncError.value = null
     }
 
     /**
@@ -197,6 +207,9 @@ class SyncManager(
                 syncQueueDao.clearCompleted()
                 updatePendingCount()
 
+                // Очищаем ошибку при успешной синхронизации
+                _lastSyncError.value = null
+
                 // Уведомляем подписчиков об обновлении данных
                 _dataUpdated.tryEmit(Unit)
                 println("[SYNC] syncAll DONE")
@@ -268,11 +281,27 @@ class SyncManager(
             val errorMessage = e.message ?: e::class.simpleName ?: "Unknown sync error"
             println("[SYNC] syncItemToServer FAILED: type=${item.entityType}, entityId=${item.entityId}, error=$errorMessage")
             _lastSyncError.value = "Sync ${item.entityType}: $errorMessage"
-            syncQueueDao.updateStatus(
-                id = item.id,
-                status = SyncQueueStatus.FAILED.value,
-                errorMessage = errorMessage,
-            )
+            
+            // Проверяем, является ли ошибка 404 (Not Found) - в этом случае повторные попытки бесполезны
+            val isNotFoundError = errorMessage.contains("404") || 
+                                  errorMessage.contains("Not Found", ignoreCase = true)
+            
+            if (isNotFoundError) {
+                println("[SYNC] syncItemToServer: 404 error detected, marking as COMPLETED to avoid infinite retry")
+                // Для 404 ошибок помечаем как COMPLETED, чтобы не повторять бесконечно
+                // Но сохраняем ошибку для информации
+                syncQueueDao.updateStatus(
+                    id = item.id,
+                    status = SyncQueueStatus.COMPLETED.value,
+                    errorMessage = "404 Not Found - $errorMessage",
+                )
+            } else {
+                syncQueueDao.updateStatus(
+                    id = item.id,
+                    status = SyncQueueStatus.FAILED.value,
+                    errorMessage = errorMessage,
+                )
+            }
             updatePendingCount()
         }
     }
@@ -373,7 +402,11 @@ class SyncManager(
         }
 
         val income = incomeDao.getById(item.entityId)
-            ?: throw IllegalStateException("Income not found for entityId=${item.entityId}")
+        if (income == null) {
+            // Income was deleted locally before sync - nothing to sync
+            println("[SYNC] Income already deleted locally, skipping sync for entityId=${item.entityId}")
+            return
+        }
 
         when (item.operation) {
             SyncOperation.INSERT.value -> {
@@ -431,7 +464,11 @@ class SyncManager(
         }
 
         val expense = expenseDao.getById(item.entityId)
-            ?: throw IllegalStateException("Expense not found for entityId=${item.entityId}")
+        if (expense == null) {
+            // Expense was deleted locally before sync - nothing to sync
+            println("[SYNC] Expense already deleted locally, skipping sync for entityId=${item.entityId}")
+            return
+        }
 
         when (item.operation) {
             SyncOperation.INSERT.value -> {
@@ -554,18 +591,26 @@ class SyncManager(
      * Синхронизация бюджета на сервер
      */
     private suspend fun syncBudgetToServer(item: SyncQueueItem) {
+        println("[SYNC] syncBudgetToServer START: entityId=${item.entityId}, operation=${item.operation}")
+        
         if (item.operation == SyncOperation.DELETE.value) {
             // В API нет метода удаления бюджета
             // item.payload?.toIntOrNull()?.let { serverId -> apiClient.deleteBudget(serverId) }
             return
         }
 
-        val budget = budgetDao.getById(item.entityId) ?: return
+        val budget = budgetDao.getById(item.entityId)
+        if (budget == null) {
+            println("[SYNC] syncBudgetToServer: budget not found for entityId=${item.entityId}")
+            return
+        }
+        println("[SYNC] syncBudgetToServer: budget found - id=${budget.id}, monthId=${budget.monthId}, categoryId=${budget.categoryId}, limitAmount=${budget.limitAmount}, serverId=${budget.serverId}, syncStatus=${budget.syncStatus}")
 
         when (item.operation) {
             SyncOperation.INSERT.value -> {
                 val month = monthDao.getById(budget.monthId)
                 val category = categoryDao.getById(budget.categoryId)
+                println("[SYNC] syncBudgetToServer INSERT: month.serverId=${month?.serverId}, category.serverId=${category?.serverId}")
 
                 if (month?.serverId == null || category?.serverId == null) {
                     throw IllegalStateException(
@@ -573,22 +618,26 @@ class SyncManager(
                     )
                 }
 
-                apiClient.setBudget(
+                println("[SYNC] syncBudgetToServer INSERT: calling setBudget...")
+                val remoteBudget = apiClient.setBudget(
                     SetBudgetRequest(
                         monthId = month.serverId.toInt(),
                         categoryId = category.serverId.toInt(),
                         limitAmount = budget.limitAmount.toDouble(),
                     ),
                 )
+                println("[SYNC] syncBudgetToServer INSERT: success, remoteBudget.id=${remoteBudget.id}")
                 budgetDao.updateSyncStatus(
                     id = budget.id,
                     syncStatus = SyncStatus.SYNCED.value,
-                    serverId = null,
+                    serverId = remoteBudget.id.toString(),
                 )
+                println("[SYNC] syncBudgetToServer INSERT: syncStatus updated to SYNCED")
             }
             SyncOperation.UPDATE.value -> {
                 val month = monthDao.getById(budget.monthId)
                 val category = categoryDao.getById(budget.categoryId)
+                println("[SYNC] syncBudgetToServer UPDATE: month.serverId=${month?.serverId}, category.serverId=${category?.serverId}")
 
                 if (month?.serverId == null || category?.serverId == null) {
                     throw IllegalStateException(
@@ -596,20 +645,63 @@ class SyncManager(
                     )
                 }
 
-                budget.serverId?.toIntOrNull()?.let { serverId ->
-                    apiClient.updateBudget(
-                        id = serverId,
-                        request =
-                            SetBudgetRequest(
-                                monthId = month.serverId.toInt(),
-                                categoryId = category.serverId.toInt(),
-                                limitAmount = budget.limitAmount.toDouble(),
-                            ),
+                val serverId = budget.serverId?.toIntOrNull()
+                if (serverId != null) {
+                    // Обновляем существующий бюджет на сервере
+                    try {
+                        println("[SYNC] syncBudgetToServer UPDATE: calling updateBudget with serverId=$serverId...")
+                        apiClient.updateBudget(
+                            id = serverId,
+                            request =
+                                SetBudgetRequest(
+                                    monthId = month.serverId.toInt(),
+                                    categoryId = category.serverId.toInt(),
+                                    limitAmount = budget.limitAmount.toDouble(),
+                                ),
+                        )
+                        println("[SYNC] syncBudgetToServer UPDATE: updateBudget success")
+                        budgetDao.updateSyncStatus(
+                            id = budget.id,
+                            syncStatus = SyncStatus.SYNCED.value,
+                            serverId = serverId.toString(),
+                        )
+                    } catch (e: Exception) {
+                        // Если получили 404 - бюджет не найден на сервере, создаём новый
+                        val errorMessage = e.message ?: ""
+                        if (errorMessage.contains("404") || errorMessage.contains("Not Found", ignoreCase = true)) {
+                            println("[SYNC] syncBudgetToServer UPDATE: 404 error, falling back to CREATE")
+                            val remoteBudget = apiClient.setBudget(
+                                SetBudgetRequest(
+                                    monthId = month.serverId.toInt(),
+                                    categoryId = category.serverId.toInt(),
+                                    limitAmount = budget.limitAmount.toDouble(),
+                                ),
+                            )
+                            println("[SYNC] syncBudgetToServer UPDATE: setBudget success, new id=${remoteBudget.id}")
+                            budgetDao.updateSyncStatus(
+                                id = budget.id,
+                                syncStatus = SyncStatus.SYNCED.value,
+                                serverId = remoteBudget.id.toString(),
+                            )
+                        } else {
+                            throw e // Пробрасываем другие ошибки
+                        }
+                    }
+                } else {
+                    // Бюджет ещё не на сервере - создаём его
+                    println("[SYNC] syncBudgetToServer UPDATE: no serverId, creating new budget...")
+                    val remoteBudget = apiClient.setBudget(
+                        SetBudgetRequest(
+                            monthId = month.serverId.toInt(),
+                            categoryId = category.serverId.toInt(),
+                            limitAmount = budget.limitAmount.toDouble(),
+                        ),
                     )
+                    println("[SYNC] syncBudgetToServer UPDATE: setBudget success, id=${remoteBudget.id}")
                     budgetDao.updateSyncStatus(
                         id = budget.id,
                         syncStatus = SyncStatus.SYNCED.value,
-                        serverId = serverId.toString(),
+                        serverId = remoteBudget.id.toString(),
                     )
                 }
             }
@@ -628,7 +720,11 @@ class SyncManager(
         }
 
         val goal = savingsGoalDao.getById(item.entityId)
-            ?: throw IllegalStateException("Savings goal not found for entityId=${item.entityId}")
+        if (goal == null) {
+            // Savings goal was deleted locally before sync - nothing to sync
+            println("[SYNC] Savings goal already deleted locally, skipping sync for entityId=${item.entityId}")
+            return
+        }
 
         when (item.operation) {
             SyncOperation.INSERT.value -> {
@@ -682,7 +778,11 @@ class SyncManager(
         }
 
         val transaction = savingsTransactionDao.getById(item.entityId)
-            ?: throw IllegalStateException("Savings transaction not found for entityId=${item.entityId}")
+        if (transaction == null) {
+            // Savings transaction was deleted locally before sync - nothing to sync
+            println("[SYNC] Savings transaction already deleted locally, skipping sync for entityId=${item.entityId}")
+            return
+        }
 
         when (item.operation) {
             SyncOperation.INSERT.value -> {
@@ -826,6 +926,13 @@ class SyncManager(
                 }
                 syncQueueDao.clearCompleted()
                 updatePendingCount()
+                
+                // Очищаем ошибку, если все операции успешны (нет FAILED элементов)
+                val hasFailedItems = syncQueueDao.getFailedItems(limit = 1).isNotEmpty()
+                if (!hasFailedItems) {
+                    _lastSyncError.value = null
+                }
+                
                 if (pendingItems.isNotEmpty()) {
                     _dataUpdated.tryEmit(Unit)
                 }

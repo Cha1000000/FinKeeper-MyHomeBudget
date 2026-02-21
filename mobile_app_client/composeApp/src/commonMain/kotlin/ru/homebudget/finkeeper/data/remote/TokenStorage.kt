@@ -46,6 +46,19 @@ class TokenStorage(private val settings: Settings = Settings()) {
             settings.putInt(KEY_DASHBOARD_MONTH, value)
         }
 
+    // MonthView selected month (persisted between sessions)
+    var monthViewYear: Int
+        get() = settings.getInt(KEY_MONTHVIEW_YEAR, 0)
+        set(value) {
+            settings.putInt(KEY_MONTHVIEW_YEAR, value)
+        }
+
+    var monthViewMonth: Int
+        get() = settings.getInt(KEY_MONTHVIEW_MONTH, 0)
+        set(value) {
+            settings.putInt(KEY_MONTHVIEW_MONTH, value)
+        }
+
     fun clear() {
         settings.remove(KEY_TOKEN)
         settings.remove(KEY_USER_ID)
@@ -58,6 +71,8 @@ class TokenStorage(private val settings: Settings = Settings()) {
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_DASHBOARD_YEAR = "dashboard_year"
         private const val KEY_DASHBOARD_MONTH = "dashboard_month"
+        private const val KEY_MONTHVIEW_YEAR = "monthview_year"
+        private const val KEY_MONTHVIEW_MONTH = "monthview_month"
         private const val DEFAULT_SERVER_URL = "http://217.114.8.82:3002"
     }
 }

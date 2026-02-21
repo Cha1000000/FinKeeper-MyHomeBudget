@@ -1,6 +1,6 @@
 package ru.homebudget.finkeeper.di
 
-import com.squareup.sqldelight.drivers.native.NativeSqliteDriver
+import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import org.koin.dsl.module
 import ru.homebudget.finkeeper.data.local.database.DatabaseProvider
 import ru.homebudget.finkeeper.data.local.database.FinKeeperDatabase

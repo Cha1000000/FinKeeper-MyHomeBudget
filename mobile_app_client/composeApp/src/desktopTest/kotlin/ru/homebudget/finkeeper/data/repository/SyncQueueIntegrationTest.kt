@@ -1,6 +1,6 @@
 package ru.homebudget.finkeeper.data.repository
 
-import com.squareup.sqldelight.sqlite.driver.JdbcSqliteDriver
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import ru.homebudget.finkeeper.data.local.dao.CategoryDao

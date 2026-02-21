@@ -95,8 +95,26 @@ const SortableGroup: React.FC<SortableGroupProps> = ({ group, isExpanded, toggle
     );
 };
 
+const MONTHVIEW_MONTH_KEY = 'monthview_selected_month';
+
+const getInitialMonthViewDate = (): Date => {
+    const saved = localStorage.getItem(MONTHVIEW_MONTH_KEY);
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        return new Date(parsed.year, parsed.month - 1, 1);
+    }
+    return new Date();
+};
+
+const saveMonthViewMonth = (date: Date) => {
+    localStorage.setItem(MONTHVIEW_MONTH_KEY, JSON.stringify({
+        year: date.getFullYear(),
+        month: date.getMonth() + 1
+    }));
+};
+
 const MonthView: React.FC = () => {
-    const [currentDate, setCurrentDate] = useState(new Date());
+    const [currentDate, setCurrentDate] = useState(getInitialMonthViewDate);
     const [monthData, setMonthData] = useState<Month | null>(null);
     const [incomes, setIncomes] = useState<Income[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -190,11 +208,15 @@ const MonthView: React.FC = () => {
     useDataChanged(['income', 'expense', 'category', 'budget', 'income_source', 'all'], () => { loadData(); });
 
     const handlePrevMonth = () => {
-        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+        const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+        saveMonthViewMonth(newDate);
+        setCurrentDate(newDate);
     };
 
     const handleNextMonth = () => {
-        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+        const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+        saveMonthViewMonth(newDate);
+        setCurrentDate(newDate);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
