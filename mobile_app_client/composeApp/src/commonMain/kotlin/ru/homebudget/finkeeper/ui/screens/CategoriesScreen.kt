@@ -3,6 +3,7 @@ package ru.homebudget.finkeeper.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -22,8 +23,12 @@ import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesState
 import ru.homebudget.finkeeper.data.model.Category
+import ru.homebudget.finkeeper.data.model.IncomeSource
 import ru.homebudget.finkeeper.util.isDesktop
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun CategoriesScreen(
     state: CategoriesState,
@@ -36,23 +41,31 @@ fun CategoriesScreen(
     onDeactivateIncomeSource: (Int) -> Unit,
     onRefresh: () -> Unit,
     onToggleReorderMode: () -> Unit,
+    onToggleIncomeSourceReorderMode: () -> Unit,
     onUpdateCategoriesOrder: (List<Category>) -> Unit,
-    onReorderCategories: (List<Category>) -> Unit
+    onUpdateIncomeSourcesOrder: (List<IncomeSource>) -> Unit,
+    onReorderCategories: (List<Category>) -> Unit,
+    onReorderIncomeSources: (List<IncomeSource>) -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<Int?>(null) }
     var editingName by remember { mutableStateOf("") }
     var deleteId by remember { mutableStateOf<Int?>(null) }
-    var localCategories by remember { mutableStateOf(state.categories) }
-    val listState = rememberLazyListState()
-
-    LaunchedEffect(state.categories) {
-        localCategories = state.categories
-    }
-
-    LaunchedEffect(localCategories) {
+    
+    // localCategories используется ТОЛЬКО во время режима сортировки для drag-and-drop
+    var localCategories by remember { mutableStateOf(state.categories.filter { it.isActive == 1 }) }
+    var localIncomeSources by remember { mutableStateOf(state.incomeSources.filter { it.isActive == 1 }) }
+    
+    // При входе в режим сортировки — копируем текущее состояние
+    LaunchedEffect(state.isReorderMode) {
         if (state.isReorderMode) {
-            onUpdateCategoriesOrder(localCategories)
+            localCategories = state.categories.filter { it.isActive == 1 }
+        }
+    }
+    
+    LaunchedEffect(state.isIncomeSourceReorderMode) {
+        if (state.isIncomeSourceReorderMode) {
+            localIncomeSources = state.incomeSources.filter { it.isActive == 1 }
         }
     }
 
@@ -82,13 +95,37 @@ fun CategoriesScreen(
             }
         }
 
+        val lazyListState = rememberLazyListState()
+        val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
+            val fromIndex = from.index - 1
+            val toIndex = to.index - 1
+            if (fromIndex >= 0 && toIndex >= 0 && fromIndex < localCategories.size && toIndex < localCategories.size) {
+                localCategories = localCategories.toMutableList().apply {
+                    add(toIndex, removeAt(fromIndex))
+                }
+            }
+        }
+
+        val incomeListState = rememberLazyListState()
+        val reorderableIncomeListState = rememberReorderableLazyListState(incomeListState) { from, to ->
+            val fromIndex = from.index - 1
+            val toIndex = to.index - 1
+            if (fromIndex >= 0 && toIndex >= 0 && fromIndex < localIncomeSources.size && toIndex < localIncomeSources.size) {
+                localIncomeSources = localIncomeSources.toMutableList().apply {
+                    add(toIndex, removeAt(fromIndex))
+                }
+            }
+        }
+
+        val activeListState = if (state.activeTab == 0) lazyListState else incomeListState
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
+            state = activeListState,
             contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            state = listState
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
                 Row(
@@ -96,7 +133,13 @@ fun CategoriesScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     if (state.activeTab == 0) {
-                        TextButton(onClick = onToggleReorderMode) {
+                        TextButton(onClick = {
+                            if (state.isReorderMode) {
+                                // При нажатии "Готово" — отправляем на сервер
+                                onReorderCategories(localCategories)
+                            }
+                            onToggleReorderMode()
+                        }) {
                             Text(
                                 if (state.isReorderMode) Strings.DONE else Strings.REORDER_MODE,
                                 style = MaterialTheme.typography.labelLarge,
@@ -104,7 +147,18 @@ fun CategoriesScreen(
                             )
                         }
                     } else {
-                        Spacer(modifier = Modifier.weight(1f))
+                        TextButton(onClick = {
+                            if (state.isIncomeSourceReorderMode) {
+                                onReorderIncomeSources(localIncomeSources)
+                            }
+                            onToggleIncomeSourceReorderMode()
+                        }) {
+                            Text(
+                                if (state.isIncomeSourceReorderMode) Strings.DONE else Strings.REORDER_MODE,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                     AppButton(
                         text = Strings.ADD,
@@ -119,16 +173,26 @@ fun CategoriesScreen(
             }
 
             if (state.activeTab == 0) {
-                val activeCategories = localCategories.filter { it.isActive == 1 }
+                // Используем state.categories напрямую вне режима сортировки
+                val activeCategories = state.categories.filter { it.isActive == 1 }
                 if (activeCategories.isEmpty()) {
                     item { EmptyState(Strings.NO_CATEGORIES) }
                 } else {
-                    items(activeCategories, key = { it.id }) { cat ->
-                        if (state.isReorderMode) {
-                            ReorderableCategoryItem(
-                                name = cat.name
-                            )
-                        } else {
+                    if (state.isReorderMode) {
+                        // В режиме сортировки используем localCategories
+                        itemsIndexed(localCategories, key = { _, cat -> cat.id }) { _, cat ->
+                            ReorderableItem(reorderableLazyListState, key = cat.id) { isDragging ->
+                                val elevation = if (isDragging) 8.dp else 0.dp
+                                ReorderableCategoryItem(
+                                    name = cat.name,
+                                    modifier = Modifier.longPressDraggableHandle(),
+                                    elevation = elevation
+                                )
+                            }
+                        }
+                    } else {
+                        // Вне режима сортировки используем state.categories напрямую
+                        items(activeCategories, key = { it.id }) { cat ->
                             EditableItemCard(
                                 name = cat.name,
                                 isEditing = editingId == cat.id,
@@ -146,23 +210,37 @@ fun CategoriesScreen(
                     }
                 }
             } else {
-                if (state.incomeSources.isEmpty()) {
+                val activeIncomeSources = state.incomeSources.filter { it.isActive == 1 }
+                if (activeIncomeSources.isEmpty()) {
                     item { EmptyState(Strings.NO_INCOME_SOURCES) }
                 } else {
-                    items(state.incomeSources.filter { it.isActive == 1 }, key = { it.id }) { src ->
-                        EditableItemCard(
-                            name = src.name,
-                            isEditing = editingId == src.id,
-                            editingName = editingName,
-                            onEditingNameChange = { editingName = it },
-                            onStartEdit = { editingId = src.id; editingName = src.name },
-                            onSaveEdit = {
-                                onUpdateIncomeSource(src.id, editingName)
-                                editingId = null
-                            },
-                            onCancelEdit = { editingId = null },
-                            onDelete = { deleteId = src.id }
-                        )
+                    if (state.isIncomeSourceReorderMode) {
+                        itemsIndexed(localIncomeSources, key = { _, src -> src.id }) { _, src ->
+                            ReorderableItem(reorderableIncomeListState, key = src.id) { isDragging ->
+                                val elevation = if (isDragging) 8.dp else 0.dp
+                                ReorderableCategoryItem(
+                                    name = src.name,
+                                    modifier = Modifier.longPressDraggableHandle(),
+                                    elevation = elevation
+                                )
+                            }
+                        }
+                    } else {
+                        items(activeIncomeSources, key = { it.id }) { src ->
+                            EditableItemCard(
+                                name = src.name,
+                                isEditing = editingId == src.id,
+                                editingName = editingName,
+                                onEditingNameChange = { editingName = it },
+                                onStartEdit = { editingId = src.id; editingName = src.name },
+                                onSaveEdit = {
+                                    onUpdateIncomeSource(src.id, editingName)
+                                    editingId = null
+                                },
+                                onCancelEdit = { editingId = null },
+                                onDelete = { deleteId = src.id }
+                            )
+                        }
                     }
                 }
             }
@@ -300,10 +378,12 @@ private fun AddNameDialog(
 
 @Composable
 private fun ReorderableCategoryItem(
-    name: String
+    name: String,
+    modifier: Modifier = Modifier,
+    elevation: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     GlassyCard(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         baseColor = MaterialTheme.colorScheme.surface,

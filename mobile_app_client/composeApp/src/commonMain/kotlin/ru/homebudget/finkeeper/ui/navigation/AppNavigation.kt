@@ -165,8 +165,11 @@ fun AppNavigation(
                             onDeactivateIncomeSource = { categoriesViewModel.deactivateIncomeSource(it) },
                             onRefresh = { categoriesViewModel.loadData() },
                             onToggleReorderMode = { categoriesViewModel.toggleReorderMode() },
+                            onToggleIncomeSourceReorderMode = { categoriesViewModel.toggleIncomeSourceReorderMode() },
                             onUpdateCategoriesOrder = { categoriesViewModel.updateCategoriesOrder(it) },
+                            onUpdateIncomeSourcesOrder = { categoriesViewModel.updateIncomeSourcesOrder(it) },
                             onReorderCategories = { categoriesViewModel.reorderCategories(it) },
+                            onReorderIncomeSources = { categoriesViewModel.reorderIncomeSources(it) },
                         )
                     }
 

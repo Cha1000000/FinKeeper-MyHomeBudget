@@ -35,9 +35,10 @@ class IncomeSourceRepository(
                 val localSources = incomeSourceDao.getAllByUser(userId)
 
                 val result =
-                    localSources.map { local ->
+                    localSources.mapNotNull { local ->
+                        val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
                         RemoteIncomeSource(
-                            id = local.id.toInt(),
+                            id = sid,
                             userId = local.userId.toInt(),
                             name = local.name,
                             isActive = local.isActive.toInt(),
@@ -59,9 +60,10 @@ class IncomeSourceRepository(
                 val localSources = incomeSourceDao.getActiveByUser(userId)
 
                 val result =
-                    localSources.map { local ->
+                    localSources.mapNotNull { local ->
+                        val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
                         RemoteIncomeSource(
-                            id = local.id.toInt(),
+                            id = sid,
                             userId = local.userId.toInt(),
                             name = local.name,
                             isActive = local.isActive.toInt(),

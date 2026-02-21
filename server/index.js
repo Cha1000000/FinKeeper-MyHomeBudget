@@ -17,6 +17,16 @@ const db = new Database(dbPath);
 app.use(cors());
 app.use(express.json());
 
+// Миграция: добавляем sort_order в income_sources если отсутствует
+try {
+    db.prepare('ALTER TABLE income_sources ADD COLUMN sort_order INTEGER DEFAULT 0').run();
+    // Инициализируем sort_order по id для существующих записей
+    db.prepare('UPDATE income_sources SET sort_order = id WHERE sort_order = 0 OR sort_order IS NULL').run();
+    console.log('[DB] Migrated income_sources: added sort_order column');
+} catch (e) {
+    // Колонка уже существует — игнорируем
+}
+
 const MAX_BACKUPS = 5;
 
 // --- Helper Functions ---
@@ -342,7 +352,7 @@ app.put('/api/categories/reorder', (req, res) => {
     try {
         transact(ids);
         res.json({ success: true });
-        broadcastChange(req.user.id, 'category', 'updated');
+        // НЕ вызываем broadcastChange — клиент сам знает что он изменил порядок
     } catch (err) {
         console.error("Reorder failed", err);
         res.status(500).json({ error: err.message });
@@ -359,18 +369,44 @@ app.put('/api/categories/:id', (req, res) => {
 
 // Income Sources
 app.get('/api/income_sources', (req, res) => {
-    const sources = db.prepare('SELECT * FROM income_sources WHERE user_id = ? AND is_active = 1 ORDER BY id').all(req.user.id);
+    const sources = db.prepare('SELECT * FROM income_sources WHERE user_id = ? AND is_active = 1 ORDER BY sort_order ASC, id ASC').all(req.user.id);
     res.json(sources);
 });
 
 app.post('/api/income_sources', (req, res) => {
     const { name } = req.body;
     try {
-        const stmt = db.prepare('INSERT INTO income_sources (user_id, name) VALUES (?, ?)');
-        const result = stmt.run(req.user.id, name);
-        res.json({ id: result.lastInsertRowid, name, is_active: 1 });
+        // Get max sort_order
+        const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM income_sources WHERE user_id = ?').get(req.user.id);
+        const nextOrder = (result.maxOrder || 0) + 1;
+        
+        const stmt = db.prepare('INSERT INTO income_sources (user_id, name, sort_order) VALUES (?, ?, ?)');
+        const insertResult = stmt.run(req.user.id, name, nextOrder);
+        res.json({ id: insertResult.lastInsertRowid, name, is_active: 1, sort_order: nextOrder });
         broadcastChange(req.user.id, 'income_source', 'created');
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/income_sources/reorder', (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids array required' });
+
+    const updateStmt = db.prepare('UPDATE income_sources SET sort_order = ? WHERE id = ? AND user_id = ?');
+    
+    const transact = db.transaction((idList) => {
+        idList.forEach((id, index) => {
+            updateStmt.run(index, Number(id), req.user.id);
+        });
+    });
+
+    try {
+        transact(ids);
+        res.json({ success: true });
+        // НЕ вызываем broadcastChange — клиент сам знает что он изменил порядок
+    } catch (err) {
+        console.error("Reorder income sources failed", err);
         res.status(500).json({ error: err.message });
     }
 });

@@ -23,6 +23,7 @@ data class CategoriesState(
     val incomeSources: List<IncomeSource> = emptyList(),
     val activeTab: Int = 0, // 0 = categories, 1 = income sources
     val isReorderMode: Boolean = false,
+    val isIncomeSourceReorderMode: Boolean = false,
     val error: String? = null,
     val isOffline: Boolean = false,
 )
@@ -46,7 +47,10 @@ class CategoriesViewModel(
     private fun observeSyncUpdates() {
         viewModelScope.launch {
             syncManager.dataUpdated.collect {
-                loadData()
+                // Игнорируем обновления во время режима сортировки
+                if (!_state.value.isReorderMode && !_state.value.isIncomeSourceReorderMode) {
+                    loadData()
+                }
             }
         }
     }
@@ -118,8 +122,16 @@ class CategoriesViewModel(
         _state.update { it.copy(isReorderMode = !it.isReorderMode) }
     }
 
+    fun toggleIncomeSourceReorderMode() {
+        _state.update { it.copy(isIncomeSourceReorderMode = !it.isIncomeSourceReorderMode) }
+    }
+
     fun updateCategoriesOrder(categories: List<Category>) {
         _state.update { it.copy(categories = categories) }
+    }
+
+    fun updateIncomeSourcesOrder(incomeSources: List<IncomeSource>) {
+        _state.update { it.copy(incomeSources = incomeSources) }
     }
 
     fun addCategory(name: String) {
@@ -233,19 +245,35 @@ class CategoriesViewModel(
 
     fun reorderCategories(categories: List<Category>) {
         viewModelScope.launch {
-            _state.update { it.copy(error = null) }
+            _state.update { it.copy(error = null, categories = categories) }
             try {
                 val ids = categories.map { cat -> cat.id }
 
-                // Отправляем на сервер (reorder пока только серверный)
+                // Отправляем на сервер
                 try {
                     api.reorderCategories(ids)
                 } catch (_: Exception) {
                     // Офлайн — порядок применится при следующей синхронизации
                 }
-                loadData()
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка изменения порядка категорий") }
+            }
+        }
+    }
+
+    fun reorderIncomeSources(incomeSources: List<IncomeSource>) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null, incomeSources = incomeSources) }
+            try {
+                val ids = incomeSources.map { src -> src.id }
+
+                try {
+                    api.reorderIncomeSources(ids)
+                } catch (_: Exception) {
+                    // Офлайн — порядок применится при следующей синхронизации
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Ошибка изменения порядка источников дохода") }
             }
         }
     }

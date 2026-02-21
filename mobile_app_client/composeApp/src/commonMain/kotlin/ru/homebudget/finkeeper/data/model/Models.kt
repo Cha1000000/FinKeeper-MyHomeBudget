@@ -194,6 +194,11 @@ data class ReorderCategoriesRequest(
 )
 
 @Serializable
+data class ReorderIncomeSourcesRequest(
+    val ids: List<Int>
+)
+
+@Serializable
 data class UpdateUsernameRequest(
     @SerialName("newUsername") val newUsername: String
 )

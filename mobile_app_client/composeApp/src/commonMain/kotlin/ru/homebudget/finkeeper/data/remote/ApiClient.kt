@@ -175,6 +175,14 @@ class ApiClient(
         checkResponse(response)
     }
 
+    suspend fun reorderIncomeSources(ids: List<Int>) {
+        val response =
+            client.put("$baseUrl/income_sources/reorder") {
+                setBody(ReorderIncomeSourcesRequest(ids))
+            }
+        checkResponse(response)
+    }
+
     suspend fun deleteIncomeSource(id: Int) {
         val response = client.delete("$baseUrl/income_sources/$id")
         checkResponse(response)

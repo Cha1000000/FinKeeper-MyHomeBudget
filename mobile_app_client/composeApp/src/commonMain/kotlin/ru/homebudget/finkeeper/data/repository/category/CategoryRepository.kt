@@ -38,10 +38,12 @@ class CategoryRepository(
                 val localCategories = categoryDao.getAllByUser(userId)
 
                 // Преобразуем локальные модели в удалённые
+                // Используем serverId как id, чтобы reorder отправлял серверные ID
                 val result =
-                    localCategories.map { local ->
+                    localCategories.mapNotNull { local ->
+                        val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
                         RemoteCategory(
-                            id = local.id.toInt(),
+                            id = sid,
                             userId = local.userId.toInt(),
                             name = local.name,
                             sortOrder = local.sortOrder.toInt(),
@@ -64,9 +66,10 @@ class CategoryRepository(
                 val localCategories = categoryDao.getActiveByUser(userId)
 
                 val result =
-                    localCategories.map { local ->
+                    localCategories.mapNotNull { local ->
+                        val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
                         RemoteCategory(
-                            id = local.id.toInt(),
+                            id = sid,
                             userId = local.userId.toInt(),
                             name = local.name,
                             sortOrder = local.sortOrder.toInt(),
