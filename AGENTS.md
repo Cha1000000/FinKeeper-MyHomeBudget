@@ -1,0 +1,143 @@
+# AGENTS.md
+
+This file provides guidance to Qoder (qoder.com) when working with code in this repository.
+
+## Project Overview
+
+FinKeeper is a multi-platform personal finance tracking application (Russian: "Домашняя бухгалтерия"). It supports Web (React), Android/iOS (Kotlin Multiplatform), and Desktop (macOS/Windows/Linux via Compose Desktop).
+
+**Currency**: RUB (Russian Ruble)  
+**Language**: Russian UI  
+**Date Format**: DD.MM.YYYY  
+**Money Format**: `1 000 000 ₽` (non-breaking spaces, no decimals)
+
+## Repository Structure
+
+```
+├── client/              # Web frontend (React 19 + Vite 7 + TypeScript + Tailwind CSS 4)
+├── server/              # Backend (Express 5 + SQLite + JWT + WebSocket)
+├── mobile_app_client/   # KMP app (Android/iOS/Desktop) - has its own AGENTS.md
+├── start.sh             # Dev server startup (remote IP mode, background)
+├── start_local.sh       # Dev server startup (localhost mode, foreground)
+└── start_prod.sh        # Production startup
+```
+
+## Common Commands
+
+### Web Development
+
+```bash
+# Start dev servers (backend :3002 + frontend :5174)
+npm start
+
+# Production build and run
+npm run start:prod
+
+# Client-only commands (cd client/)
+npm run dev          # Vite dev server
+npm run build        # TypeScript compile + Vite build
+npm run lint         # ESLint
+npm run preview      # Preview production build
+```
+
+### Backend
+
+```bash
+cd server/
+node index.js        # Start server on port 3002
+node db_setup.js     # Initialize/recreate database schema
+```
+
+### Mobile/Desktop (KMP)
+
+See `mobile_app_client/AGENTS.md` for detailed KMP commands.
+
+```bash
+cd mobile_app_client/
+./gradlew :composeApp:assembleDebug       # Android debug APK
+./gradlew :composeApp:assembleRelease     # Android release APK
+./gradlew :composeApp:run                 # Desktop run
+./gradlew :composeApp:packageDistributionForCurrentOS  # Desktop packaging
+./gradlew composeApp:testDebugUnitTest    # Run tests
+```
+
+## Architecture
+
+### Backend (server/)
+
+**Stack**: Express 5, better-sqlite3, JWT (jsonwebtoken), bcryptjs, ws (WebSocket)
+
+**Key architectural patterns**:
+- All API routes under `/api/*` protected by `authenticateToken` middleware
+- JWT secret hardcoded in `index.js` (line 13) - uses 'my-home-budget-secret-key-change-this'
+- WebSocket server for real-time updates between clients
+- Automatic backups: max 5 JSON snapshots per user, created on login and hourly token checks
+- Database: SQLite with foreign keys (see `db_setup.js` for schema)
+
+**Important tables**:
+- `users` - user accounts with password_hash
+- `months` - unique (year, month, user_id) combinations
+- `categories`, `income_sources` - soft-delete via `is_active` flag
+- `expenses`, `incomes` - linked to month_id
+- `budgets` - per-category monthly limits
+- `savings_goals`, `savings_transactions` - savings tracking
+- `user_backups` - JSON data snapshots
+
+**Savings logic**: When adding to savings, a hidden expense is created in category "Пополнение копилки" (`is_active=0`) to reduce available monthly balance. Withdrawals create negative transactions without hidden expenses.
+
+### Web Client (client/)
+
+**Stack**: React 19, TypeScript, Vite 7, Tailwind CSS 4, React Router 7, Recharts 3, Axios, @dnd-kit
+
+**Key architectural patterns**:
+- Auth via `AuthContext` (JWT stored in localStorage)
+- Protected routes via `RequireAuth` component
+- API layer in `src/api/` (Axios instance with Bearer token)
+- Event-driven updates: `savingsUpdated` custom event for cross-component sync
+- Financial summary refreshes every 30 seconds + on events
+
+**Routing**:
+- `/login` - public
+- `/` (Dashboard), `/month`, `/categories`, `/savings`, `/settings` - protected
+
+**Layout**:
+- Desktop: Collapsible glassmorphism sidebar (emerald gradient)
+- Mobile: Fixed bottom navigation bar
+
+### Mobile/Desktop Client (mobile_app_client/)
+
+**Stack**: Kotlin 2.0.21, Compose Multiplatform 1.6.10, Ktor Client 3.0.1, Koin 3.5.6, SQLDelight 1.5.5
+
+**Key architectural patterns**:
+- MVVM: ViewModels with `StateFlow` state exposure
+- Offline-first: Local SQLite + sync queue (`SyncManager`, `SyncService`)
+- Repository pattern with local/remote data sources
+- WebSocket for real-time server updates
+- Platform-specific modules via Koin (`androidAppModule`, `desktopAppModule`, etc.)
+- Expect/actual for platform-specific code (NetworkMonitor, DatabaseDriverFactory)
+
+**Themes**: Light, Cyberpunk (dark), Dark (night), Dark Night (deep night), Auto (system)
+
+## Data Flow
+
+1. **Month-centric**: All income/expense/budget data linked to `month_id` via `ensureMonth()` pattern
+2. **Multi-user**: All tables have `user_id`, middleware checks access
+3. **Real-time**: WebSocket broadcasts updates to connected clients
+4. **Offline sync** (mobile/desktop): Operations queued locally, synced when online
+
+## Important Implementation Notes
+
+- **Soft delete**: Categories and income sources use `is_active=0` instead of DELETE
+- **Sort order**: Categories have manual drag-and-drop ordering via `sort_order` field
+- **Default data**: New users get initial categories and income sources from `server/default_data.js`
+- **Backup restore**: Transactional - clears all user data before restoring snapshot
+- **CORS enabled**: Server allows all origins (`app.use(cors())`)
+
+## Testing
+
+- Web: No test runner configured (package.json has placeholder)
+- KMP: `./gradlew composeApp:testDebugUnitTest` - uses kotlin.test
+
+## CI/CD
+
+GitHub Actions workflow `.github/workflows/build-desktop.yml` builds desktop apps (Windows EXE/MSI, macOS .app) manually via workflow_dispatch.
