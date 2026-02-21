@@ -55,6 +55,8 @@ const Dashboard: React.FC = () => {
             year: date.getFullYear(),
             month: date.getMonth() + 1
         }));
+        // Notify Layout to update sidebar financial data
+        window.dispatchEvent(new Event('dashboardMonthChanged'));
     };
 
     const prevMonth = () => {

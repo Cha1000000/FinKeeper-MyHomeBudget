@@ -10,6 +10,17 @@ import { ru } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket, useDataChanged } from '../hooks/useWebSocket';
 
+const DASHBOARD_MONTH_KEY = 'dashboard_selected_month';
+
+const getSelectedDashboardDate = (): Date => {
+    const saved = localStorage.getItem(DASHBOARD_MONTH_KEY);
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        return new Date(parsed.year, parsed.month - 1, 1);
+    }
+    return new Date();
+};
+
 const Layout: React.FC = () => {
     const [currentMonth, setCurrentMonth] = useState('');
     const [availableBalance, setAvailableBalance] = useState(0);
@@ -64,12 +75,13 @@ const Layout: React.FC = () => {
     useEffect(() => {
         const fetchFinancialData = async () => {
             try {
-                const now = new Date();
-                // Текущий месяц для отображения
-                setCurrentMonth(format(now, 'LLLL yyyy', { locale: ru }));
+                // Используем выбранный месяц из localStorage (Dashboard)
+                const selectedDate = getSelectedDashboardDate();
+                // Месяц для отображения
+                setCurrentMonth(format(selectedDate, 'LLLL yyyy', { locale: ru }));
 
-                // Получить данные текущего месяца
-                const monthRes = await ensureMonth(now.getFullYear(), now.getMonth() + 1);
+                // Получить данные выбранного месяца
+                const monthRes = await ensureMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
                 const summaryRes = await getMonthSummary(monthRes.data.id);
                 
                 // Сумма всех копилок
@@ -97,23 +109,29 @@ const Layout: React.FC = () => {
         const handleSavingsUpdate = () => fetchFinancialData();
         window.addEventListener('savingsUpdated', handleSavingsUpdate);
         
+        // Listen for dashboard month changes
+        const handleDashboardMonthChange = () => fetchFinancialData();
+        window.addEventListener('dashboardMonthChanged', handleDashboardMonthChange);
+        
         return () => {
             clearInterval(interval);
             window.removeEventListener('savingsUpdated', handleSavingsUpdate);
+            window.removeEventListener('dashboardMonthChanged', handleDashboardMonthChange);
         };
     }, []);
 
     // Refresh sidebar financial data on any WebSocket data change
     useDataChanged(null, async () => {
         try {
-            const now = new Date();
-            const monthRes = await ensureMonth(now.getFullYear(), now.getMonth() + 1);
+            const selectedDate = getSelectedDashboardDate();
+            const monthRes = await ensureMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
             const summaryRes = await getMonthSummary(monthRes.data.id);
             const goalsRes = await getSavingsGoals();
             const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
             const available = summaryRes.data.income - summaryRes.data.expenses;
             setAvailableBalance(available);
             setTotalAssets(available + savingsTotal);
+            setCurrentMonth(format(selectedDate, 'LLLL yyyy', { locale: ru }));
         } catch (e) {
             console.error('WS refresh error:', e);
         }
