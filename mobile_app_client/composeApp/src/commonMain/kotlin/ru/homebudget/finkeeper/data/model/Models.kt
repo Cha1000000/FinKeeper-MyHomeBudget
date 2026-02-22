@@ -96,6 +96,11 @@ data class MonthSummary(
 )
 
 @Serializable
+data class CumulativeBalanceResponse(
+    @SerialName("cumulativeBalance") val cumulativeBalance: Double = 0.0
+)
+
+@Serializable
 data class TrendItem(
     val month: String,
     val income: Double = 0.0,

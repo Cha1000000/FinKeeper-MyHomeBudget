@@ -131,5 +131,6 @@ export const getSavingsTransactions = (goalId: number) => api.get<SavingsTransac
 
 export const getAnalyticsTrend = () => api.get<{ month: string, income: number, expense: number, savings: number }[]>('/analytics/trend');
 export const getMonthSummary = (monthId: number) => api.get<{ income: number, expenses: number, savings: number, balance: number }>(`/months/${monthId}/summary`);
+export const getCumulativeBalance = (year: number, month: number) => api.get<{ cumulativeBalance: number }>(`/analytics/cumulative-balance?year=${year}&month=${month}`);
 
 export default api;

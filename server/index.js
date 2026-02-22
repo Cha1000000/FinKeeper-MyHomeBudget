@@ -702,6 +702,34 @@ app.get('/api/months/:monthId/summary', (req, res) => {
     });
 });
 
+// Cumulative balance up to and including the specified month
+app.get('/api/analytics/cumulative-balance', (req, res) => {
+    const userId = req.user.id;
+    const { year, month } = req.query;
+
+    let months;
+    if (year && month) {
+        // Only months up to and including the specified year/month
+        months = db.prepare(
+            'SELECT id FROM months WHERE user_id = ? AND (year < ? OR (year = ? AND month <= ?))'
+        ).all(userId, parseInt(year), parseInt(year), parseInt(month));
+    } else {
+        // Fallback: all months
+        months = db.prepare('SELECT id FROM months WHERE user_id = ?').all(userId);
+    }
+
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    for (const m of months) {
+        totalIncome += db.prepare('SELECT SUM(amount) as total FROM incomes WHERE month_id = ?').get(m.id).total || 0;
+        totalExpenses += db.prepare('SELECT SUM(amount) as total FROM expenses WHERE month_id = ?').get(m.id).total || 0;
+    }
+
+    res.json({
+        cumulativeBalance: totalIncome - totalExpenses
+    });
+});
+
 app.get('/api/analytics/trend', (req, res) => {
     // Get last 6 months for THIS USER
     const months = db.prepare('SELECT * FROM months WHERE user_id = ? ORDER BY year DESC, month DESC LIMIT 6').all(req.user.id).reverse();

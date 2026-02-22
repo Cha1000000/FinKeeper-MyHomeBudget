@@ -374,6 +374,12 @@ class ApiClient(
         return response.body()
     }
 
+    suspend fun getCumulativeBalance(year: Int, month: Int): CumulativeBalanceResponse {
+        val response = client.get("$baseUrl/analytics/cumulative-balance?year=$year&month=$month")
+        checkResponse(response)
+        return response.body()
+    }
+
     // ── Helpers ──
 
     private suspend fun checkResponse(response: HttpResponse) {

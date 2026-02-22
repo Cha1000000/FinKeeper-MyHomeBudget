@@ -4,7 +4,7 @@ import {
     PieChart, Pie, Cell
 } from 'recharts';
 import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals } from '../api';
+import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals, getCumulativeBalance } from '../api';
 import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
@@ -49,6 +49,7 @@ const Dashboard: React.FC = () => {
     const [currentSummary, setCurrentSummary] = useState<SummaryData | null>(null);
     const [expenseStructure, setExpenseStructure] = useState<ExpenseStructureItem[]>([]);
     const [totalSavings, setTotalSavings] = useState<number>(0);
+    const [cumulativeBalance, setCumulativeBalance] = useState<number>(0);
 
     const saveMonth = (date: Date) => {
         localStorage.setItem(DASHBOARD_MONTH_KEY, JSON.stringify({
@@ -112,6 +113,10 @@ const Dashboard: React.FC = () => {
                 const savingsRes = await getSavingsGoals();
                 const totalSavingsAmount = savingsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + goal.current_amount, 0);
                 setTotalSavings(totalSavingsAmount);
+
+                // 5. Cumulative balance up to and including selected month
+                const cumulativeRes = await getCumulativeBalance(currentDate.getFullYear(), currentDate.getMonth() + 1);
+                setCumulativeBalance(cumulativeRes.data.cumulativeBalance);
 
         } catch (e) {
             console.error(e);
@@ -230,7 +235,7 @@ const Dashboard: React.FC = () => {
                         </div>
                         <p className="text-s font-medium text-slate-100/90">Всего активов</p>
                         <p className="text-xl font-bold text-white mt-1">
-                            {formatCurrency((currentSummary?.income || 0) - (currentSummary?.expenses || 0) + totalSavings)}
+                            {formatCurrency(cumulativeBalance + totalSavings)}
                         </p>
                     </div>
                     <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-brand/20 rounded-full blur-2xl"></div>

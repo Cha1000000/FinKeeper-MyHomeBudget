@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut, Settings } from 'lucide-react';
 import classNames from 'classnames';
-import { ensureMonth, getMonthSummary, getSavingsGoals } from '../api';
+import { ensureMonth, getMonthSummary, getSavingsGoals, getCumulativeBalance } from '../api';
 import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
@@ -88,12 +88,13 @@ const Layout: React.FC = () => {
                 const goalsRes = await getSavingsGoals();
                 const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
 
-                // Доступный остаток = доходы - расходы
+                // Доступный остаток = доходы - расходы (текущий месяц)
                 const available = summaryRes.data.income - summaryRes.data.expenses;
                 setAvailableBalance(available);
 
-                // Всего активов = доступно + накопления
-                setTotalAssets(available + savingsTotal);
+                // Всего активов = кумулятивный баланс до выбранного месяца + накопления
+                const cumulativeRes = await getCumulativeBalance(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+                setTotalAssets(cumulativeRes.data.cumulativeBalance + savingsTotal);
 
             } catch (e) {
                 console.error('Error fetching financial data:', e);
@@ -130,7 +131,8 @@ const Layout: React.FC = () => {
             const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
             const available = summaryRes.data.income - summaryRes.data.expenses;
             setAvailableBalance(available);
-            setTotalAssets(available + savingsTotal);
+            const cumulativeRes = await getCumulativeBalance(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+            setTotalAssets(cumulativeRes.data.cumulativeBalance + savingsTotal);
             setCurrentMonth(format(selectedDate, 'LLLL yyyy', { locale: ru }));
         } catch (e) {
             console.error('WS refresh error:', e);

@@ -192,7 +192,16 @@ class DashboardViewModel(
             val totalIncome = summary?.income ?: incomes.sumOf { it.amount }
             val totalExpense = summary?.expenses ?: expenses.sumOf { it.amount }
             val available = totalIncome - totalExpense
-            val totalAssets = available + totalSavings
+
+            // Всего активов = кумулятивный баланс до выбранного месяца включительно
+            val cumulativeBalance = try {
+                withRetry(config = RetryConfig(maxAttempts = 2)) {
+                    apiClient.getCumulativeBalance(year, month)
+                }.cumulativeBalance
+            } catch (_: Exception) {
+                available // fallback: только текущий месяц если офлайн
+            }
+            val totalAssets = cumulativeBalance + totalSavings
             val savingsPercent =
                 if (totalIncome > 0) {
                     ((summary?.savings ?: 0.0) / totalIncome) * 100
