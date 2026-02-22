@@ -247,13 +247,17 @@ class CategoriesViewModel(
         viewModelScope.launch {
             _state.update { it.copy(error = null, categories = categories) }
             try {
-                val ids = categories.map { cat -> cat.id }
+                // Конвертируем локальные ID в серверные для отправки на сервер
+                val mapping = categoryRepository.getServerIdMapping(currentUserId)
+                val serverIds = categories.mapNotNull { cat -> mapping[cat.id] }
 
                 // Отправляем на сервер
-                try {
-                    api.reorderCategories(ids)
-                } catch (_: Exception) {
-                    // Офлайн — порядок применится при следующей синхронизации
+                if (serverIds.size == categories.size) {
+                    try {
+                        api.reorderCategories(serverIds)
+                    } catch (_: Exception) {
+                        // Офлайн — порядок применится при следующей синхронизации
+                    }
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка изменения порядка категорий") }
@@ -265,12 +269,16 @@ class CategoriesViewModel(
         viewModelScope.launch {
             _state.update { it.copy(error = null, incomeSources = incomeSources) }
             try {
-                val ids = incomeSources.map { src -> src.id }
+                // Конвертируем локальные ID в серверные для отправки на сервер
+                val mapping = incomeSourceRepository.getServerIdMapping(currentUserId)
+                val serverIds = incomeSources.mapNotNull { src -> mapping[src.id] }
 
-                try {
-                    api.reorderIncomeSources(ids)
-                } catch (_: Exception) {
-                    // Офлайн — порядок применится при следующей синхронизации
+                if (serverIds.size == incomeSources.size) {
+                    try {
+                        api.reorderIncomeSources(serverIds)
+                    } catch (_: Exception) {
+                        // Офлайн — порядок применится при следующей синхронизации
+                    }
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка изменения порядка источников дохода") }

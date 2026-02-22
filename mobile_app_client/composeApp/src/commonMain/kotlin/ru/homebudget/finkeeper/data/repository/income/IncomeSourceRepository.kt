@@ -35,10 +35,9 @@ class IncomeSourceRepository(
                 val localSources = incomeSourceDao.getAllByUser(userId)
 
                 val result =
-                    localSources.mapNotNull { local ->
-                        val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
+                    localSources.map { local ->
                         RemoteIncomeSource(
-                            id = sid,
+                            id = local.id.toInt(),
                             userId = local.userId.toInt(),
                             name = local.name,
                             isActive = local.isActive.toInt(),
@@ -60,10 +59,9 @@ class IncomeSourceRepository(
                 val localSources = incomeSourceDao.getActiveByUser(userId)
 
                 val result =
-                    localSources.mapNotNull { local ->
-                        val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
+                    localSources.map { local ->
                         RemoteIncomeSource(
-                            id = sid,
+                            id = local.id.toInt(),
                             userId = local.userId.toInt(),
                             name = local.name,
                             isActive = local.isActive.toInt(),
@@ -74,6 +72,18 @@ class IncomeSourceRepository(
             } catch (e: Exception) {
                 Result.error(e)
             }
+        }
+
+    /**
+     * Маппинг localId → serverId для источников дохода (используется при reorder)
+     */
+    suspend fun getServerIdMapping(userId: Long): Map<Int, Int> =
+        withContext(Dispatchers.Default) {
+            val localSources = incomeSourceDao.getAllByUser(userId)
+            localSources.mapNotNull { local ->
+                val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
+                local.id.toInt() to sid
+            }.toMap()
         }
 
     /**

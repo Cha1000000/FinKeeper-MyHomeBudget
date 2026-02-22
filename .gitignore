@@ -11,3 +11,6 @@
 .niuma-local/stats.json
 .niuma-local/history/2026-02-17_16-19-11.md
 .niuma-local/
+
+server/database.sqlite
+server/backend.log

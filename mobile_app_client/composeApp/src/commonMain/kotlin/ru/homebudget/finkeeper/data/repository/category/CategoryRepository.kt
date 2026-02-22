@@ -38,12 +38,10 @@ class CategoryRepository(
                 val localCategories = categoryDao.getAllByUser(userId)
 
                 // Преобразуем локальные модели в удалённые
-                // Используем serverId как id, чтобы reorder отправлял серверные ID
                 val result =
-                    localCategories.mapNotNull { local ->
-                        val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
+                    localCategories.map { local ->
                         RemoteCategory(
-                            id = sid,
+                            id = local.id.toInt(),
                             userId = local.userId.toInt(),
                             name = local.name,
                             sortOrder = local.sortOrder.toInt(),
@@ -66,10 +64,9 @@ class CategoryRepository(
                 val localCategories = categoryDao.getActiveByUser(userId)
 
                 val result =
-                    localCategories.mapNotNull { local ->
-                        val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
+                    localCategories.map { local ->
                         RemoteCategory(
-                            id = sid,
+                            id = local.id.toInt(),
                             userId = local.userId.toInt(),
                             name = local.name,
                             sortOrder = local.sortOrder.toInt(),
@@ -114,6 +111,18 @@ class CategoryRepository(
             } catch (e: Exception) {
                 Result.error(e)
             }
+        }
+
+    /**
+     * Маппинг localId → serverId для категорий (используется при reorder)
+     */
+    suspend fun getServerIdMapping(userId: Long): Map<Int, Int> =
+        withContext(Dispatchers.Default) {
+            val localCategories = categoryDao.getAllByUser(userId)
+            localCategories.mapNotNull { local ->
+                val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
+                local.id.toInt() to sid
+            }.toMap()
         }
 
     /**
