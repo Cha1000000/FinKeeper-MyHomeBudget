@@ -147,7 +147,7 @@ fun DashboardScreen(
                         title = Strings.TOTAL_ASSETS,
                         value = formatCurrency(state.totalAssets),
                         backgroundColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -216,7 +216,7 @@ fun DashboardScreen(
                         title = Strings.TOTAL_ASSETS,
                         value = formatCurrency(state.totalAssets),
                         backgroundColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.weight(1f)
                     )
                 }

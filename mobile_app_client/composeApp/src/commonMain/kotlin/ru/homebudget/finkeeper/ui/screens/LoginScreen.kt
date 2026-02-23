@@ -42,6 +42,7 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -66,12 +67,12 @@ fun LoginScreen(
             Text(
                 text = Strings.APP_TITLE,
                 style = MaterialTheme.typography.displayMedium,
-                color = MaterialTheme.colorScheme.onPrimary
+                color = MaterialTheme.colorScheme.primary
             )
             Text(
                 text = Strings.APP_SUBTITLE,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                 modifier = Modifier.padding(bottom = 32.dp)
             )
 
@@ -81,7 +82,7 @@ fun LoginScreen(
                     .widthIn(max = 500.dp)
                     .fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                baseColor = MaterialTheme.colorScheme.surface,
+                baseColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                 highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
             ) {
                 Column(
@@ -155,6 +156,7 @@ fun LoginScreen(
                         },
                         enabled = username.isNotBlank() && password.isNotBlank(),
                         isLoading = state.isLoading,
+                        contentColor = MaterialTheme.colorScheme.primary,
                         style = GlassyButtonStyle.Glassy
                     )
 
@@ -182,7 +184,7 @@ fun LoginScreen(
             ) {
                 Text(
                     text = Strings.SERVER_SETTINGS,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodySmall
                 )
             }

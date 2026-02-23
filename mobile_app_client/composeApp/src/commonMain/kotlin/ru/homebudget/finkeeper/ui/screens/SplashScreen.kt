@@ -23,14 +23,15 @@ fun SplashScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
         GlassyCard(
             modifier = Modifier
                 .align(Alignment.Center)
                 .padding(24.dp),
             shape = RoundedCornerShape(32.dp),
-            baseColor = Color.Transparent,
-            highlightColor = Color.White.copy(alpha = 0.1f)
+            baseColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+            highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
         ) {
             Column(
                 modifier = Modifier.padding(32.dp),
@@ -52,13 +53,13 @@ fun SplashScreen(
                         fontSize = 40.sp,
                         letterSpacing = 2.sp
                     ),
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = MaterialTheme.colorScheme.primary
                 )
                 
                 Text(
                     text = Strings.APP_SUBTITLE,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
                 )
             }
         }
@@ -67,7 +68,7 @@ fun SplashScreen(
         Text(
             text = version,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 32.dp)

@@ -109,7 +109,7 @@ fun SummaryCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = contentColor.copy(alpha = 0.9f)
+                color = contentColor
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -124,7 +124,7 @@ fun SummaryCard(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = contentColor.copy(alpha = 0.7f)
+                    color = contentColor.copy(alpha = 0.8f)
                 )
             }
         }
