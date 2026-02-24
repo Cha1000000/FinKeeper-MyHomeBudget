@@ -363,11 +363,11 @@ private fun GradientBottomBar(
                 NavBarItem(
                     icon = {
                         when (screen) {
-                            Screen.Dashboard -> IconDashboard(color)
-                            Screen.MonthView -> IconCalendar(color)
-                            Screen.Categories -> IconReceipt(color)
-                            Screen.Savings -> IconPiggyBank(color)
-                            Screen.Settings -> IconSettings(color)
+                            Screen.Dashboard -> IconDashboard(color, isSelected)
+                            Screen.MonthView -> IconCalendar(color, isSelected)
+                            Screen.Categories -> IconReceipt(color, isSelected)
+                            Screen.Savings -> IconPiggyBank(color, isSelected)
+                            Screen.Settings -> IconSettings(color, isSelected)
                         }
                     },
                     label = screen.title,
@@ -489,11 +489,12 @@ private fun DesktopSidebar(
         navScreens.forEach { screen ->
             SidebarNavItem(
                 icon = { color ->
+                    val isSelected = currentScreen == screen
                     when (screen) {
-                        Screen.Dashboard -> IconDashboard(color)
-                        Screen.MonthView -> IconCalendar(color)
-                        Screen.Categories -> IconReceipt(color)
-                        Screen.Savings -> IconPiggyBank(color)
+                        Screen.Dashboard -> IconDashboard(color, isSelected)
+                        Screen.MonthView -> IconCalendar(color, isSelected)
+                        Screen.Categories -> IconReceipt(color, isSelected)
+                        Screen.Savings -> IconPiggyBank(color, isSelected)
                         else -> {}
                     }
                 },

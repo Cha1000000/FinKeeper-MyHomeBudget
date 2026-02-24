@@ -15,231 +15,244 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
-// Lucide LayoutDashboard — 4 rounded squares in a 2x2 grid
+/**
+ * Dashboard Icon - "Bento" layout style
+ * More associative with "Overview" and "Structure"
+ */
 @Composable
-fun IconDashboard(color: Color, size: Dp = 24.dp) {
+fun IconDashboard(color: Color, isSelected: Boolean = false, size: Dp = 24.dp) {
     Canvas(modifier = Modifier.size(size)) {
         val s = this.size.width
-        val stroke = Stroke(width = s * 0.083f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val pad = s * 0.125f
-        val gap = s * 0.083f
-        val cellW = (s - pad * 2 - gap) / 2
-        val cellH = (s - pad * 2 - gap) / 2
+        val sw = if (isSelected) s * 0.09f else s * 0.075f
+        val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = s * 0.12f
+        val gap = s * 0.1f
         val cr = CornerRadius(s * 0.06f)
+        
+        val leftW = (s - pad * 2 - gap) * 0.45f
+        val rightW = (s - pad * 2 - gap) * 0.55f
+        val topH = (s - pad * 2 - gap) * 0.45f
+        val bottomH = (s - pad * 2 - gap) * 0.55f
 
-        // Top-left
-        drawRoundRect(color, Offset(pad, pad), Size(cellW, cellH), cr, style = stroke)
-        // Top-right
-        drawRoundRect(color, Offset(pad + cellW + gap, pad), Size(cellW, cellH), cr, style = stroke)
-        // Bottom-left
-        drawRoundRect(color, Offset(pad, pad + cellH + gap), Size(cellW, cellH), cr, style = stroke)
-        // Bottom-right
-        drawRoundRect(color, Offset(pad + cellW + gap, pad + cellH + gap), Size(cellW, cellH), cr, style = stroke)
-    }
-}
+        // Left vertical column
+        drawRoundRect(color, Offset(pad, pad), Size(leftW, s - pad * 2), cr, style = stroke)
+        
+        // Right top square
+        drawRoundRect(color, Offset(pad + leftW + gap, pad), Size(rightW, topH), cr, style = stroke)
+        
+        // Right bottom rectangle 
+        drawRoundRect(color, Offset(pad + leftW + gap, pad + topH + gap), Size(rightW, bottomH), cr, style = stroke)
 
-// Lucide Calendar — rectangle with top tabs and grid lines
-@Composable
-fun IconCalendar(color: Color, size: Dp = 24.dp) {
-    Canvas(modifier = Modifier.size(size)) {
-        val s = this.size.width
-        val sw = s * 0.083f
-        val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val pad = s * 0.125f
-        val top = s * 0.21f
-        val cr = CornerRadius(s * 0.08f)
-
-        // Main rect
-        drawRoundRect(color, Offset(pad, top), Size(s - pad * 2, s - top - pad), cr, style = stroke)
-
-        // Two top tabs
-        val tab1x = s * 0.33f
-        val tab2x = s * 0.67f
-        drawLine(color, Offset(tab1x, pad), Offset(tab1x, top + sw), sw, StrokeCap.Round)
-        drawLine(color, Offset(tab2x, pad), Offset(tab2x, top + sw), sw, StrokeCap.Round)
-
-        // Horizontal line separating header
-        val lineY = top + (s - top - pad) * 0.3f
-        drawLine(color, Offset(pad, lineY), Offset(s - pad, lineY), sw, StrokeCap.Round)
-    }
-}
-
-// Lucide Receipt — rectangle with dollar sign inside
-@Composable
-fun IconReceipt(color: Color, size: Dp = 24.dp) {
-    Canvas(modifier = Modifier.size(size)) {
-        val s = this.size.width
-        val sw = s * 0.083f
-        val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val pad = s * 0.125f
-        val cr = CornerRadius(s * 0.08f)
-
-        // Main rect
-        drawRoundRect(color, Offset(pad, pad), Size(s - pad * 2, s - pad * 2), cr, style = stroke)
-
-        // Dollar sign — S curve
-        val cx = s * 0.5f
-        val cy = s * 0.5f
-        val dh = s * 0.25f
-
-        // Vertical line of $
-        drawLine(color, Offset(cx, cy - dh), Offset(cx, cy + dh), sw * 0.8f, StrokeCap.Round)
-
-        // Top arc of S
-        val path = Path().apply {
-            moveTo(cx + s * 0.1f, cy - dh * 0.6f)
-            cubicTo(cx + s * 0.1f, cy - dh * 0.9f, cx - s * 0.12f, cy - dh * 0.9f, cx - s * 0.12f, cy - dh * 0.3f)
-            cubicTo(cx - s * 0.12f, cy + dh * 0.1f, cx + s * 0.12f, cy + dh * 0.1f, cx + s * 0.12f, cy + dh * 0.5f)
-            cubicTo(cx + s * 0.12f, cy + dh * 0.85f, cx - s * 0.1f, cy + dh * 0.85f, cx - s * 0.1f, cy + dh * 0.55f)
+        if (isSelected) {
+            // Add a small detail to show it's active
+            drawCircle(color, sw, Offset(pad + leftW / 2, pad + s * 0.3f))
         }
-        drawPath(path, color, style = Stroke(width = sw * 0.7f, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 
-// Lucide PiggyBank reference — facing right
+/**
+ * Calendar Icon - Modern with an event indicator
+ */
 @Composable
-fun IconPiggyBank(color: Color, size: Dp = 24.dp) {
+fun IconCalendar(color: Color, isSelected: Boolean = false, size: Dp = 24.dp) {
     Canvas(modifier = Modifier.size(size)) {
         val s = this.size.width
-        val sw = s * 0.08f
+        val sw = if (isSelected) s * 0.09f else s * 0.075f
+        val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val pad = s * 0.12f
+        val headerH = s * 0.22f
+        val cr = CornerRadius(s * 0.1f)
+
+        // Wrapper
+        drawRoundRect(color, Offset(pad, pad + sw), Size(s - pad * 2, s - pad * 2 - sw), cr, style = stroke)
+
+        // Header line
+        drawLine(color, Offset(pad, pad + sw + headerH), Offset(s - pad, pad + sw + headerH), sw, StrokeCap.Round)
+
+        // Date markers (vertical tabs)
+        val tab1x = pad + (s - pad * 2) * 0.25f
+        val tab2x = pad + (s - pad * 2) * 0.75f
+        drawLine(color, Offset(tab1x, pad - sw * 0.5f), Offset(tab1x, pad + sw * 1.5f), sw, StrokeCap.Round)
+        drawLine(color, Offset(tab2x, pad - sw * 0.5f), Offset(tab2x, pad + sw * 1.5f), sw, StrokeCap.Round)
+
+        // "Selected day" circle inside
+        if (isSelected) {
+            drawCircle(color, s * 0.06f, Offset(s * 0.65f, s * 0.7f))
+        } else {
+            // Small dot
+            drawCircle(color, sw * 0.6f, Offset(s * 0.65f, s * 0.7f))
+        }
+    }
+}
+
+/**
+ * Categories Icon - "Tag" style
+ * More associative with labeling/organizing
+ */
+@Composable
+fun IconReceipt(color: Color, isSelected: Boolean = false, size: Dp = 24.dp) {
+    Canvas(modifier = Modifier.size(size)) {
+        val s = this.size.width
+        val sw = if (isSelected) s * 0.09f else s * 0.075f
+        val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        
+        val tagPath = Path().apply {
+            moveTo(s * 0.15f, s * 0.4f) // Left side start
+            lineTo(s * 0.15f, s * 0.8f) // Left down
+            quadraticBezierTo(s * 0.15f, s * 0.9f, s * 0.25f, s * 0.9f) // corner
+            lineTo(s * 0.75f, s * 0.9f) // bottom
+            quadraticBezierTo(s * 0.85f, s * 0.9f, s * 0.85f, s * 0.8f) // corner
+            lineTo(s * 0.85f, s * 0.4f) // Right side
+            lineTo(s * 0.5f, s * 0.1f) // point top
+            lineTo(s * 0.15f, s * 0.4f) // back to start
+            close()
+        }
+        
+        drawPath(tagPath, color, style = stroke)
+        
+        // Hole in the tag
+        drawCircle(color, sw * 1.2f, Offset(s * 0.5f, s * 0.35f), style = if (isSelected) Stroke(sw) else stroke)
+        
+        // Detail line
+        drawLine(color, Offset(s * 0.35f, s * 0.65f), Offset(s * 0.65f, s * 0.65f), sw * 0.8f, StrokeCap.Round)
+    }
+}
+
+/**
+ * Piggy Bank Icon - Elegant, minimalist design
+ */
+@Composable
+fun IconPiggyBank(color: Color, isSelected: Boolean = false, size: Dp = 24.dp) {
+    Canvas(modifier = Modifier.size(size)) {
+        val s = this.size.width
+        val sw = if (isSelected) s * 0.09f else s * 0.075f
         val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
-        // Main body - rounded shape
+        // Body
         val bodyPath = Path().apply {
-            // Start from bottom left
-            moveTo(s * 0.25f, s * 0.75f)
-            // Left side (rump)
-            cubicTo(s * 0.05f, s * 0.75f, s * 0.05f, s * 0.35f, s * 0.25f, s * 0.25f)
-            // Top (back)
-            cubicTo(s * 0.45f, s * 0.15f, s * 0.65f, s * 0.15f, s * 0.75f, s * 0.25f)
-            // Right side (neck/face)
-            cubicTo(s * 0.85f, s * 0.35f, s * 0.85f, s * 0.45f, s * 0.80f, s * 0.55f)
-            // Bottom (belly)
-            cubicTo(s * 0.75f, s * 0.75f, s * 0.45f, s * 0.75f, s * 0.25f, s * 0.75f)
+            moveTo(s * 0.2f, s * 0.7f)
+            // Belly
+            quadraticBezierTo(s * 0.5f, s * 0.85f, s * 0.8f, s * 0.7f)
+            // Head/Front
+            quadraticBezierTo(s * 0.95f, s * 0.5f, s * 0.8f, s * 0.25f)
+            // Back/Top
+            quadraticBezierTo(s * 0.5f, s * 0.1f, s * 0.2f, s * 0.25f)
+            // Back
+            quadraticBezierTo(s * 0.05f, s * 0.5f, s * 0.2f, s * 0.7f)
+            close()
         }
         drawPath(bodyPath, color, style = stroke)
 
         // Snout
-        val snoutPath = Path().apply {
-            moveTo(s * 0.82f, s * 0.42f)
-            lineTo(s * 0.92f, s * 0.42f)
-            lineTo(s * 0.92f, s * 0.52f)
-            lineTo(s * 0.82f, s * 0.52f)
+        val snout = Path().apply {
+            moveTo(s * 0.88f, s * 0.4f)
+            lineTo(s * 0.95f, s * 0.4f)
+            lineTo(s * 0.95f, s * 0.55f)
+            lineTo(s * 0.88f, s * 0.55f)
         }
-        drawPath(snoutPath, color, style = stroke)
+        drawPath(snout, color, style = stroke)
 
         // Ear
-        val earPath = Path().apply {
+        val ear = Path().apply {
             moveTo(s * 0.65f, s * 0.18f)
-            lineTo(s * 0.72f, s * 0.08f)
-            lineTo(s * 0.78f, s * 0.22f)
+            lineTo(s * 0.75f, s * 0.08f)
+            lineTo(s * 0.8f, s * 0.25f)
         }
-        drawPath(earPath, color, style = stroke)
+        drawPath(ear, color, style = stroke)
 
-        // Eye
-        drawCircle(color, s * 0.03f, Offset(s * 0.72f, s * 0.38f))
+        // Leg front
+        drawLine(color, Offset(s * 0.65f, s * 0.78f), Offset(s * 0.65f, s * 0.9f), sw, StrokeCap.Round)
+        // Leg back
+        drawLine(color, Offset(s * 0.35f, s * 0.78f), Offset(s * 0.35f, s * 0.9f), sw, StrokeCap.Round)
 
-        // Tail (on the left)
-        val tailPath = Path().apply {
-            moveTo(s * 0.15f, s * 0.45f)
-            cubicTo(s * 0.05f, s * 0.35f, s * 0.15f, s * 0.25f, s * 0.10f, s * 0.35f)
+        // Coin dropping detail
+        if (isSelected) {
+            drawCircle(color, sw * 1.5f, Offset(s * 0.5f, s * 0.4f))
+        } else {
+            drawLine(color, Offset(s * 0.45f, s * 0.2f), Offset(s * 0.55f, s * 0.2f), sw, StrokeCap.Round)
         }
-        drawPath(tailPath, color, style = stroke)
-
-        // Legs (two U-shaped legs at the bottom)
-        // Back leg
-        val leg1 = Path().apply {
-            moveTo(s * 0.35f, s * 0.75f)
-            lineTo(s * 0.35f, s * 0.88f)
-            lineTo(s * 0.45f, s * 0.88f)
-            lineTo(s * 0.45f, s * 0.75f)
-        }
-        drawPath(leg1, color, style = stroke)
-        // Front leg
-        val leg2 = Path().apply {
-            moveTo(s * 0.60f, s * 0.75f)
-            lineTo(s * 0.60f, s * 0.88f)
-            lineTo(s * 0.70f, s * 0.88f)
-            lineTo(s * 0.70f, s * 0.75f)
-        }
-        drawPath(leg2, color, style = stroke)
-
-        // Coin slot
-        drawLine(color, Offset(s * 0.40f, s * 0.22f), Offset(s * 0.55f, s * 0.22f), sw, StrokeCap.Round)
     }
 }
 
-// Lucide Settings (gear) — 8 rounded teeth
+/**
+ * Settings Icon - Precise gear design
+ */
 @Composable
-fun IconSettings(color: Color, size: Dp = 24.dp) {
+fun IconSettings(color: Color, isSelected: Boolean = false, size: Dp = 24.dp) {
     Canvas(modifier = Modifier.size(size)) {
         val s = this.size.width
-        val sw = s * 0.08f
+        val sw = if (isSelected) s * 0.09f else s * 0.075f
         val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
         val cx = s / 2f
         val cy = s / 2f
 
         // Central circle
-        drawCircle(color, s * 0.12f, Offset(cx, cy), style = stroke)
+        drawCircle(color, s * 0.15f, Offset(cx, cy), style = stroke)
 
-        // Gear body with 8 rounded teeth
-        val gearPath = Path()
+        val innerR = s * 0.26f
+        val outerR = s * 0.42f
         val teethCount = 8
-        val innerR = s * 0.25f
-        val outerR = s * 0.40f
-        
+        val path = Path()
+
         for (i in 0 until teethCount) {
-            val angle = (i.toFloat() / teethCount) * 2f * kotlin.math.PI.toFloat()
-            val nextAngle = ((i + 1).toFloat() / teethCount) * 2f * kotlin.math.PI.toFloat()
+            val angle = i * (2 * PI.toFloat() / teethCount)
+            val nextAngle = (i + 1) * (2 * PI.toFloat() / teethCount)
             val midAngle = (angle + nextAngle) / 2f
             
-            val xInner = cx + innerR * kotlin.math.cos(angle.toDouble()).toFloat()
-            val yInner = cy + innerR * kotlin.math.sin(angle.toDouble()).toFloat()
-            
-            val xTooth = cx + outerR * kotlin.math.cos(midAngle.toDouble()).toFloat()
-            val yTooth = cy + outerR * kotlin.math.sin(midAngle.toDouble()).toFloat()
+            val cosA = cos(angle.toDouble()).toFloat()
+            val sinA = sin(angle.toDouble()).toFloat()
+            val cosM = cos(midAngle.toDouble()).toFloat()
+            val sinM = sin(midAngle.toDouble()).toFloat()
+            val cosN = cos(nextAngle.toDouble()).toFloat()
+            val sinN = sin(nextAngle.toDouble()).toFloat()
 
-            if (i == 0) {
-                gearPath.moveTo(xInner, yInner)
-            }
+            if (i == 0) path.moveTo(cx + innerR * cosA, cy + innerR * sinA)
             
-            // Draw tooth as a rounded curve using lineTo (quadraticTo not available on desktop)
-            gearPath.lineTo(xTooth, yTooth)
-            gearPath.lineTo(
-                cx + innerR * kotlin.math.cos(nextAngle.toDouble()).toFloat(),
-                cy + innerR * kotlin.math.sin(nextAngle.toDouble()).toFloat()
+            path.quadraticBezierTo(
+                cx + outerR * 1.1f * cosM, cy + outerR * 1.1f * sinM,
+                cx + innerR * cosN, cy + innerR * sinN
             )
         }
-        gearPath.close()
-        drawPath(gearPath, color, style = stroke)
+        path.close()
+        drawPath(path, color, style = stroke)
     }
 }
 
-// Lucide LogOut — box with arrow pointing right
+/**
+ * Logout Icon - More dynamic outgoing style
+ */
 @Composable
 fun IconLogOut(color: Color, size: Dp = 24.dp) {
     Canvas(modifier = Modifier.size(size)) {
         val s = this.size.width
-        val sw = s * 0.083f
+        val sw = s * 0.075f
         val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
         val pad = s * 0.15f
 
-        // Door frame (3 sides of rectangle — left, top, bottom)
+        // Bracket door
         val path = Path().apply {
-            moveTo(s * 0.55f, pad)
+            moveTo(s * 0.45f, pad)
             lineTo(pad, pad)
-            lineTo(pad, s - pad)
-            lineTo(s * 0.55f, s - pad)
+            quadraticBezierTo(pad * 0.7f, pad, pad * 0.7f, pad * 1.5f)
+            lineTo(pad * 0.7f, s - pad * 1.5f)
+            quadraticBezierTo(pad * 0.7f, s - pad, pad, s - pad)
+            lineTo(s * 0.45f, s - pad)
         }
         drawPath(path, color, style = stroke)
 
-        // Arrow shaft
+        // Arrow
         val arrowY = s * 0.5f
-        drawLine(color, Offset(s * 0.35f, arrowY), Offset(s - pad, arrowY), sw, StrokeCap.Round)
-
+        val arrowStart = s * 0.35f
+        val arrowEnd = s * 0.9f
+        drawLine(color, Offset(arrowStart, arrowY), Offset(arrowEnd, arrowY), sw, StrokeCap.Round)
+        
         // Arrow head
-        drawLine(color, Offset(s * 0.7f, s * 0.33f), Offset(s - pad, arrowY), sw, StrokeCap.Round)
-        drawLine(color, Offset(s * 0.7f, s * 0.67f), Offset(s - pad, arrowY), sw, StrokeCap.Round)
+        val headSize = s * 0.2f
+        drawLine(color, Offset(arrowEnd - headSize, arrowY - headSize), Offset(arrowEnd, arrowY), sw, StrokeCap.Round)
+        drawLine(color, Offset(arrowEnd - headSize, arrowY + headSize), Offset(arrowEnd, arrowY), sw, StrokeCap.Round)
     }
 }
