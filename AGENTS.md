@@ -1,6 +1,16 @@
 # AGENTS.md
 
-This file provides guidance to Qoder (qoder.com) when working with code in this repository.
+This file provides guidance to AI agents when working with code in this repository.
+
+## Role Routing
+
+For automatic role selection (Architect/Orchestrator/Coder/Analyst/Designer/Layout/Reviewer/QA) and matching skill selection, use:
+`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/roles/Roles.md`
+
+Priority order:
+1. Explicit user role/skills in prompt.
+2. Role auto-routing rules from `Roles.md`.
+3. Project conventions from this `AGENTS.md`.
 
 ## Project Overview
 

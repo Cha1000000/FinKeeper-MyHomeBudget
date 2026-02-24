@@ -1,5 +1,12 @@
 # My Home Budget
 
+## Role Routing Rules
+
+When handling tasks, apply role routing and skill mapping from:
+`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/roles/Roles.md`
+
+If the user explicitly asks for a role or names specific skills, that explicit instruction overrides automatic routing.
+
 A full-stack web application for personal finance management, replacing Excel spreadsheets with a modern SPA interface. It handles income, expenses, savings goals, and monthly budgeting.
 
 ## Project Structure

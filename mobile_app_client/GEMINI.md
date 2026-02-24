@@ -2,6 +2,13 @@
 
 This directory contains the **FinKeeper** mobile application, built using **Kotlin Multiplatform (KMP)** and **Compose Multiplatform**. It serves as a mobile client for the FinKeeper backend (Express + SQLite).
 
+## Role Routing Rules
+
+When handling tasks, apply role routing and skill mapping from:
+`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/roles/Roles.md`
+
+If the user explicitly asks for a role or names specific skills, that explicit instruction overrides automatic routing.
+
 ## Project Overview
 
 FinKeeper is a personal finance management application that allows users to track incomes, expenses, budgets, and savings goals. The mobile client aims to replicate the full functionality of the web client in a native mobile environment.

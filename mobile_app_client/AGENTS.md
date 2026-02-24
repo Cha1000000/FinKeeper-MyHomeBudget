@@ -2,6 +2,16 @@
 
 Instructions for AI agents working in the FinKeeper Kotlin Multiplatform codebase.
 
+## Role Routing
+
+For automatic role selection (Architect/Orchestrator/Coder/Analyst/Designer/Layout/Reviewer/QA) and matching skill selection, use:
+`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/roles/Roles.md`
+
+Priority order:
+1. Explicit user role/skills in prompt.
+2. Role auto-routing rules from `Roles.md`.
+3. Mobile/KMP conventions from this `AGENTS.md`.
+
 ## Build/Test/Lint Commands
 
 ### Build
