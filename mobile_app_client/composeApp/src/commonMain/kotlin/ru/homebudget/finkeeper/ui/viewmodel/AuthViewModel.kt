@@ -6,7 +6,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlin.text.*
 import ru.homebudget.finkeeper.data.model.User
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.ApiException
