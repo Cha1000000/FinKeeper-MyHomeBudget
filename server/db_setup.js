@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS income_sources (
   user_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   is_active INTEGER DEFAULT 1,
+  sort_order INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );

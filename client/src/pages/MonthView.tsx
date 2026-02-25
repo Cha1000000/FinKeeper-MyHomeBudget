@@ -273,10 +273,8 @@ const MonthView: React.FC = () => {
 
     const saveAmount = async (id: number, type: 'income' | 'expense') => {
         const amount = parseFloat(editingAmount);
-        console.log(`[DEBUG] saveAmount started: id=${id}, type=${type}, amount=${amount}`);
         
         if (isNaN(amount)) {
-            console.log(`[DEBUG] saveAmount: invalid amount, aborting.`);
             setEditingId(null);
             return;
         }
@@ -287,22 +285,17 @@ const MonthView: React.FC = () => {
             } else {
                 await updateExpense(id, { amount });
             }
-            console.log(`[DEBUG] saveAmount: API call successful, reloading data...`);
             await loadData();
         } catch (e) { 
-            console.error(`[DEBUG] saveAmount error:`, e); 
+            console.error(e); 
         } finally {
             setEditingId(null);
             isSavingRef.current = false;
-            console.log(`[DEBUG] saveAmount finished: editingId cleared.`);
         }
     };
 
     const handleBlur = (id: number, type: 'income' | 'expense') => {
-        console.log(`[DEBUG] handleBlur triggered: id=${id}, type=${type}, isSavingRef=${isSavingRef.current}`);
-        
         if (isSavingRef.current) {
-            console.log(`[DEBUG] handleBlur: Already saving from Enter, skipping blur handler.`);
             return;
         }
 
@@ -312,11 +305,9 @@ const MonthView: React.FC = () => {
 
     const handleKeyDown = (e: React.KeyboardEvent, id: number, type: 'income' | 'expense') => {
         if (e.key === 'Enter') {
-            console.log(`[DEBUG] handleKeyDown: Enter pressed.`);
             isSavingRef.current = true;
             saveAmount(id, type);
         } else if (e.key === 'Escape') {
-            console.log(`[DEBUG] handleKeyDown: Escape pressed.`);
             isSavingRef.current = true; // Prevent blur confirm
             setEditingId(null);
             // Reset isSaving after a short delay so subsequent blurs are handled

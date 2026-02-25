@@ -17,6 +17,7 @@ export function useWebSocket() {
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const reconnectDelay = useRef(1000);
+    const connectRef = useRef<(() => void) | null>(null);
 
     const connect = useCallback(() => {
         const token = localStorage.getItem('token');
@@ -54,7 +55,7 @@ export function useWebSocket() {
             // Reconnect with exponential backoff (max 30s)
             reconnectTimer.current = setTimeout(() => {
                 reconnectDelay.current = Math.min(reconnectDelay.current * 2, 30000);
-                connect();
+                connectRef.current?.();
             }, reconnectDelay.current);
         };
 
@@ -62,6 +63,10 @@ export function useWebSocket() {
             ws.close();
         };
     }, []);
+
+    useEffect(() => {
+        connectRef.current = connect;
+    });
 
     useEffect(() => {
         connect();
@@ -86,7 +91,10 @@ export function useDataChanged(
     callback: (event: DataChangedEvent) => void
 ) {
     const callbackRef = useRef(callback);
-    callbackRef.current = callback;
+
+    useEffect(() => {
+        callbackRef.current = callback;
+    });
 
     useEffect(() => {
         const handler = (e: Event) => {

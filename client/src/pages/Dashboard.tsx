@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
@@ -78,52 +78,53 @@ const Dashboard: React.FC = () => {
         });
     };
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             // 1. Trend Data
             const trendRes = await getAnalyticsTrend();
-                setTrendData(trendRes.data);
+            setTrendData(trendRes.data);
 
-                // 2. Selected Month Summary
-                const mRes = await ensureMonth(currentDate.getFullYear(), currentDate.getMonth() + 1);
-                const summaryRes = await getMonthSummary(mRes.data.id);
-                setCurrentSummary(summaryRes.data);
+            // 2. Selected Month Summary
+            const mRes = await ensureMonth(currentDate.getFullYear(), currentDate.getMonth() + 1);
+            const summaryRes = await getMonthSummary(mRes.data.id);
+            setCurrentSummary(summaryRes.data);
 
-                // 3. Category Breakdown (Pie Chart)
-                const expRes = await getExpenses(mRes.data.id);
+            // 3. Category Breakdown (Pie Chart)
+            const expRes = await getExpenses(mRes.data.id);
 
-                // Group expenses by category (exclude hidden savings expenses)
-                const catMap: Record<string, number> = {};
-                expRes.data.forEach((e) => {
-                    // Skip hidden savings-related expenses
-                    if (e.category_name === 'Пополнение копилки') return;
-                    if (e.category_name) {
-                        if (!catMap[e.category_name]) catMap[e.category_name] = 0;
-                        catMap[e.category_name] += e.amount;
-                    }
-                });
+            // Group expenses by category (exclude hidden savings expenses)
+            const catMap: Record<string, number> = {};
+            expRes.data.forEach((e) => {
+                // Skip hidden savings-related expenses
+                if (e.category_name === 'Пополнение копилки') return;
+                if (e.category_name) {
+                    if (!catMap[e.category_name]) catMap[e.category_name] = 0;
+                    catMap[e.category_name] += e.amount;
+                }
+            });
 
-                const pieData = Object.keys(catMap).map(name => ({
-                    name, value: catMap[name]
-                })).sort((a, b) => b.value - a.value);
+            const pieData = Object.keys(catMap).map(name => ({
+                name, value: catMap[name]
+            })).sort((a, b) => b.value - a.value);
 
-                setExpenseStructure(pieData);
+            setExpenseStructure(pieData);
 
-                // 4. Total Savings from all goals
-                const savingsRes = await getSavingsGoals();
-                const totalSavingsAmount = savingsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + goal.current_amount, 0);
-                setTotalSavings(totalSavingsAmount);
+            // 4. Total Savings from all goals
+            const savingsRes = await getSavingsGoals();
+            const totalSavingsAmount = savingsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + goal.current_amount, 0);
+            setTotalSavings(totalSavingsAmount);
 
-                // 5. Cumulative balance up to and including selected month
-                const cumulativeRes = await getCumulativeBalance(currentDate.getFullYear(), currentDate.getMonth() + 1);
-                setCumulativeBalance(cumulativeRes.data.cumulativeBalance);
+            // 5. Cumulative balance up to and including selected month
+            const cumulativeRes = await getCumulativeBalance(currentDate.getFullYear(), currentDate.getMonth() + 1);
+            setCumulativeBalance(cumulativeRes.data.cumulativeBalance);
 
         } catch (e) {
             console.error(e);
         }
-    };
+    }, [currentDate]);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchData();
         
         // Listen for savings updates
@@ -133,7 +134,7 @@ const Dashboard: React.FC = () => {
         return () => {
             window.removeEventListener('savingsUpdated', handleSavingsUpdate);
         };
-    }, [currentDate]);
+    }, [fetchData]);
 
     // Refresh on WebSocket data changes
     useDataChanged(null, () => { fetchData(); });

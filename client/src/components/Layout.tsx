@@ -28,7 +28,7 @@ const Layout: React.FC = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const { user, logout, uiSettings } = useAuth();
     const mainRef = useRef<HTMLElement>(null);
-    const scrollTimeout = useRef<any>(null);
+    const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Establish WebSocket connection (one per Layout mount)
     useWebSocket();
@@ -178,7 +178,7 @@ const Layout: React.FC = () => {
                                 )
                             }
                         >
-                            <item.icon className={classNames("w-5 h-5 transition-colors", ({ isActive }: { isActive: boolean }) => isActive ? 'text-white' : 'text-slate-300 group-hover:text-white')} />
+                            <item.icon className="w-5 h-5 transition-colors" />
                             {!isCollapsed && <span>{item.name}</span>}
                         </NavLink>
                     ))}

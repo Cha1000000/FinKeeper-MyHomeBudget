@@ -10,22 +10,12 @@ const { initialCategories, initialSavings, initialIncomeSources } = require('./d
 
 const app = express();
 const PORT = 3002;
-const JWT_SECRET = 'my-home-budget-secret-key-change-this'; // In production, use environment variable
+const JWT_SECRET = process.env.JWT_SECRET || 'my-home-budget-secret-key-change-this';
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
 
 app.use(cors());
 app.use(express.json());
-
-// Миграция: добавляем sort_order в income_sources если отсутствует
-try {
-    db.prepare('ALTER TABLE income_sources ADD COLUMN sort_order INTEGER DEFAULT 0').run();
-    // Инициализируем sort_order по id для существующих записей
-    db.prepare('UPDATE income_sources SET sort_order = id WHERE sort_order = 0 OR sort_order IS NULL').run();
-    console.log('[DB] Migrated income_sources: added sort_order column');
-} catch (e) {
-    // Колонка уже существует — игнорируем
-}
 
 const MAX_BACKUPS = 5;
 
@@ -756,7 +746,7 @@ const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDistPath));
 
 // Handle SPA routing - return index.html for all non-API routes
-app.get(/.*/, (req, res) => {
+app.get('/{*splat}', (req, res) => {
     // Skip API routes
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'API endpoint not found' });
