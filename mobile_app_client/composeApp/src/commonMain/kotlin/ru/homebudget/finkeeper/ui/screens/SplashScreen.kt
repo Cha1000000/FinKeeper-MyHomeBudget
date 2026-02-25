@@ -1,6 +1,10 @@
 package ru.homebudget.finkeeper.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import finkeeper.composeapp.generated.resources.Res
+import finkeeper.composeapp.generated.resources.app_icon
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -39,10 +43,12 @@ fun SplashScreen(
                 verticalArrangement = Arrangement.Center
             ) {
                 // Icon
-                Text(
-                    text = "💰",
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 80.sp),
-                    modifier = Modifier.padding(bottom = 16.dp)
+                Image(
+                    painter = painterResource(Res.drawable.app_icon),
+                    contentDescription = "App Icon",
+                    modifier = Modifier
+                        .padding(bottom = 16.dp)
+                        .size(96.dp)
                 )
 
                 // App Name
