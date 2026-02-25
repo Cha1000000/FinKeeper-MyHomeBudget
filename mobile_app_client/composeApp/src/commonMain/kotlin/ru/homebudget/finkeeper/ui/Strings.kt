@@ -49,6 +49,7 @@ object Strings {
     const val SAVINGS = "Накопления"
     const val SAVINGS_PERCENT = "% в копилку"
     const val AVAILABLE = "Доступно"
+    const val AVAILABLE_WITHOUT_SAVINGS = "Всего без накоплений"
     const val TOTAL_ASSETS = "Всего активов"
     const val FINANCIAL_DYNAMICS = "Динамика финансов"
     const val EXPENSE_STRUCTURE = "Структура расходов"

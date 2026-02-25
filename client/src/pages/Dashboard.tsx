@@ -165,6 +165,23 @@ const Dashboard: React.FC = () => {
                 </button>
             </div>
 
+            {/* Total Assets Top Card */}
+            <div className="bg-primary p-3 rounded-2xl shadow-sm border border-white/20 backdrop-blur-md transition-shadow overflow-hidden relative flex items-center justify-between min-h-[56px]">
+                <div className="relative z-10 flex items-center gap-3">
+                    <div className="p-2 bg-white/20 backdrop-blur-md shadow-sm border border-white/20 rounded-xl text-white">
+                        <Wallet className="w-5 h-5" />
+                    </div>
+                    <p className="text-lg font-medium text-white hidden sm:block">Всего активов</p>
+                </div>
+                <div className="relative z-10">
+                    <p className="text-xl font-bold text-white pr-2">
+                        {formatCurrency(cumulativeBalance + totalSavings)}
+                    </p>
+                </div>
+                <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-brand/30 rounded-full blur-2xl"></div>
+                <div className="absolute -left-8 -top-8 w-32 h-32 bg-brand/30 rounded-full blur-2xl"></div>
+            </div>
+
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 <div className="bg-emerald-50 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow">
@@ -226,20 +243,17 @@ const Dashboard: React.FC = () => {
                     </p>
                 </div>
 
-                {/* Всего активов = Доступно + Накопления */}
-                <div className="bg-primary p-3 rounded-2xl shadow-sm border border-white/20 backdrop-blur-md transition-shadow overflow-hidden">
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-3">
-                            <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/20 rounded-xl text-white">
-                                <Wallet className="w-5 h-5" />
-                            </div>
+                {/* В наличии без накоплений = Всего активов - Накопления */}
+                <div className="bg-fuchsia-50 p-3 rounded-2xl shadow-sm border border-fuchsia-100 transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/30 rounded-xl text-fuchsia-600">
+                            <Wallet className="w-5 h-5" />
                         </div>
-                        <p className="text-s font-medium text-slate-100/90">Всего активов</p>
-                        <p className="text-xl font-bold text-white mt-1">
-                            {formatCurrency(cumulativeBalance + totalSavings)}
-                        </p>
                     </div>
-                    <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-brand/20 rounded-full blur-2xl"></div>
+                    <p className="text-sm font-medium text-slate-500 leading-tight">В наличии<br/>без накоплений</p>
+                    <p className="text-xl font-bold text-slate-900 mt-1">
+                        {formatCurrency((cumulativeBalance + totalSavings) - totalSavings)}
+                    </p>
                 </div>
             </div>
 

@@ -16,18 +16,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import ru.homebudget.finkeeper.ui.components.GlassyCard
-import ru.homebudget.finkeeper.util.monthName
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.ExpensePieChart
-import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.FinancialDynamicsChart
+import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
+import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.SummaryCard
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.DashboardState
 import ru.homebudget.finkeeper.util.formatCurrency
 import ru.homebudget.finkeeper.util.isDesktop
+import ru.homebudget.finkeeper.util.monthName
 
 @Composable
 fun DashboardScreen(
@@ -91,6 +91,37 @@ fun DashboardScreen(
             }
         }
 
+        // Total Assets top card
+        item {
+            GlassyCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                shape = RoundedCornerShape(16.dp),
+                baseColor = MaterialTheme.colorScheme.primary,
+                highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = Strings.TOTAL_ASSETS,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    Text(
+                        text = formatCurrency(state.totalAssets),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
+            }
+        }
+
         if (isDesktop) {
             // Desktop: 3 cards per row (like web version)
             item {
@@ -144,11 +175,12 @@ fun DashboardScreen(
                         modifier = Modifier.weight(1f)
                     )
                     SummaryCard(
-                        title = Strings.TOTAL_ASSETS,
-                        value = formatCurrency(state.totalAssets),
-                        backgroundColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.weight(1f)
+                        title = Strings.AVAILABLE_WITHOUT_SAVINGS,
+                        value = formatCurrency(state.availableWithoutSavings),
+                        backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.weight(1f),
+                        titleStyle = MaterialTheme.typography.titleSmall
                     )
                 }
             }
@@ -157,7 +189,7 @@ fun DashboardScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     SummaryCard(
                         title = Strings.INCOMES,
@@ -179,7 +211,7 @@ fun DashboardScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     SummaryCard(
                         title = Strings.SAVINGS,
@@ -201,7 +233,7 @@ fun DashboardScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     SummaryCard(
                         title = Strings.AVAILABLE,
@@ -213,11 +245,12 @@ fun DashboardScreen(
                         modifier = Modifier.weight(1f)
                     )
                     SummaryCard(
-                        title = Strings.TOTAL_ASSETS,
-                        value = formatCurrency(state.totalAssets),
-                        backgroundColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.weight(1f)
+                        title = Strings.AVAILABLE_WITHOUT_SAVINGS,
+                        value = formatCurrency(state.availableWithoutSavings),
+                        backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.weight(1f),
+                        titleStyle = MaterialTheme.typography.titleSmall
                     )
                 }
             }

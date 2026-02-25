@@ -12,20 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.graphics.luminance
-import ru.homebudget.finkeeper.ui.theme.AppTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -55,7 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import ru.homebudget.finkeeper.ui.Strings
-import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
+import ru.homebudget.finkeeper.util.isDesktop
 
 fun Modifier.neonGlow(
     color: Color,
@@ -82,10 +75,13 @@ fun SummaryCard(
     contentColor: Color,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    titleStyle: androidx.compose.ui.text.TextStyle? = null,
     onClick: (() -> Unit)? = null
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val isPrimary = backgroundColor == MaterialTheme.colorScheme.primary
+    val cardContentPadding = if (isDesktop) Modifier.padding(20.dp) else
+        Modifier.padding(14.dp, 14.dp, 4.dp, 14.dp)
     
     // Если карточка использует основной цвет темы (как "Всего активов"),
     // мы делаем её чуть более прозрачной для эффекта стекла, но сохраняем акцент.
@@ -104,14 +100,15 @@ fun SummaryCard(
         highlightColor = contentColor.copy(alpha = 0.2f)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp)
+            modifier = cardContentPadding
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = contentColor
+                style = titleStyle ?: MaterialTheme.typography.titleMedium,
+                color = contentColor,
+                lineHeight = titleStyle?.lineHeight ?: MaterialTheme.typography.titleMedium.lineHeight
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineMedium,
