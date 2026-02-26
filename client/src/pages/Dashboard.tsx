@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useDataChanged } from '../hooks/useWebSocket';
 
-const COLORS = ['#6b8e23', '#2f3e30', '#d4a017', '#8fbc8f', '#a0522d', '#556b2f', '#c0c0c0', '#bdb76b'];
+const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#6366f1', '#14b8a6'];
 
 interface TrendItem {
     month: string;
@@ -140,7 +140,7 @@ const Dashboard: React.FC = () => {
     useDataChanged(null, () => { fetchData(); });
 
     return (
-        <div className="space-y-8 max-w-7xl mx-auto">
+        <div className="space-y-8 max-w-5xl mx-auto">
             <header>
                 <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Обзор финансов</h2>
                 <p className="text-gray-500 text-sm mt-1">Сводка за выбранный месяц и аналитика</p>
@@ -166,94 +166,91 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Total Assets Top Card */}
-            <div className="bg-primary p-3 rounded-2xl shadow-sm border border-white/20 backdrop-blur-md transition-shadow overflow-hidden relative flex items-center justify-between min-h-[56px]">
-                <div className="relative z-10 flex items-center gap-3">
-                    <div className="p-2 bg-white/20 backdrop-blur-md shadow-sm border border-white/20 rounded-xl text-white">
-                        <Wallet className="w-5 h-5" />
+            <div className="bg-primary/95 p-3 rounded-3xl shadow-[0_10px_40px_-10px_rgba(27,144,91,0.4)] border border-white/20 backdrop-blur-xl transition-shadow overflow-hidden relative flex items-center justify-between">
+                <div className="relative z-10 flex items-center gap-4">
+                    <div className="p-3 bg-white/10 backdrop-blur-md shadow-sm border border-white/10 rounded-2xl text-white">
+                        <Wallet className="w-6 h-6" />
                     </div>
-                    <p className="text-lg font-medium text-white hidden sm:block">Всего активов</p>
+                    <div>
+                        <p className="text-white/80 text-lg font-medium mb-0.5">Всего активов</p>
+                        <p className="text-3xl font-bold text-white tracking-tight">
+                            {formatCurrency(cumulativeBalance + totalSavings)}
+                        </p>
+                    </div>
                 </div>
-                <div className="relative z-10">
-                    <p className="text-xl font-bold text-white pr-2">
-                        {formatCurrency(cumulativeBalance + totalSavings)}
-                    </p>
-                </div>
-                <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-brand/30 rounded-full blur-2xl"></div>
-                <div className="absolute -left-8 -top-8 w-32 h-32 bg-brand/30 rounded-full blur-2xl"></div>
+                <div className="absolute -right-16 -bottom-16 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="absolute -left-16 -top-16 w-48 h-48 bg-black/10 rounded-full blur-3xl"></div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                <div className="bg-emerald-50 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow">
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/30 rounded-xl text-brand">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-5">
+                <div className="bg-gradient-to-br from-emerald-50/95 to-emerald-100/60 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(16,185,129,0.08)] border border-emerald-200/60 hover:shadow-[0_12px_40px_rgba(16,185,129,0.15)] transition-all">
+                    <div className="flex gap-4 items-center mb-4">
+                        <div className="p-3 bg-emerald-100/80 rounded-2xl text-emerald-600 shadow-sm border border-emerald-200/50">
                             <TrendingUp className="w-5 h-5" />
                         </div>
+                        <div>
+                            <p className="text-sm font-medium text-emerald-800/80">Доходы</p>
+                            <p className="text-2xl font-bold text-emerald-950 tracking-tight mt-0.5">{formatCurrency(currentSummary?.income || 0)}</p>
+                        </div>
                     </div>
-                    <p className="text-s font-medium text-slate-500">Доходы</p>
-                    <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(currentSummary?.income || 0)}</p>
                 </div>
 
-                <div className="bg-rose-50 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow">
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/30 rounded-xl text-red-600">
+                <div className="bg-gradient-to-br from-rose-50/95 to-rose-100/60 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(244,63,94,0.08)] border border-rose-200/60 hover:shadow-[0_12px_40px_rgba(244,63,94,0.15)] transition-all">
+                    <div className="flex gap-4 items-center mb-4">
+                        <div className="p-3 bg-rose-100/80 rounded-2xl text-rose-600 shadow-sm border border-rose-200/50">
                             <TrendingDown className="w-5 h-5" />
                         </div>
-                    </div>
-                    <p className="text-s font-medium text-slate-500">Расходы</p>
-                    <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(currentSummary?.expenses || 0)}</p>
-                </div>
-
-                <div className="bg-teal-100 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow">
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/30 rounded-xl text-warning">
-                            <PiggyBank className="w-5 h-5" />
+                        <div>
+                            <p className="text-sm font-medium text-rose-800/80">Расходы</p>
+                            <p className="text-2xl font-bold text-rose-950 tracking-tight mt-0.5">{formatCurrency(currentSummary?.expenses || 0)}</p>
                         </div>
                     </div>
-                    <p className="text-s font-medium text-slate-500">Накопления</p>
-                    <p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(totalSavings)}</p>
                 </div>
 
-                {/* Savings Share Card */}
-                <div className="bg-blue-50 p-3 rounded-2xl shadow-sm border border-slate-100 transition-shadow">
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/30 rounded-xl text-blue-600">
+                <div className="bg-gradient-to-br from-cyan-50/95 to-cyan-100/60 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(6,182,212,0.08)] border border-cyan-200/60 hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)] transition-all">
+                    <div className="flex gap-4 items-center mb-4">
+                        <div className="p-3 bg-cyan-100/80 rounded-2xl text-cyan-600 shadow-sm border border-cyan-200/50">
                             <PiggyBank className="w-5 h-5" />
                         </div>
+                        <div>
+                            <p className="text-sm font-medium text-cyan-800/80">Накопления</p>
+                            <p className="text-2xl font-bold text-cyan-950 tracking-tight mt-0.5">{formatCurrency(totalSavings)}</p>
+                        </div>
                     </div>
-                    <p className="text-s font-medium text-slate-500">% в копилку</p>
-                    <div className="flex items-baseline gap-2 mt-1">
-                        <p className="text-xl font-bold text-slate-900">
-                            {currentSummary?.income ? ((currentSummary.savings / currentSummary.income) * 100).toFixed(1) : '0.0'}%
+                </div>
+
+                <div className="bg-gradient-to-br from-blue-50/95 to-indigo-50/60 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(59,130,246,0.08)] border border-blue-200/60 hover:shadow-[0_12px_40px_rgba(59,130,246,0.15)] transition-all">
+                    <div className="flex flex-col justify-center h-full">
+                        <p className="text-sm font-medium text-blue-800/80 mb-1">% в копилку</p>
+                        <div className="flex items-baseline gap-2">
+                            <p className="text-2xl font-bold text-indigo-950 tracking-tight">
+                                {currentSummary?.income ? ((currentSummary.savings / currentSummary.income) * 100).toFixed(1) : '0.0'}%
+                            </p>
+                            <span className="text-xs text-blue-500/80">от дохода</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-amber-50/95 to-yellow-100/60 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(245,158,11,0.08)] border border-amber-200/60 hover:shadow-[0_12px_40px_rgba(245,158,11,0.15)] transition-all relative overflow-hidden">
+                    {((currentSummary?.income || 0) - (currentSummary?.expenses || 0)) < 0 && (
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200 rounded-bl-full blur-2xl opacity-40"></div>
+                    )}
+                    <div className="flex flex-col justify-center h-full relative z-10">
+                        <p className="text-sm font-medium text-amber-800/80 mb-1">Доступно</p>
+                        <p className={`text-2xl font-bold tracking-tight ${((currentSummary?.income || 0) - (currentSummary?.expenses || 0)) >= 0 ? 'text-amber-950' : 'text-rose-600'}`}>
+                            {formatCurrency((currentSummary?.income || 0) - (currentSummary?.expenses || 0))}
                         </p>
-                        <span className="text-xs text-slate-500">от дохода</span>
                     </div>
                 </div>
 
-                {/* Доступный баланс = Доходы - Расходы */}
-                <div className={`${((currentSummary?.income || 0) - (currentSummary?.expenses || 0)) >= 0 ? 'bg-yellow-50 border-yellow-100' : 'bg-red-100 border-red-100'} p-3 rounded-2xl shadow-sm border transition-shadow`}>
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/30 rounded-xl text-brand">
-                            <Wallet className="w-5 h-5" />
-                        </div>
+                <div className="bg-gradient-to-br from-orange-50/95 to-orange-100/60 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(249,115,22,0.08)] border border-orange-200/60 hover:shadow-[0_12px_40px_rgba(249,115,22,0.15)] transition-all">
+                    <div className="flex flex-col justify-center h-full">
+                        <p className="text-sm font-medium text-orange-800/80 mb-1">В наличии без накоплений</p>
+                        <p className="text-2xl font-bold text-orange-950 tracking-tight">
+                            {formatCurrency((cumulativeBalance + totalSavings) - totalSavings)}
+                        </p>
                     </div>
-                    <p className="text-s font-medium text-slate-500">Доступно</p>
-                    <p className={`text-xl font-bold mt-1 ${((currentSummary?.income || 0) - (currentSummary?.expenses || 0)) >= 0 ? 'text-slate-900' : 'text-red-600'}`}>
-                        {formatCurrency((currentSummary?.income || 0) - (currentSummary?.expenses || 0))}
-                    </p>
-                </div>
-
-                {/* В наличии без накоплений = Всего активов - Накопления */}
-                <div className="bg-fuchsia-50 p-3 rounded-2xl shadow-sm border border-fuchsia-100 transition-shadow">
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="p-2.5 bg-white/20 backdrop-blur-md shadow-sm border border-white/30 rounded-xl text-fuchsia-600">
-                            <Wallet className="w-5 h-5" />
-                        </div>
-                    </div>
-                    <p className="text-sm font-medium text-slate-500 leading-tight">В наличии<br/>без накоплений</p>
-                    <p className="text-xl font-bold text-slate-900 mt-1">
-                        {formatCurrency((cumulativeBalance + totalSavings) - totalSavings)}
-                    </p>
                 </div>
             </div>
 
@@ -261,18 +258,18 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Trend Chart */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-bold text-slate-800">Динамика финансов</h3>
-                        <span className="text-xs font-medium text-slate-400 bg-slate-50 px-3 py-1 rounded-full">6 месяцев</span>
+                <div className="bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+                    <div className="flex items-center justify-between mb-8">
+                        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Динамика финансов</h3>
+                        <span className="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">6 месяцев</span>
                     </div>
                     <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={trendData} barGap={8}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <BarChart data={trendData} barGap={4}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
                                 <XAxis
                                     dataKey="month"
-                                    tick={{ fontSize: 12, fill: '#64748b' }}
+                                    tick={{ fontSize: 12, fill: '#94a3b8' }}
                                     axisLine={false}
                                     tickLine={false}
                                     dy={10}
@@ -282,26 +279,27 @@ const Dashboard: React.FC = () => {
                                     cursor={{ fill: '#f8fafc' }}
                                     formatter={(value: number | undefined) => formatCurrency(value ?? 0)}
                                     contentStyle={{
-                                        borderRadius: '12px',
-                                        border: 'none',
-                                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                                        borderRadius: '16px',
+                                        border: '1px solid #f1f5f9',
+                                        boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.1)',
                                         padding: '12px'
                                     }}
                                 />
-                                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                <Bar dataKey="income" name="Доход" fill="#6b8e23" radius={[4, 4, 0, 0]} barSize={12} />
-                                <Bar dataKey="expense" name="Расход" fill="#c62828" radius={[4, 4, 0, 0]} barSize={12} />
-                                <Bar dataKey="savings" name="Накопления" fill="#d4a017" radius={[4, 4, 0, 0]} barSize={12} />
+                                <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+                                <Bar dataKey="income" name="Доходы" fill="#10b981" radius={[6, 6, 0, 0]} barSize={10} />
+                                <Bar dataKey="expense" name="Расходы" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={10} />
+                                <Bar dataKey="savings" name="Накопления" fill="#8b5cf6" radius={[6, 6, 0, 0]} barSize={10} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
                 {/* Breakdown Chart & Table */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-                    <h3 className="text-lg font-bold text-slate-800 mb-6">Структура расходов</h3>
+                {/* Breakdown Chart & Table */}
+                <div className="bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col">
+                    <h3 className="text-lg font-bold text-slate-800 tracking-tight mb-8">Структура расходов</h3>
                     
-                    <div className="flex flex-col xl:flex-row items-center gap-6 h-full">
+                    <div className="flex flex-col xl:flex-row items-center gap-8 h-full">
                         {/* Chart */}
                         <div className="w-full xl:flex-1 h-64 relative min-w-0">
                             {expenseStructure.length > 0 ? (
@@ -311,62 +309,74 @@ const Dashboard: React.FC = () => {
                                             data={expenseStructure}
                                             cx="50%"
                                             cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={80}
-                                            paddingAngle={5}
+                                            innerRadius={65}
+                                            outerRadius={85}
+                                            paddingAngle={4}
                                             dataKey="value"
                                             stroke="none"
+                                            cornerRadius={4}
                                         >
                                             {expenseStructure.map((_entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value: number | undefined) => formatCurrency(value ?? 0)} />
+                                        <Tooltip 
+                                            formatter={(value: number | undefined) => formatCurrency(value ?? 0)}
+                                            contentStyle={{
+                                                borderRadius: '16px',
+                                                border: '1px solid #f1f5f9',
+                                                boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.1)',
+                                                padding: '12px'
+                                            }}
+                                        />
                                     </PieChart>
                                 </ResponsiveContainer>
                             ) : (
                                 <div className="text-center h-full flex flex-col justify-center">
-                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-300">
+                                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3 text-slate-300">
                                         <Wallet className="w-8 h-8" />
                                     </div>
-                                    <p className="text-slate-400 text-sm">Нет расходов</p>
+                                    <p className="text-slate-400 text-sm font-medium">Нет расходов</p>
                                 </div>
                             )}
                             {/* Center Text overlay */}
                             {expenseStructure.length > 0 && (
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <span className="text-xs font-bold text-slate-400">Total</span>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <span className="text-xs font-medium text-slate-400 mb-1">Всего</span>
+                                    <span className="text-xl font-bold text-slate-800 tracking-tight">
+                                        {formatCurrency(currentSummary?.expenses || 0)}
+                                    </span>
                                 </div>
                             )}
                         </div>
 
                         {/* Detailed Table */}
-                        <div className="w-full xl:flex-1 overflow-auto max-h-80 custom-scrollbar min-w-0">
+                        <div className="w-full xl:flex-1 overflow-auto max-h-80 custom-scrollbar pr-2 min-w-0">
                             <table className="w-full text-sm relative border-separate border-spacing-0 table-fixed">
-                                <thead className="text-xs text-slate-400 font-medium uppercase border-b border-slate-100 sticky top-0 bg-white z-10 shadow-sm">
+                                <thead>
                                     <tr>
-                                        <th className="text-left py-3 font-medium bg-white w-[55%]">Категория</th>
-                                        <th className="text-right py-3 font-medium bg-white w-[30%]">Сумма</th>
-                                        <th className="text-right py-3 pr-4 font-medium bg-white w-[15%]">%</th>
+                                        <th className="text-left pb-4 font-semibold text-xs text-slate-400 uppercase tracking-wider w-[55%]">Категория</th>
+                                        <th className="text-right pb-4 font-semibold text-xs text-slate-400 uppercase tracking-wider w-[30%]">Сумма</th>
+                                        <th className="text-right pb-4 font-semibold text-xs text-slate-400 uppercase tracking-wider pr-4 w-[15%]">%</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-50">
+                                <tbody className="divide-y divide-slate-100">
                                     {expenseStructure.map((entry, idx) => {
-                                        const totalExp = currentSummary?.expenses || 1; // avoid div by zero
+                                        const totalExp = currentSummary?.expenses || 1; 
                                         const share = (entry.value / totalExp) * 100;
                                         
                                         return (
                                             <tr key={idx} className="group hover:bg-slate-50 transition-colors">
-                                                <td className="py-2.5 pr-2 truncate max-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
+                                                <td className="py-3 pr-2 truncate max-w-0">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
                                                         <span className="text-slate-700 truncate font-medium">{entry.name}</span>
                                                     </div>
                                                 </td>
-                                                <td className="py-2.5 px-2 text-right text-slate-600 tabular-nums whitespace-nowrap">
+                                                <td className="py-3 px-2 text-right text-slate-600 font-medium tabular-nums whitespace-nowrap">
                                                     {formatCurrency(entry.value)}
                                                 </td>
-                                                <td className="py-2.5 pl-2 pr-4 text-right text-slate-400 tabular-nums text-xs">
+                                                <td className="py-3 pl-2 pr-4 text-right text-slate-400 tabular-nums">
                                                     {share.toFixed(1)}%
                                                 </td>
                                             </tr>

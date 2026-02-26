@@ -64,13 +64,12 @@ const Layout: React.FC = () => {
         };
     }, []);
 
-    // Sync sidebar state with settings changes
+    // Sync sidebar state with settings changes ONLY when settings change
     useEffect(() => {
-        if (uiSettings?.autoCollapseSidebar !== undefined && uiSettings.autoCollapseSidebar !== isCollapsed) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (uiSettings?.autoCollapseSidebar !== undefined) {
             setIsCollapsed(uiSettings.autoCollapseSidebar);
         }
-    }, [uiSettings?.autoCollapseSidebar, isCollapsed]);
+    }, [uiSettings?.autoCollapseSidebar]);
 
     useEffect(() => {
         const fetchFinancialData = async () => {

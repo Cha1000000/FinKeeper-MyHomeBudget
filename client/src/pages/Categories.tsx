@@ -109,11 +109,14 @@ const Categories: React.FC = () => {
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-800">Управление категориями</h2>
+            <div className="flex items-center justify-between mb-2">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Категории и источники</h2>
+                    <p className="text-sm text-slate-500 mt-0.5">Настройка статей доходов и расходов</p>
+                </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors shadow-sm"
+                    className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl hover:bg-blue-600 transition-all shadow-sm hover:shadow-md font-medium"
                 >
                     <Plus className="w-5 h-5" />
                     {buttonTitle}
@@ -121,60 +124,60 @@ const Categories: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 border-b border-gray-200">
+            <div className="flex gap-2">
                 <button
                     onClick={() => setActiveTab('expenses')}
-                    className={`px-4 py-2 font-medium transition-colors border-b-2 -mb-px ${
+                    className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
                         activeTab === 'expenses'
-                            ? 'text-blue-600 border-blue-600'
-                            : 'text-gray-500 border-transparent hover:text-gray-700'
+                            ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60'
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                     }`}
                 >
                     Категории расходов
                 </button>
                 <button
                     onClick={() => setActiveTab('income')}
-                    className={`px-4 py-2 font-medium transition-colors border-b-2 -mb-px ${
+                    className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
                         activeTab === 'income'
-                            ? 'text-blue-600 border-blue-600'
-                            : 'text-gray-500 border-transparent hover:text-gray-700'
+                            ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60'
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                     }`}
                 >
                     Источники дохода
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <ul className="divide-y divide-gray-100">
+            <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+                <ul className="divide-y divide-slate-100/60">
                     {currentList.length === 0 && (
                         <li className="p-8 text-center text-gray-400">{listEmpty}</li>
                     )}
                     {currentList.map((item) => (
-                        <li key={item.id} className="p-4 hover:bg-gray-50 flex items-center justify-between group">
+                        <li key={item.id} className="p-4 px-6 hover:bg-slate-50/50 flex items-center justify-between group transition-colors">
                             {editingId === item.id ? (
-                                <div className="flex items-center gap-2 w-full">
+                                <div className="flex items-center gap-3 w-full">
                                     <input
                                         type="text"
                                         value={editName}
                                         onChange={(e) => setEditName(e.target.value)}
-                                        className="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="flex-1 p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                                         autoFocus
                                     />
-                                    <button onClick={saveEdit} className="p-2 text-green-600 hover:bg-green-50 rounded">
+                                    <button onClick={saveEdit} className="p-2.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors">
                                         <Check className="w-5 h-5" />
                                     </button>
-                                    <button onClick={cancelEdit} className="p-2 text-red-500 hover:bg-red-50 rounded">
+                                    <button onClick={cancelEdit} className="p-2.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
                             ) : (
                                 <>
-                                    <span className="font-medium text-gray-700">{item.name}</span>
+                                    <span className="font-medium text-slate-700">{item.name}</span>
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => startEdit(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                                        <button onClick={() => startEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                             <Edit2 className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => handleDelete(item.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                                        <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -192,19 +195,19 @@ const Categories: React.FC = () => {
             >
                 <form onSubmit={handleAdd} className="space-y-4">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Название</label>
+                        <label className="text-sm font-medium text-slate-700">Название</label>
                         <input
                             type="text"
                             required
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
                             placeholder="Введите название..."
                         />
                     </div>
                     <button
                         type="submit"
-                        className="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                        className="w-full bg-primary text-white py-3 rounded-xl font-medium hover:bg-blue-600 transition-all shadow-sm hover:shadow-md mt-4"
                     >
                         Создать
                     </button>

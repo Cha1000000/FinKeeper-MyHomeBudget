@@ -128,15 +128,20 @@ const Savings: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-5xl mx-auto">
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <PiggyBank className="w-8 h-8 text-pink-500" />
-                    Копилки
-                </h2>
+                <div className="flex flex-col">
+                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                        <div className="p-2.5 bg-pink-50 text-pink-600 rounded-2xl border border-pink-100/50 shadow-sm">
+                            <PiggyBank className="w-6 h-6" />
+                        </div>
+                        Копилки
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">Управление целями и накоплениями</p>
+                </div>
                 <button
                     onClick={() => setIsGoalModalOpen(true)}
-                    className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors shadow-sm"
+                    className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl hover:bg-blue-600 transition-all hover:shadow-md shadow-sm font-medium"
                 >
                     <Plus className="w-5 h-5" />
                     Новая цель
@@ -150,19 +155,19 @@ const Savings: React.FC = () => {
                         : 0;
                     
                     return (
-                        <div key={goal.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between h-full cursor-pointer hover:shadow-md transition-shadow" onClick={() => openEditGoal(goal)}>
-                            <div className="mb-4">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="text-lg font-bold text-gray-800">{goal.name}</h3>
-                                    <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-bold">
+                        <div key={goal.id} className="bg-gradient-to-br from-emerald-50/95 to-emerald-600/70 backdrop-blur-md rounded-3xl shadow-[0_8px_40px_rgba(16,185,129,0.08)] border border-emerald-200/70 p-6 flex flex-col justify-between h-full cursor-pointer hover:shadow-[0_15px_50px_rgba(16,185,129,0.15)] hover:-translate-y-1 transition-all" onClick={() => openEditGoal(goal)}>
+                            <div className="mb-6">
+                                <div className="flex justify-between items-start mb-3">
+                                    <h3 className="text-lg font-bold text-slate-800 leading-tight">{goal.name}</h3>
+                                    <div className="bg-slate-100/80 text-slate-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200/50">
                                         {progress.toFixed(0)}%
                                     </div>
                                 </div>
-                                <p className="text-3xl font-bold text-gray-900 mb-1">{formatCurrency(goal.current_amount)}</p>
-                                <p className="text-sm text-gray-400">из {formatCurrency(goal.target_amount)}</p>
+                                <p className="text-3xl font-bold text-slate-900 mb-1 tracking-tight">{formatCurrency(goal.current_amount)}</p>
+                                <p className="text-sm text-slate-400 font-medium">из {formatCurrency(goal.target_amount)}</p>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-5">
                                 <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
                                     <div
                                         className="bg-primary h-2.5 rounded-full transition-all duration-500"
@@ -173,13 +178,13 @@ const Savings: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); openTransaction(goal.id, 'deposit'); }}
-                                        className="flex items-center justify-center gap-1 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg font-medium transition-colors text-sm"
+                                        className="flex items-center justify-center gap-1.5 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100/50 rounded-xl font-medium transition-colors text-sm shadow-sm"
                                     >
                                         <ArrowUp className="w-4 h-4" /> Пополнить
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); openTransaction(goal.id, 'withdraw'); }}
-                                        className="flex items-center justify-center gap-1 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors text-sm"
+                                        className="flex items-center justify-center gap-1.5 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100/50 rounded-xl font-medium transition-colors text-sm shadow-sm"
                                     >
                                         <ArrowDown className="w-4 h-4" /> Снять
                                     </button>
@@ -235,10 +240,10 @@ const Savings: React.FC = () => {
                             />
                         </div>
                     )}
-                    <div className="flex gap-3 mt-4">
+                    <div className="flex gap-3 mt-6">
                         <button
                             type="submit"
-                            className="flex-1 bg-primary text-white py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                            className="flex-1 bg-primary text-white py-3 rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-sm"
                         >
                             {editingGoalId ? 'Сохранить' : 'Создать'}
                         </button>
@@ -246,7 +251,7 @@ const Savings: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleDeleteGoal}
-                                className="flex-1 bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                                className="flex-1 bg-rose-50 text-rose-600 border border-rose-100 py-3 rounded-xl font-medium hover:bg-rose-100 transition-colors shadow-sm"
                             >
                                 Удалить копилку
                             </button>
@@ -276,11 +281,11 @@ const Savings: React.FC = () => {
                     <button
                         type="submit"
                         className={classNames(
-                            "w-full text-white py-3 rounded-lg font-medium mt-2",
-                            transType === 'deposit' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'
+                            "w-full text-white py-3 rounded-xl font-medium mt-4 shadow-sm transition-all",
+                            transType === 'deposit' ? 'bg-emerald-500 hover:bg-emerald-600 hover:shadow-md' : 'bg-rose-500 hover:bg-rose-600 hover:shadow-md'
                         )}
                     >
-                        {transType === 'deposit' ? 'Внести' : 'Снять'}
+                        {transType === 'deposit' ? 'Внести в копилку' : 'Снять средства'}
                     </button>
                 </form>
             </Modal>
