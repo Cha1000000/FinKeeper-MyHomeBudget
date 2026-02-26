@@ -121,6 +121,7 @@ fun SettingsScreen(
                     onClick = { showUsernameConfirm = true },
                     enabled = newUsername.isNotBlank() && newUsername != username,
                     isLoading = state.isLoading,
+                    contentColor = Color.White,
                     style = GlassyButtonStyle.Glassy
                 )
             }
@@ -160,6 +161,7 @@ fun SettingsScreen(
                     onClick = { showPasswordConfirm = true },
                     enabled = newPassword.isNotBlank() && newPassword == confirmPassword,
                     isLoading = state.isLoading,
+                    contentColor = Color.White,
                     style = GlassyButtonStyle.Glassy
                 )
             }

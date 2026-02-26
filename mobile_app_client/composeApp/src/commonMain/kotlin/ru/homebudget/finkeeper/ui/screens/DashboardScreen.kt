@@ -23,6 +23,7 @@ import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.SummaryCard
+import androidx.compose.ui.graphics.luminance
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.DashboardState
 import ru.homebudget.finkeeper.util.formatCurrency
@@ -44,6 +45,8 @@ fun DashboardScreen(
     }
 
     val semantic = AppTheme.semanticColors
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val assetsTextColor = if (isDarkTheme) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onPrimary
 
     LazyColumn(
         modifier = Modifier
@@ -111,7 +114,7 @@ fun DashboardScreen(
                     Text(
                         text = Strings.TOTAL_ASSETS,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = assetsTextColor,
                     )
                     Text(
                         text = formatCurrency(state.totalAssets),
