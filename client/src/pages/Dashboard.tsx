@@ -4,7 +4,7 @@ import {
     PieChart, Pie, Cell
 } from 'recharts';
 import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals, getCumulativeBalance } from '../api';
+import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals, getCumulativeBalance, getBudgets } from '../api';
 import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
@@ -50,6 +50,7 @@ const Dashboard: React.FC = () => {
     const [expenseStructure, setExpenseStructure] = useState<ExpenseStructureItem[]>([]);
     const [totalSavings, setTotalSavings] = useState<number>(0);
     const [cumulativeBalance, setCumulativeBalance] = useState<number>(0);
+    const [totalLimit, setTotalLimit] = useState<number>(0);
 
     const saveMonth = (date: Date) => {
         localStorage.setItem(DASHBOARD_MONTH_KEY, JSON.stringify({
@@ -90,7 +91,10 @@ const Dashboard: React.FC = () => {
             setCurrentSummary(summaryRes.data);
 
             // 3. Category Breakdown (Pie Chart)
-            const expRes = await getExpenses(mRes.data.id);
+            const [expRes, budgetsRes] = await Promise.all([
+                getExpenses(mRes.data.id),
+                getBudgets(mRes.data.id)
+            ]);
 
             // Group expenses by category (exclude hidden savings expenses)
             const catMap: Record<string, number> = {};
@@ -108,6 +112,7 @@ const Dashboard: React.FC = () => {
             })).sort((a, b) => b.value - a.value);
 
             setExpenseStructure(pieData);
+            setTotalLimit(budgetsRes.data.reduce((sum, item) => sum + item.limit_amount, 0));
 
             // 4. Total Savings from all goals
             const savingsRes = await getSavingsGoals();
@@ -233,13 +238,13 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 <div className="bg-gradient-to-br from-amber-50/95 to-yellow-100/60 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(245,158,11,0.08)] border border-amber-200/60 hover:shadow-[0_12px_40px_rgba(245,158,11,0.15)] transition-all relative overflow-hidden">
-                    {((currentSummary?.income || 0) - (currentSummary?.expenses || 0)) < 0 && (
+                    {(Math.max(0, totalLimit - (currentSummary?.expenses || 0))) < 0 && (
                         <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200 rounded-bl-full blur-2xl opacity-40"></div>
                     )}
                     <div className="flex flex-col justify-center h-full relative z-10">
                         <p className="text-sm font-medium text-amber-800/80 mb-1">Доступно</p>
-                        <p className={`text-2xl font-bold tracking-tight ${((currentSummary?.income || 0) - (currentSummary?.expenses || 0)) >= 0 ? 'text-amber-950' : 'text-rose-600'}`}>
-                            {formatCurrency((currentSummary?.income || 0) - (currentSummary?.expenses || 0))}
+                        <p className={`text-2xl font-bold tracking-tight ${Math.max(0, totalLimit - (currentSummary?.expenses || 0)) >= 0 ? 'text-amber-950' : 'text-rose-600'}`}>
+                            {formatCurrency(Math.max(0, totalLimit - (currentSummary?.expenses || 0)))}
                         </p>
                     </div>
                 </div>

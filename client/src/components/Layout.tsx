@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut, Settings } from 'lucide-react';
 import classNames from 'classnames';
-import { ensureMonth, getMonthSummary, getSavingsGoals, getCumulativeBalance } from '../api';
+import { ensureMonth, getMonthSummary, getSavingsGoals, getCumulativeBalance, getBudgets } from '../api';
 import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWebSocket, useDataChanged } from '../hooks/useWebSocket';
 
 const DASHBOARD_MONTH_KEY = 'dashboard_selected_month';
+const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 
 const getSelectedDashboardDate = (): Date => {
     const saved = localStorage.getItem(DASHBOARD_MONTH_KEY);
@@ -24,6 +25,7 @@ const getSelectedDashboardDate = (): Date => {
 const Layout: React.FC = () => {
     const [currentMonth, setCurrentMonth] = useState('');
     const [availableBalance, setAvailableBalance] = useState(0);
+    const [resourceBalance, setResourceBalance] = useState(0);
     const [totalAssets, setTotalAssets] = useState(0);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const { user, logout, uiSettings } = useAuth();
@@ -82,17 +84,19 @@ const Layout: React.FC = () => {
                 // Получить данные выбранного месяца
                 const monthRes = await ensureMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
                 const summaryRes = await getMonthSummary(monthRes.data.id);
+                const budgetsRes = await getBudgets(monthRes.data.id);
                 
                 // Сумма всех копилок
                 const goalsRes = await getSavingsGoals();
                 const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
 
-                // Доступный остаток = доходы - расходы (текущий месяц)
-                const available = summaryRes.data.income - summaryRes.data.expenses;
+                const totalLimit = budgetsRes.data.reduce((sum, item) => sum + item.limit_amount, 0);
+                const available = Math.max(0, totalLimit - summaryRes.data.expenses);
                 setAvailableBalance(available);
 
                 // Всего активов = кумулятивный баланс до выбранного месяца + накопления
                 const cumulativeRes = await getCumulativeBalance(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+                setResourceBalance(cumulativeRes.data.cumulativeBalance);
                 setTotalAssets(cumulativeRes.data.cumulativeBalance + savingsTotal);
 
             } catch (e) {
@@ -126,11 +130,14 @@ const Layout: React.FC = () => {
             const selectedDate = getSelectedDashboardDate();
             const monthRes = await ensureMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
             const summaryRes = await getMonthSummary(monthRes.data.id);
+            const budgetsRes = await getBudgets(monthRes.data.id);
             const goalsRes = await getSavingsGoals();
             const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
-            const available = summaryRes.data.income - summaryRes.data.expenses;
+            const totalLimit = budgetsRes.data.reduce((sum, item) => sum + item.limit_amount, 0);
+            const available = Math.max(0, totalLimit - summaryRes.data.expenses);
             setAvailableBalance(available);
             const cumulativeRes = await getCumulativeBalance(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+            setResourceBalance(cumulativeRes.data.cumulativeBalance);
             setTotalAssets(cumulativeRes.data.cumulativeBalance + savingsTotal);
             setCurrentMonth(format(selectedDate, 'LLLL yyyy', { locale: ru }));
         } catch (e) {
@@ -206,6 +213,12 @@ const Layout: React.FC = () => {
                             <span className="text-sm font-bold text-white tracking-wide">{formatCurrency(totalAssets)}</span>
                         </div>
                         <div className="flex justify-between items-center">
+                            <span className="text-xs text-emerald-100/80">Ресурс</span>
+                            <span className="text-sm font-semibold text-emerald-200">
+                                {formatCurrency(resourceBalance)}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center">
                             <span className="text-xs text-emerald-100/80">Доступно</span>
                             <span className={classNames("text-sm font-semibold", availableBalance >= 0 ? "text-emerald-200" : "text-red-300")}>
                                 {formatCurrency(availableBalance)}
@@ -213,7 +226,7 @@ const Layout: React.FC = () => {
                         </div>
                     </div>
                     
-                    <p className="text-[10px] text-emerald-300/50 text-center pt-1">Домашняя бухгалтерия v1.1.0</p>
+                    <p className="text-[10px] text-emerald-300/50 text-center pt-1">Домашняя бухгалтерия v{APP_VERSION}</p>
                 </div>
                 )}
                 {isCollapsed && (

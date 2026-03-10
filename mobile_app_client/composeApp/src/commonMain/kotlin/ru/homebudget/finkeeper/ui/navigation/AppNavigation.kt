@@ -219,6 +219,7 @@ fun AppNavigation(
                 semantic = semantic,
                 username = authState.user?.username ?: "",
                 totalAssets = dashboardState.totalAssets,
+                resource = dashboardState.availableWithoutSavings,
                 available = dashboardState.available,
             )
             Box(
@@ -433,6 +434,7 @@ private fun DesktopSidebar(
     semantic: AppSemanticColors,
     username: String,
     totalAssets: Double,
+    resource: Double,
     available: Double,
 ) {
     val gradientBrush =
@@ -562,6 +564,17 @@ private fun DesktopSidebar(
                 )
                 Text(
                     text = formatCurrency(totalAssets),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = activeColor,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = Strings.RESOURCE,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = inactiveColor,
+                )
+                Text(
+                    text = formatCurrency(resource),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = activeColor,
                 )

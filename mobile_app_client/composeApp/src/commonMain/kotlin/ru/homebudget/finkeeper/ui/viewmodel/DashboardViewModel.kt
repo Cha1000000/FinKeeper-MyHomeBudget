@@ -13,6 +13,7 @@ import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.budget.BudgetRepository
 import ru.homebudget.finkeeper.data.repository.category.CategoryRepository
 import ru.homebudget.finkeeper.data.repository.expense.ExpenseRepository
 import ru.homebudget.finkeeper.data.repository.income.IncomeRepository
@@ -54,6 +55,7 @@ class DashboardViewModel(
     private val savingsGoalRepository: SavingsGoalRepository,
     private val expenseRepository: ExpenseRepository,
     private val incomeRepository: IncomeRepository,
+    private val budgetRepository: BudgetRepository,
     private val categoryRepository: CategoryRepository,
     private val apiClient: ApiClient,
     private val tokenStorage: TokenStorage,
@@ -187,12 +189,18 @@ class DashboardViewModel(
                 .getAllCategories(currentUserId)
                 .onSuccess { cats -> categories = cats }
 
+            var budgets: List<Budget> = emptyList()
+            budgetRepository
+                .getBudgetsByMonth(monthData.localId)
+                .onSuccess { budgetList -> budgets = budgetList }
+
             val totalSavings = savingsGoals.sumOf { it.currentAmount }
 
             // Используем серверные данные если есть, иначе локальные
             val totalIncome = summary?.income ?: incomes.sumOf { it.amount }
             val totalExpense = summary?.expenses ?: expenses.sumOf { it.amount }
-            val available = totalIncome - totalExpense
+            val totalLimit = budgets.sumOf { it.limitAmount }
+            val available = maxOf(0.0, totalLimit - totalExpense)
 
             // Всего активов = кумулятивный баланс до выбранного месяца включительно
             val cumulativeBalance = try {

@@ -75,7 +75,7 @@ val appModule =
 
         // ViewModels
         factory { AuthViewModel(get(), get()) }
-        factory { DashboardViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+        factory { DashboardViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { MonthViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { CategoriesViewModel(get(), get(), get(), get(), get()) }
         factory { SavingsViewModel(get(), get(), get(), get(), get()) }
