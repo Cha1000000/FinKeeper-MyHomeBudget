@@ -12,6 +12,7 @@ import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.SavingsGoal as RemoteSavingsGoal
 
 /**
@@ -227,10 +228,15 @@ class SavingsGoalRepository(
                     val existing = savingsGoalDao.getByServerId(remote.id.toString())
 
                     if (existing != null) {
-                        // Не перезаписываем локально изменённые записи (PENDING статус)
-                        // чтобы не потерять локальные изменения, которые ещё не синхронизированы
-                        if (existing.syncStatus == SyncStatus.PENDING.value) {
+                        if (
+                            existing.syncStatus != SyncStatus.SYNCED.value ||
+                            syncManager.hasActiveQueueOperation(EntityType.SAVINGS_GOAL.value, existing.id)
+                        ) {
                             println("[SAVINGS-GOAL] syncWithServer: skipping update for id=${existing.id}, name='${existing.name}' - local changes pending")
+                            continue
+                        }
+
+                        if (!shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
                             continue
                         }
                         
@@ -243,6 +249,7 @@ class SavingsGoalRepository(
                             icon = existing.icon,
                             targetDate = existing.targetDate,
                             isAchieved = existing.isAchieved,
+                            updatedAt = remote.updatedAt ?: existing.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
                         )
@@ -256,6 +263,8 @@ class SavingsGoalRepository(
                             icon = null,
                             targetDate = null,
                             isAchieved = 0L,
+                            createdAt = remote.createdAt,
+                            updatedAt = remote.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
                         )

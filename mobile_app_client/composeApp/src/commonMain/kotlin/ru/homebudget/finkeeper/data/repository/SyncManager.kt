@@ -22,6 +22,7 @@ import ru.homebudget.finkeeper.data.local.model.SyncStatus
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
+import ru.homebudget.finkeeper.data.repository.budget.BudgetRepository
 import ru.homebudget.finkeeper.data.repository.category.CategoryRepository
 import ru.homebudget.finkeeper.data.repository.expense.ExpenseRepository
 import ru.homebudget.finkeeper.data.repository.income.IncomeRepository
@@ -50,8 +51,10 @@ class SyncManager(
     private val monthRepository: MonthRepository,
     private val incomeRepository: IncomeRepository,
     private val expenseRepository: ExpenseRepository,
+    private val budgetRepository: BudgetRepository,
     private val savingsGoalRepository: SavingsGoalRepository,
     private val savingsTransactionRepository: SavingsTransactionRepository,
+    private val syncStateStorage: SyncStateStorage,
     private val tokenStorage: TokenStorage,
 ) {
     private val currentUserId: Long get() = tokenStorage.userId
@@ -244,17 +247,165 @@ class SyncManager(
             categoryRepository.syncWithServer(currentUserId)
             incomeSourceRepository.syncWithServer(currentUserId)
             savingsGoalRepository.syncWithServer(currentUserId)
+            savingsGoalDao
+                .getAllByUser(currentUserId)
+                .filter { !it.serverId.isNullOrBlank() }
+                .forEach { goal ->
+                    savingsTransactionRepository.syncWithServer(currentUserId, goal.id)
+                }
 
             // Синхронизируем данные за месяц (если указан)
             monthId?.let { id ->
                 monthRepository.syncWithServer(currentUserId)
                 incomeRepository.syncWithServer(currentUserId, id)
                 expenseRepository.syncWithServer(currentUserId, id)
+                budgetRepository.syncWithServer(currentUserId, id)
             }
+            applyDeletedRecordsFromServer()
             println("[SYNC] syncFromServer DONE")
         } catch (e: Exception) {
             println("[SYNC] syncFromServer ERROR: ${e.message}")
             e.printStackTrace()
+        }
+    }
+
+    private suspend fun applyDeletedRecordsFromServer() {
+        val since = syncStateStorage.lastDeletedRecordsSyncAt
+        val deletedRecords = apiClient.getDeletedRecords(since = since)
+        if (deletedRecords.isEmpty()) {
+            println("[SYNC][TOMBSTONE] no deleted records, since=$since")
+            return
+        }
+
+        println("[SYNC][TOMBSTONE] applying ${deletedRecords.size} deleted records, since=$since")
+
+        val priority =
+            mapOf(
+                EntityType.INCOME.value to 0,
+                EntityType.EXPENSE.value to 0,
+                EntityType.SAVINGS_TRANSACTION.value to 0,
+                EntityType.CATEGORY.value to 1,
+                EntityType.INCOME_SOURCE.value to 1,
+                EntityType.SAVINGS_GOAL.value to 2,
+            )
+
+        deletedRecords
+            .sortedWith(
+                compareBy<DeletedRecord> { priority[it.entityType] ?: 10 }
+                    .thenBy { it.deletedAt },
+            ).forEach { deletedRecord ->
+                applyDeletedRecord(deletedRecord)
+            }
+
+        syncStateStorage.lastDeletedRecordsSyncAt = deletedRecords.maxOfOrNull { it.deletedAt }
+    }
+
+    private fun applyDeletedRecord(deletedRecord: DeletedRecord) {
+        when (deletedRecord.entityType) {
+            EntityType.CATEGORY.value -> {
+                categoryDao.getByServerId(deletedRecord.entityId.toString())?.let { local ->
+                    val hasOwnActiveQueue = hasActiveQueueOperation(EntityType.CATEGORY.value, local.id)
+                    val hasDependentActiveQueue = hasActiveCategoryDependents(local.id)
+                    if (!hasOwnActiveQueue && !hasDependentActiveQueue && local.syncStatus == SyncStatus.SYNCED.value) {
+                        println("[SYNC][TOMBSTONE] apply category serverId=${deletedRecord.entityId} -> localId=${local.id}")
+                        categoryDao.deleteById(local.id)
+                    } else {
+                        println("[SYNC][TOMBSTONE] skip category serverId=${deletedRecord.entityId} -> localId=${local.id}, syncStatus=${local.syncStatus}, ownActive=$hasOwnActiveQueue, dependentActive=$hasDependentActiveQueue")
+                    }
+                } ?: println("[SYNC][TOMBSTONE] skip category serverId=${deletedRecord.entityId}: local record not found")
+            }
+
+            EntityType.INCOME_SOURCE.value -> {
+                incomeSourceDao.getByServerId(deletedRecord.entityId.toString())?.let { local ->
+                    val hasOwnActiveQueue = hasActiveQueueOperation(EntityType.INCOME_SOURCE.value, local.id)
+                    val hasDependentActiveQueue = hasActiveIncomeSourceDependents(local.id)
+                    if (!hasOwnActiveQueue && !hasDependentActiveQueue && local.syncStatus == SyncStatus.SYNCED.value) {
+                        println("[SYNC][TOMBSTONE] apply income_source serverId=${deletedRecord.entityId} -> localId=${local.id}")
+                        incomeSourceDao.deleteById(local.id)
+                    } else {
+                        println("[SYNC][TOMBSTONE] skip income_source serverId=${deletedRecord.entityId} -> localId=${local.id}, syncStatus=${local.syncStatus}, ownActive=$hasOwnActiveQueue, dependentActive=$hasDependentActiveQueue")
+                    }
+                } ?: println("[SYNC][TOMBSTONE] skip income_source serverId=${deletedRecord.entityId}: local record not found")
+            }
+
+            EntityType.INCOME.value -> {
+                incomeDao.getByServerId(deletedRecord.entityId.toString())?.let { local ->
+                    val hasOwnActiveQueue = hasActiveQueueOperation(EntityType.INCOME.value, local.id)
+                    if (!hasOwnActiveQueue && local.syncStatus == SyncStatus.SYNCED.value) {
+                        println("[SYNC][TOMBSTONE] apply income serverId=${deletedRecord.entityId} -> localId=${local.id}")
+                        incomeDao.deleteById(local.id)
+                    } else {
+                        println("[SYNC][TOMBSTONE] skip income serverId=${deletedRecord.entityId} -> localId=${local.id}, syncStatus=${local.syncStatus}, ownActive=$hasOwnActiveQueue")
+                    }
+                } ?: println("[SYNC][TOMBSTONE] skip income serverId=${deletedRecord.entityId}: local record not found")
+            }
+
+            EntityType.EXPENSE.value -> {
+                expenseDao.getByServerId(deletedRecord.entityId.toString())?.let { local ->
+                    val hasOwnActiveQueue = hasActiveQueueOperation(EntityType.EXPENSE.value, local.id)
+                    if (!hasOwnActiveQueue && local.syncStatus == SyncStatus.SYNCED.value) {
+                        println("[SYNC][TOMBSTONE] apply expense serverId=${deletedRecord.entityId} -> localId=${local.id}")
+                        expenseDao.deleteById(local.id)
+                    } else {
+                        println("[SYNC][TOMBSTONE] skip expense serverId=${deletedRecord.entityId} -> localId=${local.id}, syncStatus=${local.syncStatus}, ownActive=$hasOwnActiveQueue")
+                    }
+                } ?: println("[SYNC][TOMBSTONE] skip expense serverId=${deletedRecord.entityId}: local record not found")
+            }
+
+            EntityType.SAVINGS_TRANSACTION.value -> {
+                savingsTransactionDao.getByServerId(deletedRecord.entityId.toString())?.let { local ->
+                    val hasOwnActiveQueue = hasActiveQueueOperation(EntityType.SAVINGS_TRANSACTION.value, local.id)
+                    if (!hasOwnActiveQueue && local.syncStatus == SyncStatus.SYNCED.value) {
+                        println("[SYNC][TOMBSTONE] apply savings_transaction serverId=${deletedRecord.entityId} -> localId=${local.id}")
+                        savingsTransactionDao.deleteById(local.id)
+                    } else {
+                        println("[SYNC][TOMBSTONE] skip savings_transaction serverId=${deletedRecord.entityId} -> localId=${local.id}, syncStatus=${local.syncStatus}, ownActive=$hasOwnActiveQueue")
+                    }
+                } ?: println("[SYNC][TOMBSTONE] skip savings_transaction serverId=${deletedRecord.entityId}: local record not found")
+            }
+
+            EntityType.SAVINGS_GOAL.value -> {
+                savingsGoalDao.getByServerId(deletedRecord.entityId.toString())?.let { local ->
+                    val hasOwnActiveQueue = hasActiveQueueOperation(EntityType.SAVINGS_GOAL.value, local.id)
+                    val hasDependentActiveQueue = hasActiveSavingsGoalDependents(local.id)
+                    if (!hasOwnActiveQueue && !hasDependentActiveQueue && local.syncStatus == SyncStatus.SYNCED.value) {
+                        println("[SYNC][TOMBSTONE] apply savings_goal serverId=${deletedRecord.entityId} -> localId=${local.id} with child cleanup")
+                        savingsTransactionDao.deleteAllByGoal(local.id)
+                        savingsGoalDao.deleteById(local.id)
+                    } else {
+                        println("[SYNC][TOMBSTONE] skip savings_goal serverId=${deletedRecord.entityId} -> localId=${local.id}, syncStatus=${local.syncStatus}, ownActive=$hasOwnActiveQueue, dependentActive=$hasDependentActiveQueue")
+                    }
+                } ?: println("[SYNC][TOMBSTONE] skip savings_goal serverId=${deletedRecord.entityId}: local record not found")
+            }
+        }
+    }
+
+    private fun hasActiveCategoryDependents(categoryId: Long): Boolean {
+        val expenseHasActiveQueue =
+            expenseDao.getAllByUser(currentUserId).any {
+                it.categoryId == categoryId &&
+                    hasActiveQueueOperation(EntityType.EXPENSE.value, it.id)
+            }
+        if (expenseHasActiveQueue) {
+            return true
+        }
+
+        return budgetDao.getByUser(currentUserId).any {
+            it.categoryId == categoryId &&
+                hasActiveQueueOperation(EntityType.BUDGET.value, it.id)
+        }
+    }
+
+    private fun hasActiveIncomeSourceDependents(incomeSourceId: Long): Boolean {
+        return incomeDao.getAllByUser(currentUserId).any {
+            it.incomeSourceId == incomeSourceId &&
+                hasActiveQueueOperation(EntityType.INCOME.value, it.id)
+        }
+    }
+
+    private fun hasActiveSavingsGoalDependents(goalId: Long): Boolean {
+        return savingsTransactionDao.getByGoal(goalId).any {
+            hasActiveQueueOperation(EntityType.SAVINGS_TRANSACTION.value, it.id)
         }
     }
 
@@ -327,9 +478,10 @@ class SyncManager(
      * Синхронизация категории на сервер
      */
     private suspend fun syncCategoryToServer(item: SyncQueueItem) {
+        val operationId = getOperationId(item)
         if (item.operation == SyncOperation.DELETE.value) {
             getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
-                apiClient.deleteCategory(serverId)
+                apiClient.deleteCategory(serverId, operationId)
             }
             return
         }
@@ -338,20 +490,22 @@ class SyncManager(
 
         when (item.operation) {
             SyncOperation.INSERT.value -> {
-                val remote = apiClient.createCategory(category.name)
-                markEntityAfterSuccessfulSync(item, remote.id.toString())
+                val remote = apiClient.createCategory(category.name, operationId)
+                applyCategoryServerSnapshot(item, category.id, remote)
             }
             SyncOperation.UPDATE.value -> {
                 category.serverId?.toIntOrNull()?.let { serverId ->
-                    apiClient.updateCategory(
+                    val remote =
+                        apiClient.updateCategory(
                         id = serverId,
                         request =
                             UpdateCategoryRequest(
                                 name = category.name,
                                 isActive = if (category.isActive == 1L) 1 else 0,
                             ),
+                        operationId = operationId,
                     )
-                    markEntityAfterSuccessfulSync(item, serverId.toString())
+                    applyCategoryServerSnapshot(item, category.id, remote)
                 }
             }
         }
@@ -361,9 +515,10 @@ class SyncManager(
      * Синхронизация источника дохода на сервер
      */
     private suspend fun syncIncomeSourceToServer(item: SyncQueueItem) {
+        val operationId = getOperationId(item)
         if (item.operation == SyncOperation.DELETE.value) {
             getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
-                apiClient.deleteIncomeSource(serverId)
+                apiClient.deleteIncomeSource(serverId, operationId)
             }
             return
         }
@@ -372,20 +527,22 @@ class SyncManager(
 
         when (item.operation) {
             SyncOperation.INSERT.value -> {
-                val remote = apiClient.createIncomeSource(source.name)
-                markEntityAfterSuccessfulSync(item, remote.id.toString())
+                val remote = apiClient.createIncomeSource(source.name, operationId)
+                applyIncomeSourceServerSnapshot(item, source.id, remote)
             }
             SyncOperation.UPDATE.value -> {
                 source.serverId?.toIntOrNull()?.let { serverId ->
-                    apiClient.updateIncomeSource(
+                    val remote =
+                        apiClient.updateIncomeSource(
                         id = serverId,
                         request =
                             UpdateIncomeSourceRequest(
                                 name = source.name,
                                 isActive = if (source.isActive == 1L) 1 else 0,
                             ),
+                        operationId = operationId,
                     )
-                    markEntityAfterSuccessfulSync(item, serverId.toString())
+                    applyIncomeSourceServerSnapshot(item, source.id, remote)
                 }
             }
         }
@@ -395,9 +552,10 @@ class SyncManager(
      * Синхронизация дохода на сервер
      */
     private suspend fun syncIncomeToServer(item: SyncQueueItem) {
+        val operationId = getOperationId(item)
         if (item.operation == SyncOperation.DELETE.value) {
             getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
-                apiClient.deleteIncome(serverId)
+                apiClient.deleteIncome(serverId, operationId)
             }
             return
         }
@@ -431,16 +589,17 @@ class SyncManager(
                             amount = income.amount.toDouble(),
                             date = income.date,
                         ),
+                        operationId,
                     )
-                markEntityAfterSuccessfulSync(item, remote.id.toString())
+                applyIncomeServerSnapshot(item, income.id, remote, incomeSourceId = income.incomeSourceId)
             }
             SyncOperation.UPDATE.value -> {
                 val serverId =
                     income.serverId?.toIntOrNull()
                         ?: throw IllegalStateException("Cannot sync income update: serverId is null for entityId=${item.entityId}")
 
-                apiClient.updateIncome(serverId, income.amount.toDouble())
-                markEntityAfterSuccessfulSync(item, serverId.toString())
+                val remote = apiClient.updateIncome(serverId, income.amount.toDouble(), operationId)
+                applyIncomeServerSnapshot(item, income.id, remote, incomeSourceId = income.incomeSourceId)
             }
         }
     }
@@ -449,9 +608,10 @@ class SyncManager(
      * Синхронизация расхода на сервер
      */
     private suspend fun syncExpenseToServer(item: SyncQueueItem) {
+        val operationId = getOperationId(item)
         if (item.operation == SyncOperation.DELETE.value) {
             getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
-                apiClient.deleteExpense(serverId)
+                apiClient.deleteExpense(serverId, operationId)
             }
             return
         }
@@ -484,16 +644,17 @@ class SyncManager(
                             comment = expense.description,
                             date = expense.date,
                         ),
+                        operationId,
                     )
-                markEntityAfterSuccessfulSync(item, remote.id.toString())
+                applyExpenseServerSnapshot(item, expense.id, remote, categoryId = expense.categoryId)
             }
             SyncOperation.UPDATE.value -> {
                 val serverId =
                     expense.serverId?.toIntOrNull()
                         ?: throw IllegalStateException("Cannot sync expense update: serverId is null for entityId=${item.entityId}")
 
-                apiClient.updateExpense(serverId, expense.amount.toDouble())
-                markEntityAfterSuccessfulSync(item, serverId.toString())
+                val remote = apiClient.updateExpense(serverId, expense.amount.toDouble(), operationId)
+                applyExpenseServerSnapshot(item, expense.id, remote, categoryId = expense.categoryId)
             }
         }
     }
@@ -576,6 +737,7 @@ class SyncManager(
      * Синхронизация бюджета на сервер
      */
     private suspend fun syncBudgetToServer(item: SyncQueueItem) {
+        val operationId = getOperationId(item)
         println("[SYNC] syncBudgetToServer START: entityId=${item.entityId}, operation=${item.operation}")
         
         if (item.operation == SyncOperation.DELETE.value) {
@@ -610,9 +772,10 @@ class SyncManager(
                         categoryId = category.serverId.toInt(),
                         limitAmount = budget.limitAmount.toDouble(),
                     ),
+                    operationId,
                 )
                 println("[SYNC] syncBudgetToServer INSERT: success, remoteBudget.id=${remoteBudget.id}")
-                markEntityAfterSuccessfulSync(item, remoteBudget.id.toString())
+                applyBudgetServerSnapshot(item, budget.id, remoteBudget)
                 println("[SYNC] syncBudgetToServer INSERT: syncStatus updated to SYNCED")
             }
             SyncOperation.UPDATE.value -> {
@@ -631,7 +794,8 @@ class SyncManager(
                     // Обновляем существующий бюджет на сервере
                     try {
                         println("[SYNC] syncBudgetToServer UPDATE: calling updateBudget with serverId=$serverId...")
-                        apiClient.updateBudget(
+                        val remoteBudget =
+                            apiClient.updateBudget(
                             id = serverId,
                             request =
                                 SetBudgetRequest(
@@ -639,9 +803,10 @@ class SyncManager(
                                     categoryId = category.serverId.toInt(),
                                     limitAmount = budget.limitAmount.toDouble(),
                                 ),
+                            operationId = operationId,
                         )
                         println("[SYNC] syncBudgetToServer UPDATE: updateBudget success")
-                        markEntityAfterSuccessfulSync(item, serverId.toString())
+                        applyBudgetServerSnapshot(item, budget.id, remoteBudget)
                     } catch (e: Exception) {
                         // Если получили 404 - бюджет не найден на сервере, создаём новый
                         val errorMessage = e.message ?: ""
@@ -653,9 +818,10 @@ class SyncManager(
                                     categoryId = category.serverId.toInt(),
                                     limitAmount = budget.limitAmount.toDouble(),
                                 ),
+                                operationId,
                             )
                             println("[SYNC] syncBudgetToServer UPDATE: setBudget success, new id=${remoteBudget.id}")
-                            markEntityAfterSuccessfulSync(item, remoteBudget.id.toString())
+                            applyBudgetServerSnapshot(item, budget.id, remoteBudget)
                         } else {
                             throw e // Пробрасываем другие ошибки
                         }
@@ -669,9 +835,10 @@ class SyncManager(
                             categoryId = category.serverId.toInt(),
                             limitAmount = budget.limitAmount.toDouble(),
                         ),
+                        operationId,
                     )
                     println("[SYNC] syncBudgetToServer UPDATE: setBudget success, id=${remoteBudget.id}")
-                    markEntityAfterSuccessfulSync(item, remoteBudget.id.toString())
+                    applyBudgetServerSnapshot(item, budget.id, remoteBudget)
                 }
             }
         }
@@ -681,9 +848,10 @@ class SyncManager(
      * Синхронизация цели накоплений на сервер
      */
     private suspend fun syncSavingsGoalToServer(item: SyncQueueItem) {
+        val operationId = getOperationId(item)
         if (item.operation == SyncOperation.DELETE.value) {
             getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
-                apiClient.deleteSavingsGoal(serverId)
+                apiClient.deleteSavingsGoal(serverId, operationId)
             }
             return
         }
@@ -703,8 +871,9 @@ class SyncManager(
                             name = goal.name,
                             targetAmount = goal.targetAmount.toDouble(),
                         ),
+                        operationId,
                     )
-                markEntityAfterSuccessfulSync(item, remote.id.toString())
+                applySavingsGoalServerSnapshot(item, goal.id, remote)
             }
             SyncOperation.UPDATE.value -> {
                 val serverId =
@@ -712,7 +881,8 @@ class SyncManager(
                         ?: throw IllegalStateException("Cannot sync savings goal update: serverId is null for entityId=${item.entityId}")
 
                 println("[SYNC] syncSavingsGoalToServer: UPDATE serverId=$serverId, name=${goal.name}, targetAmount=${goal.targetAmount}, currentAmount=${goal.currentAmount}")
-                apiClient.updateSavingsGoal(
+                val remote =
+                    apiClient.updateSavingsGoal(
                     id = serverId,
                     request =
                         UpdateSavingsGoalRequest(
@@ -720,9 +890,10 @@ class SyncManager(
                             targetAmount = goal.targetAmount.toDouble(),
                             currentAmount = goal.currentAmount.toDouble(),
                         ),
+                    operationId = operationId,
                 )
                 println("[SYNC] syncSavingsGoalToServer: UPDATE OK")
-                markEntityAfterSuccessfulSync(item, serverId.toString())
+                applySavingsGoalServerSnapshot(item, goal.id, remote)
             }
         }
     }
@@ -731,9 +902,10 @@ class SyncManager(
      * Синхронизация транзакции накоплений на сервер
      */
     private suspend fun syncSavingsTransactionToServer(item: SyncQueueItem) {
+        val operationId = getOperationId(item)
         if (item.operation == SyncOperation.DELETE.value) {
             getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
-                apiClient.deleteSavingsTransaction(serverId)
+                apiClient.deleteSavingsTransaction(serverId, operationId)
             }
             return
         }
@@ -763,9 +935,10 @@ class SyncManager(
                         date = transaction.date,
                         monthId = monthServerId,
                     ),
+                    operationId,
                 )
                 println("[SYNC] syncSavingsTransactionToServer: INSERT OK, serverTransaction.id=${serverTransaction.id}")
-                markEntityAfterSuccessfulSync(item, serverTransaction.id.toString())
+                applySavingsTransactionServerSnapshot(item, transaction.id, serverTransaction)
             }
             SyncOperation.UPDATE.value -> {
                 val goalServerId = resolveSavingsGoalServerId(transaction.savingsGoalId)
@@ -779,7 +952,8 @@ class SyncManager(
                     monthDao.getById(localMonthId)?.serverId?.toIntOrNull()
                 }
 
-                apiClient.updateSavingsTransaction(
+                val remote =
+                    apiClient.updateSavingsTransaction(
                     id = serverId,
                     request =
                         AddSavingsTransactionRequest(
@@ -788,8 +962,9 @@ class SyncManager(
                             date = transaction.date,
                             monthId = monthServerId,
                         ),
+                    operationId = operationId,
                 )
-                markEntityAfterSuccessfulSync(item, serverId.toString())
+                applySavingsTransactionServerSnapshot(item, transaction.id, remote)
             }
         }
     }
@@ -915,6 +1090,17 @@ class SyncManager(
             .toSet()
     }
 
+    fun hasActiveQueueOperation(
+        entityType: String,
+        entityId: Long,
+    ): Boolean {
+        return syncQueueDao.getAllByUser(currentUserId).any {
+            it.entityType == entityType &&
+                it.entityId == entityId &&
+                it.status != SyncQueueStatus.COMPLETED.value
+        }
+    }
+
     private fun buildQueuePayload(
         entityType: String,
         entityId: Long,
@@ -936,6 +1122,8 @@ class SyncManager(
     }
 
     private fun getDeleteServerId(item: SyncQueueItem): String? = extractDeleteServerId(item.payload)
+
+    private fun getOperationId(item: SyncQueueItem): String? = decodeSyncQueuePayloadMetadata(item.payload)?.opId
 
     private fun shouldSkipOutdatedItem(item: SyncQueueItem): Boolean {
         return shouldSkipOutdatedQueueItem(
@@ -1016,6 +1204,179 @@ class SyncManager(
         if (shouldKeepDirtyState) {
             println("[SYNC] markEntityAfterSuccessfulSync: preserving dirty state for ${item.entityType}#${item.entityId}, status=$targetStatus, serverId=$serverId")
         }
+    }
+
+    private fun shouldKeepDirtyStateAfterSuccessfulSync(item: SyncQueueItem): Boolean {
+        val currentState = getEntitySyncState(item.entityType, item.entityId) ?: return false
+        return shouldPreserveDirtyStateAfterSuccessfulSync(
+            operation = item.operation,
+            payload = item.payload,
+            currentUpdatedAt = currentState.updatedAt,
+        )
+    }
+
+    private fun applyCategoryServerSnapshot(
+        item: SyncQueueItem,
+        localId: Long,
+        remote: ru.homebudget.finkeeper.data.model.Category,
+    ) {
+        if (shouldKeepDirtyStateAfterSuccessfulSync(item)) {
+            markEntityAfterSuccessfulSync(item, remote.id.toString())
+            return
+        }
+        val local = categoryDao.getById(localId) ?: return
+        categoryDao.update(
+            id = local.id,
+            name = remote.name,
+            type = local.type,
+            icon = local.icon,
+            color = local.color,
+            sortOrder = remote.sortOrder.toLong(),
+            isActive = remote.isActive.toLong(),
+            updatedAt = remote.updatedAt ?: local.updatedAt,
+            serverId = remote.id.toString(),
+            syncStatus = SyncStatus.SYNCED.value,
+        )
+    }
+
+    private fun applyIncomeSourceServerSnapshot(
+        item: SyncQueueItem,
+        localId: Long,
+        remote: ru.homebudget.finkeeper.data.model.IncomeSource,
+    ) {
+        if (shouldKeepDirtyStateAfterSuccessfulSync(item)) {
+            markEntityAfterSuccessfulSync(item, remote.id.toString())
+            return
+        }
+        val local = incomeSourceDao.getById(localId) ?: return
+        incomeSourceDao.update(
+            id = local.id,
+            name = remote.name,
+            sortOrder = remote.sortOrder.toLong(),
+            isActive = remote.isActive.toLong(),
+            updatedAt = remote.updatedAt ?: local.updatedAt,
+            serverId = remote.id.toString(),
+            syncStatus = SyncStatus.SYNCED.value,
+        )
+    }
+
+    private fun applyIncomeServerSnapshot(
+        item: SyncQueueItem,
+        localId: Long,
+        remote: ru.homebudget.finkeeper.data.model.Income,
+        incomeSourceId: Long,
+    ) {
+        if (shouldKeepDirtyStateAfterSuccessfulSync(item)) {
+            markEntityAfterSuccessfulSync(item, remote.id.toString())
+            return
+        }
+        val local = incomeDao.getById(localId) ?: return
+        incomeDao.update(
+            id = local.id,
+            monthId = local.monthId,
+            incomeSourceId = incomeSourceId,
+            amount = remote.amount.toLong(),
+            description = remote.description,
+            date = remote.date,
+            updatedAt = remote.updatedAt ?: local.updatedAt,
+            serverId = remote.id.toString(),
+            syncStatus = SyncStatus.SYNCED.value,
+        )
+    }
+
+    private fun applyExpenseServerSnapshot(
+        item: SyncQueueItem,
+        localId: Long,
+        remote: ru.homebudget.finkeeper.data.model.Expense,
+        categoryId: Long,
+    ) {
+        if (shouldKeepDirtyStateAfterSuccessfulSync(item)) {
+            markEntityAfterSuccessfulSync(item, remote.id.toString())
+            return
+        }
+        val local = expenseDao.getById(localId) ?: return
+        expenseDao.update(
+            id = local.id,
+            monthId = local.monthId,
+            categoryId = categoryId,
+            amount = remote.amount.toLong(),
+            description = remote.comment,
+            date = remote.date,
+            updatedAt = remote.updatedAt ?: local.updatedAt,
+            serverId = remote.id.toString(),
+            syncStatus = SyncStatus.SYNCED.value,
+            isHidden = local.isHidden,
+        )
+    }
+
+    private fun applyBudgetServerSnapshot(
+        item: SyncQueueItem,
+        localId: Long,
+        remote: ru.homebudget.finkeeper.data.model.Budget,
+    ) {
+        if (shouldKeepDirtyStateAfterSuccessfulSync(item)) {
+            markEntityAfterSuccessfulSync(item, remote.id.toString())
+            return
+        }
+        val local = budgetDao.getById(localId) ?: return
+        budgetDao.update(
+            id = local.id,
+            monthId = local.monthId,
+            categoryId = local.categoryId,
+            limitAmount = remote.limitAmount.toLong(),
+            updatedAt = remote.updatedAt ?: local.updatedAt,
+            serverId = remote.id.toString(),
+            syncStatus = SyncStatus.SYNCED.value,
+        )
+    }
+
+    private fun applySavingsGoalServerSnapshot(
+        item: SyncQueueItem,
+        localId: Long,
+        remote: ru.homebudget.finkeeper.data.model.SavingsGoal,
+    ) {
+        if (shouldKeepDirtyStateAfterSuccessfulSync(item)) {
+            markEntityAfterSuccessfulSync(item, remote.id.toString())
+            return
+        }
+        val local = savingsGoalDao.getById(localId) ?: return
+        savingsGoalDao.update(
+            id = local.id,
+            name = remote.name,
+            targetAmount = remote.targetAmount.toLong(),
+            currentAmount = remote.currentAmount.toLong(),
+            color = local.color,
+            icon = local.icon,
+            targetDate = local.targetDate,
+            isAchieved = local.isAchieved,
+            updatedAt = remote.updatedAt ?: local.updatedAt,
+            serverId = remote.id.toString(),
+            syncStatus = SyncStatus.SYNCED.value,
+        )
+    }
+
+    private fun applySavingsTransactionServerSnapshot(
+        item: SyncQueueItem,
+        localId: Long,
+        remote: ru.homebudget.finkeeper.data.model.SavingsTransaction,
+    ) {
+        if (shouldKeepDirtyStateAfterSuccessfulSync(item)) {
+            markEntityAfterSuccessfulSync(item, remote.id.toString())
+            return
+        }
+        val local = savingsTransactionDao.getById(localId) ?: return
+        savingsTransactionDao.update(
+            id = local.id,
+            savingsGoalId = local.savingsGoalId,
+            monthId = local.monthId,
+            amount = remote.amount.toLong(),
+            type = local.type,
+            description = local.description,
+            date = remote.date,
+            updatedAt = remote.updatedAt ?: local.updatedAt,
+            serverId = remote.id.toString(),
+            syncStatus = SyncStatus.SYNCED.value,
+        )
     }
 
     private fun getEntityUpdatedAt(entityType: String, entityId: Long): String? =
@@ -1114,6 +1475,16 @@ internal fun resolveQueueMergeAction(existingOperation: String?, newOperation: S
         }
         else -> QueueMergeAction.REPLACE_WITH_NEW
     }
+}
+
+internal fun shouldApplyRemoteServerSnapshot(localUpdatedAt: String?, remoteUpdatedAt: String?): Boolean {
+    if (remoteUpdatedAt.isNullOrBlank()) {
+        return true
+    }
+    if (localUpdatedAt.isNullOrBlank()) {
+        return true
+    }
+    return remoteUpdatedAt > localUpdatedAt
 }
 
 internal val syncQueuePayloadJson: Json =

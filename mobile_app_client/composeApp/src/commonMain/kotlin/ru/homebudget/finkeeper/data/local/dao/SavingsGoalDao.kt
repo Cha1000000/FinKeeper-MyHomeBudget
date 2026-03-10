@@ -40,6 +40,8 @@ class SavingsGoalDao(private val database: FinKeeperDatabase) {
         icon: String? = null,
         targetDate: String? = null,
         isAchieved: Long = 0L,
+        createdAt: String? = null,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ): Long {
@@ -54,8 +56,8 @@ class SavingsGoalDao(private val database: FinKeeperDatabase) {
                 icon = icon,
                 target_date = targetDate,
                 is_achieved = isAchieved,
-                created_at = now,
-                updated_at = now,
+                created_at = createdAt ?: now,
+                updated_at = updatedAt ?: createdAt ?: now,
                 server_id = serverId,
                 sync_status = syncStatus
             )
@@ -75,6 +77,7 @@ class SavingsGoalDao(private val database: FinKeeperDatabase) {
         icon: String? = null,
         targetDate: String? = null,
         isAchieved: Long = 0L,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ) {
@@ -87,7 +90,7 @@ class SavingsGoalDao(private val database: FinKeeperDatabase) {
             icon = icon,
             target_date = targetDate,
             is_achieved = isAchieved,
-            updated_at = now,
+            updated_at = updatedAt ?: now,
             server_id = serverId,
             sync_status = syncStatus,
             id = id

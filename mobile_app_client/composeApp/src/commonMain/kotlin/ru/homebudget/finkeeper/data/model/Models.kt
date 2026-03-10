@@ -21,7 +21,9 @@ data class Category(
     @SerialName("user_id") val userId: Int? = null,
     val name: String,
     @SerialName("sort_order") val sortOrder: Int = 0,
-    @SerialName("is_active") val isActive: Int = 1
+    @SerialName("is_active") val isActive: Int = 1,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -29,7 +31,10 @@ data class IncomeSource(
     val id: Int,
     @SerialName("user_id") val userId: Int? = null,
     val name: String,
-    @SerialName("is_active") val isActive: Int = 1
+    @SerialName("sort_order") val sortOrder: Int = 0,
+    @SerialName("is_active") val isActive: Int = 1,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -37,7 +42,9 @@ data class Month(
     val id: Int,
     @SerialName("user_id") val userId: Int? = null,
     val year: Int,
-    val month: Int
+    val month: Int,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -48,6 +55,8 @@ data class Income(
     val amount: Double,
     val date: String,
     val description: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -58,7 +67,9 @@ data class Expense(
     val amount: Double,
     val date: String,
     val comment: String? = null,
-    @SerialName("category_name") val categoryName: String? = null
+    @SerialName("category_name") val categoryName: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -66,7 +77,9 @@ data class Budget(
     val id: Int,
     @SerialName("month_id") val monthId: Int,
     @SerialName("category_id") val categoryId: Int,
-    @SerialName("limit_amount") val limitAmount: Double
+    @SerialName("limit_amount") val limitAmount: Double,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -75,7 +88,9 @@ data class SavingsGoal(
     @SerialName("user_id") val userId: Int? = null,
     val name: String,
     @SerialName("target_amount") val targetAmount: Double = 0.0,
-    @SerialName("current_amount") val currentAmount: Double = 0.0
+    @SerialName("current_amount") val currentAmount: Double = 0.0,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -84,7 +99,16 @@ data class SavingsTransaction(
     @SerialName("goal_id") val goalId: Int,
     val amount: Double,
     val date: String,
-    @SerialName("month_id") val monthId: Int? = null
+    @SerialName("month_id") val monthId: Int? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+)
+
+@Serializable
+data class DeletedRecord(
+    @SerialName("entity_type") val entityType: String,
+    @SerialName("entity_id") val entityId: Int,
+    @SerialName("deleted_at") val deletedAt: String,
 )
 
 @Serializable

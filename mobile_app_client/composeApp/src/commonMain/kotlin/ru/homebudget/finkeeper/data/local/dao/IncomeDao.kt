@@ -22,6 +22,8 @@ class IncomeDao(
         amount: Long,
         description: String?,
         date: String,
+        createdAt: String? = null,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ) {
@@ -33,8 +35,8 @@ class IncomeDao(
             amount = amount,
             description = description,
             date = date,
-            created_at = now,
-            updated_at = now,
+            created_at = createdAt ?: now,
+            updated_at = updatedAt ?: createdAt ?: now,
             server_id = serverId,
             sync_status = syncStatus
         )
@@ -50,6 +52,8 @@ class IncomeDao(
         amount: Long,
         description: String?,
         date: String,
+        createdAt: String? = null,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ): Long {
@@ -62,8 +66,8 @@ class IncomeDao(
                 amount = amount,
                 description = description,
                 date = date,
-                created_at = now,
-                updated_at = now,
+                created_at = createdAt ?: now,
+                updated_at = updatedAt ?: createdAt ?: now,
                 server_id = serverId,
                 sync_status = syncStatus
             )
@@ -81,6 +85,7 @@ class IncomeDao(
         amount: Long,
         description: String?,
         date: String,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ) {
@@ -91,7 +96,7 @@ class IncomeDao(
             amount = amount,
             description = description,
             date = date,
-            updated_at = now,
+            updated_at = updatedAt ?: now,
             server_id = serverId,
             sync_status = syncStatus,
             id = id

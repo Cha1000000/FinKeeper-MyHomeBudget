@@ -14,6 +14,188 @@ const JWT_SECRET = process.env.JWT_SECRET || 'my-home-budget-secret-key-change-t
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
 
+function nowIso() {
+    return new Date().toISOString();
+}
+
+function hasTable(tableName) {
+    const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName);
+    return !!row;
+}
+
+function hasColumn(tableName, columnName) {
+    if (!hasTable(tableName)) {
+        return false;
+    }
+    const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+    return columns.some(column => column.name === columnName);
+}
+
+function addColumnIfMissing(tableName, columnName, definition) {
+    if (!hasColumn(tableName, columnName)) {
+        db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+        return true;
+    }
+    return false;
+}
+
+function backfillTimestampColumns(tableName) {
+    const currentTimestamp = nowIso();
+    let createdAtRows = 0;
+    let updatedAtRows = 0;
+
+    if (hasColumn(tableName, 'created_at')) {
+        const result = db.prepare(`UPDATE ${tableName} SET created_at = ? WHERE created_at IS NULL OR created_at = ''`).run(currentTimestamp);
+        createdAtRows = result.changes;
+    }
+
+    if (hasColumn(tableName, 'updated_at')) {
+        const result = db.prepare(`UPDATE ${tableName} SET updated_at = COALESCE(NULLIF(updated_at, ''), created_at, ?) WHERE updated_at IS NULL OR updated_at = ''`).run(currentTimestamp);
+        updatedAtRows = result.changes;
+    }
+
+    return {
+        createdAtRows,
+        updatedAtRows
+    };
+}
+
+function ensureSchemaUpToDate() {
+    console.log('[SCHEMA] ensureSchemaUpToDate: start');
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS idempotency_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            operation_id TEXT NOT NULL,
+            request_signature TEXT NOT NULL,
+            response_status INTEGER NOT NULL,
+            response_body TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(user_id, operation_id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS deleted_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            deleted_at TEXT NOT NULL,
+            UNIQUE(user_id, entity_type, entity_id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+    `);
+
+    const syncTables = [
+        'categories',
+        'income_sources',
+        'months',
+        'incomes',
+        'expenses',
+        'budgets',
+        'savings_goals',
+        'savings_transactions'
+    ];
+
+    syncTables.forEach(tableName => {
+        if (!hasTable(tableName)) {
+            console.log(`[SCHEMA] ${tableName}: table missing, skipped`);
+            return;
+        }
+
+        const addedColumns = [];
+        if (addColumnIfMissing(tableName, 'created_at', 'TEXT')) {
+            addedColumns.push('created_at');
+        }
+        if (addColumnIfMissing(tableName, 'updated_at', 'TEXT')) {
+            addedColumns.push('updated_at');
+        }
+
+        const backfill = backfillTimestampColumns(tableName);
+        console.log(
+            `[SCHEMA] ${tableName}: checked, added_columns=${addedColumns.length > 0 ? addedColumns.join(',') : 'none'}, backfill_created_at=${backfill.createdAtRows}, backfill_updated_at=${backfill.updatedAtRows}`
+        );
+    });
+
+    console.log('[SCHEMA] ensureSchemaUpToDate: done');
+}
+
+function getRowById(tableName, id) {
+    return db.prepare(`SELECT * FROM ${tableName} WHERE id = ?`).get(id);
+}
+
+function recordDeletedRecord(userId, entityType, entityId, deletedAt = nowIso()) {
+    db.prepare(`
+        INSERT INTO deleted_records (user_id, entity_type, entity_id, deleted_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, entity_type, entity_id)
+        DO UPDATE SET deleted_at = excluded.deleted_at
+    `).run(userId, entityType, entityId, deletedAt);
+}
+
+function clearDeletedRecord(userId, entityType, entityId) {
+    db.prepare('DELETE FROM deleted_records WHERE user_id = ? AND entity_type = ? AND entity_id = ?').run(userId, entityType, entityId);
+}
+
+function getOperationId(req) {
+    const operationId = req.get('X-Operation-Id') || req.get('X-Idempotency-Key');
+    if (typeof operationId !== 'string') {
+        return null;
+    }
+    const normalizedOperationId = operationId.trim();
+    return normalizedOperationId.length > 0 ? normalizedOperationId : null;
+}
+
+function buildIdempotencyRequestSignature(req) {
+    return JSON.stringify({
+        method: req.method,
+        path: req.originalUrl.split('?')[0],
+        body: req.body ?? null,
+    });
+}
+
+function sendJsonResult(res, result) {
+    return res.status(result.statusCode).json(result.body);
+}
+
+function executeIdempotent(req, res, execute) {
+    const operationId = getOperationId(req);
+    if (!req.user?.id || !operationId) {
+        return sendJsonResult(res, execute());
+    }
+
+    const requestSignature = buildIdempotencyRequestSignature(req);
+    const existing = db.prepare('SELECT request_signature, response_status, response_body FROM idempotency_keys WHERE user_id = ? AND operation_id = ?').get(req.user.id, operationId);
+
+    if (existing) {
+        if (existing.request_signature !== requestSignature) {
+            return res.status(409).json({ error: 'Operation already used for different request' });
+        }
+
+        return res.status(existing.response_status).json(JSON.parse(existing.response_body));
+    }
+
+    const result = execute();
+
+    if (result.statusCode >= 200 && result.statusCode < 300) {
+        db.prepare(`
+            INSERT INTO idempotency_keys (user_id, operation_id, request_signature, response_status, response_body, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).run(
+            req.user.id,
+            operationId,
+            requestSignature,
+            result.statusCode,
+            JSON.stringify(result.body),
+            nowIso(),
+        );
+    }
+
+    return sendJsonResult(res, result);
+}
+
+ensureSchemaUpToDate();
+
 app.use(cors());
 app.use(express.json());
 
@@ -23,7 +205,8 @@ const MAX_BACKUPS = 5;
 function getOrCreateMonth(userId, year, month) {
     const row = db.prepare('SELECT id FROM months WHERE user_id = ? AND year = ? AND month = ?').get(userId, year, month);
     if (row) return row.id;
-    const info = db.prepare('INSERT INTO months (user_id, year, month) VALUES (?, ?, ?)').run(userId, year, month);
+    const timestamp = nowIso();
+    const info = db.prepare('INSERT INTO months (user_id, year, month, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(userId, year, month, timestamp, timestamp);
     return info.lastInsertRowid;
 }
 
@@ -114,20 +297,21 @@ app.post('/api/auth/register', (req, res) => {
         const hashedPassword = bcrypt.hashSync(password, 8);
 
         const registerTransaction = db.transaction(() => {
+            const timestamp = nowIso();
             const info = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hashedPassword);
             const userId = info.lastInsertRowid;
 
             // Seed Categories
-            const insertCat = db.prepare('INSERT INTO categories (user_id, name, sort_order) VALUES (?, ?, ?)');
-            initialCategories.forEach((cat, index) => insertCat.run(userId, cat, index + 1));
+            const insertCat = db.prepare('INSERT INTO categories (user_id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)');
+            initialCategories.forEach((cat, index) => insertCat.run(userId, cat, index + 1, timestamp, timestamp));
 
             // Seed Income Sources
-            const insertSource = db.prepare('INSERT INTO income_sources (user_id, name) VALUES (?, ?)');
-            initialIncomeSources.forEach(source => insertSource.run(userId, source));
+            const insertSource = db.prepare('INSERT INTO income_sources (user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)');
+            initialIncomeSources.forEach(source => insertSource.run(userId, source, timestamp, timestamp));
 
             // Seed Savings Goals
-            const insertGoal = db.prepare('INSERT INTO savings_goals (user_id, name) VALUES (?, ?)');
-            initialSavings.forEach(goal => insertGoal.run(userId, goal));
+            const insertGoal = db.prepare('INSERT INTO savings_goals (user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)');
+            initialSavings.forEach(goal => insertGoal.run(userId, goal, timestamp, timestamp));
 
             return { id: userId, username };
         });
@@ -261,38 +445,39 @@ app.post('/api/user/restore', (req, res) => {
         db.prepare('DELETE FROM categories WHERE user_id = ?').run(userId);
         db.prepare('DELETE FROM income_sources WHERE user_id = ?').run(userId);
         db.prepare('DELETE FROM savings_goals WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM deleted_records WHERE user_id = ?').run(userId);
         
         // 2. Insert backup data
         // We MUST preserve IDs to maintain relationships in the backup data.
         
         // Categories
-        const insertCat = db.prepare('INSERT INTO categories (id, user_id, name, sort_order, is_active) VALUES (?, ?, ?, ?, ?)');
-        data.categories.forEach(row => insertCat.run(row.id, userId, row.name, row.sort_order, row.is_active));
+        const insertCat = db.prepare('INSERT INTO categories (id, user_id, name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        data.categories.forEach(row => insertCat.run(row.id, userId, row.name, row.sort_order, row.is_active, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
         
         // Income Sources
-        const insertSource = db.prepare('INSERT INTO income_sources (id, user_id, name, is_active, created_at) VALUES (?, ?, ?, ?, ?)');
-        data.income_sources.forEach(row => insertSource.run(row.id, userId, row.name, row.is_active, row.created_at || new Date().toISOString()));
+        const insertSource = db.prepare('INSERT INTO income_sources (id, user_id, name, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+        data.income_sources.forEach(row => insertSource.run(row.id, userId, row.name, row.is_active, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
         
         // Savings Goals
-        const insertGoal = db.prepare('INSERT INTO savings_goals (id, user_id, name, target_amount, current_amount) VALUES (?, ?, ?, ?, ?)');
-        data.savings_goals.forEach(row => insertGoal.run(row.id, userId, row.name, row.target_amount, row.current_amount));
+        const insertGoal = db.prepare('INSERT INTO savings_goals (id, user_id, name, target_amount, current_amount, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        data.savings_goals.forEach(row => insertGoal.run(row.id, userId, row.name, row.target_amount, row.current_amount, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
         
         // Months
-        const insertMonth = db.prepare('INSERT INTO months (id, user_id, year, month) VALUES (?, ?, ?, ?)');
-        data.months.forEach(row => insertMonth.run(row.id, userId, row.year, row.month));
+        const insertMonth = db.prepare('INSERT INTO months (id, user_id, year, month, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+        data.months.forEach(row => insertMonth.run(row.id, userId, row.year, row.month, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
         
         // Child tables
-        const insertIncome = db.prepare('INSERT INTO incomes (id, month_id, source, amount, date) VALUES (?, ?, ?, ?, ?)');
-        data.incomes.forEach(row => insertIncome.run(row.id, row.month_id, row.source, row.amount, row.date));
+        const insertIncome = db.prepare('INSERT INTO incomes (id, month_id, source, amount, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        data.incomes.forEach(row => insertIncome.run(row.id, row.month_id, row.source, row.amount, row.date, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
         
-        const insertExpense = db.prepare('INSERT INTO expenses (id, month_id, category_id, amount, date, comment) VALUES (?, ?, ?, ?, ?, ?)');
-        data.expenses.forEach(row => insertExpense.run(row.id, row.month_id, row.category_id, row.amount, row.date, row.comment));
+        const insertExpense = db.prepare('INSERT INTO expenses (id, month_id, category_id, amount, date, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        data.expenses.forEach(row => insertExpense.run(row.id, row.month_id, row.category_id, row.amount, row.date, row.comment, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
         
-        const insertBudget = db.prepare('INSERT INTO budgets (id, month_id, category_id, limit_amount) VALUES (?, ?, ?, ?)');
-        data.budgets.forEach(row => insertBudget.run(row.id, row.month_id, row.category_id, row.limit_amount));
+        const insertBudget = db.prepare('INSERT INTO budgets (id, month_id, category_id, limit_amount, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+        data.budgets.forEach(row => insertBudget.run(row.id, row.month_id, row.category_id, row.limit_amount, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
         
-        const insertTrans = db.prepare('INSERT INTO savings_transactions (id, goal_id, amount, date, month_id, is_adjustment) VALUES (?, ?, ?, ?, ?, ?)');
-        data.savings_transactions.forEach(row => insertTrans.run(row.id, row.goal_id, row.amount, row.date, row.month_id, row.is_adjustment || 0));
+        const insertTrans = db.prepare('INSERT INTO savings_transactions (id, goal_id, amount, date, month_id, is_adjustment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        data.savings_transactions.forEach(row => insertTrans.run(row.id, row.goal_id, row.amount, row.date, row.month_id, row.is_adjustment || 0, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
     });
 
     try {
@@ -308,124 +493,190 @@ app.post('/api/user/restore', (req, res) => {
 
 // Categories
 app.get('/api/categories', (req, res) => {
-    const categories = db.prepare('SELECT * FROM categories WHERE user_id = ? AND is_active = 1 ORDER BY sort_order ASC, name ASC').all(req.user.id);
+    const includeInactive = req.query.include_inactive === '1' || req.query.include_inactive === 'true';
+    const categories = includeInactive
+        ? db.prepare('SELECT * FROM categories WHERE user_id = ? ORDER BY sort_order ASC, name ASC').all(req.user.id)
+        : db.prepare('SELECT * FROM categories WHERE user_id = ? AND is_active = 1 ORDER BY sort_order ASC, name ASC').all(req.user.id);
     res.json(categories);
 });
 
+app.get('/api/deleted_records', (req, res) => {
+    const { entity_type, since } = req.query;
+    const filters = ['user_id = ?'];
+    const params = [req.user.id];
+
+    if (typeof entity_type === 'string' && entity_type.trim() !== '') {
+        filters.push('entity_type = ?');
+        params.push(entity_type.trim());
+    }
+
+    if (typeof since === 'string' && since.trim() !== '') {
+        filters.push('deleted_at > ?');
+        params.push(since.trim());
+    }
+
+    const deletedRecords = db.prepare(`
+        SELECT entity_type, entity_id, deleted_at
+        FROM deleted_records
+        WHERE ${filters.join(' AND ')}
+        ORDER BY deleted_at ASC, id ASC
+    `).all(...params);
+
+    res.json(deletedRecords);
+});
+
 app.post('/api/categories', (req, res) => {
-    const { name } = req.body;
-    // Get max sort_order
-    const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
-    const nextOrder = (result.maxOrder || 0) + 1;
-    
-    const info = db.prepare('INSERT INTO categories (user_id, name, sort_order) VALUES (?, ?, ?)').run(req.user.id, name, nextOrder);
-    res.json({ id: info.lastInsertRowid, name, is_active: 1, sort_order: nextOrder });
-    broadcastChange(req.user.id, 'category', 'created');
+    return executeIdempotent(req, res, () => {
+        const { name } = req.body;
+        const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
+        const nextOrder = (result.maxOrder || 0) + 1;
+        const timestamp = nowIso();
+        
+        const info = db.prepare('INSERT INTO categories (user_id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(req.user.id, name, nextOrder, timestamp, timestamp);
+        const body = getRowById('categories', info.lastInsertRowid);
+        broadcastChange(req.user.id, 'category', 'created');
+        return { statusCode: 200, body };
+    });
 });
 
 app.put('/api/categories/reorder', (req, res) => {
-    const { ids } = req.body;
-    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids array required' });
+    return executeIdempotent(req, res, () => {
+        const { ids } = req.body;
+        if (!Array.isArray(ids)) return { statusCode: 400, body: { error: 'ids array required' } };
 
-    // Ensure all categories belong to user
-    // Optimization: Just update where id IN (...) AND user_id = ?
-    // But sort order update is per row.
-    
-    const updateStmt = db.prepare('UPDATE categories SET sort_order = ? WHERE id = ? AND user_id = ?');
-    
-    const transact = db.transaction((idList) => {
-        idList.forEach((id, index) => {
-            updateStmt.run(index, Number(id), req.user.id);
+        const timestamp = nowIso();
+        const updateStmt = db.prepare('UPDATE categories SET sort_order = ?, updated_at = ? WHERE id = ? AND user_id = ?');
+        
+        const transact = db.transaction((idList) => {
+            idList.forEach((id, index) => {
+                updateStmt.run(index, timestamp, Number(id), req.user.id);
+            });
         });
-    });
 
-    try {
-        transact(ids);
-        res.json({ success: true });
-        // НЕ вызываем broadcastChange — клиент сам знает что он изменил порядок
-    } catch (err) {
-        console.error("Reorder failed", err);
-        res.status(500).json({ error: err.message });
-    }
+        try {
+            transact(ids);
+            return { statusCode: 200, body: { success: true } };
+        } catch (err) {
+            console.error("Reorder failed", err);
+            return { statusCode: 500, body: { error: err.message } };
+        }
+    });
 });
 
 app.put('/api/categories/:id', (req, res) => {
-    const { name, is_active } = req.body;
-    const result = db.prepare('UPDATE categories SET name = ?, is_active = ? WHERE id = ? AND user_id = ?').run(name, is_active, req.params.id, req.user.id);
-    if (result.changes === 0) return res.status(404).json({error: 'Category not found'});
-    res.json({ success: true });
-    broadcastChange(req.user.id, 'category', 'updated');
+    return executeIdempotent(req, res, () => {
+        const { name, is_active } = req.body;
+        const result = db.prepare('UPDATE categories SET name = ?, is_active = ?, updated_at = ? WHERE id = ? AND user_id = ?').run(name, is_active, nowIso(), req.params.id, req.user.id);
+        if (result.changes === 0) return { statusCode: 404, body: { error: 'Category not found' } };
+        if (Number(is_active) !== 0) {
+            clearDeletedRecord(req.user.id, 'category', Number(req.params.id));
+        }
+        const body = getRowById('categories', req.params.id);
+        broadcastChange(req.user.id, 'category', 'updated');
+        return { statusCode: 200, body };
+    });
+});
+
+app.delete('/api/categories/:id', (req, res) => {
+    return executeIdempotent(req, res, () => {
+        const timestamp = nowIso();
+        const result = db.prepare('UPDATE categories SET is_active = 0, updated_at = ? WHERE id = ? AND user_id = ?').run(timestamp, req.params.id, req.user.id);
+        if (result.changes === 0) return { statusCode: 404, body: { error: 'Category not found' } };
+        recordDeletedRecord(req.user.id, 'category', Number(req.params.id), timestamp);
+        const body = getRowById('categories', req.params.id);
+        broadcastChange(req.user.id, 'category', 'deleted');
+        return { statusCode: 200, body };
+    });
 });
 
 // Income Sources
 app.get('/api/income_sources', (req, res) => {
-    const sources = db.prepare('SELECT * FROM income_sources WHERE user_id = ? AND is_active = 1 ORDER BY sort_order ASC, id ASC').all(req.user.id);
+    const includeInactive = req.query.include_inactive === '1' || req.query.include_inactive === 'true';
+    const sources = includeInactive
+        ? db.prepare('SELECT * FROM income_sources WHERE user_id = ? ORDER BY sort_order ASC, id ASC').all(req.user.id)
+        : db.prepare('SELECT * FROM income_sources WHERE user_id = ? AND is_active = 1 ORDER BY sort_order ASC, id ASC').all(req.user.id);
     res.json(sources);
 });
 
 app.post('/api/income_sources', (req, res) => {
-    const { name } = req.body;
-    try {
-        // Get max sort_order
-        const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM income_sources WHERE user_id = ?').get(req.user.id);
-        const nextOrder = (result.maxOrder || 0) + 1;
-        
-        const stmt = db.prepare('INSERT INTO income_sources (user_id, name, sort_order) VALUES (?, ?, ?)');
-        const insertResult = stmt.run(req.user.id, name, nextOrder);
-        res.json({ id: insertResult.lastInsertRowid, name, is_active: 1, sort_order: nextOrder });
-        broadcastChange(req.user.id, 'income_source', 'created');
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    return executeIdempotent(req, res, () => {
+        const { name } = req.body;
+        try {
+            const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM income_sources WHERE user_id = ?').get(req.user.id);
+            const nextOrder = (result.maxOrder || 0) + 1;
+            const timestamp = nowIso();
+            
+            const stmt = db.prepare('INSERT INTO income_sources (user_id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)');
+            const insertResult = stmt.run(req.user.id, name, nextOrder, timestamp, timestamp);
+            const body = getRowById('income_sources', insertResult.lastInsertRowid);
+            broadcastChange(req.user.id, 'income_source', 'created');
+            return { statusCode: 200, body };
+        } catch (err) {
+            return { statusCode: 500, body: { error: err.message } };
+        }
+    });
 });
 
 app.put('/api/income_sources/reorder', (req, res) => {
-    const { ids } = req.body;
-    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids array required' });
+    return executeIdempotent(req, res, () => {
+        const { ids } = req.body;
+        if (!Array.isArray(ids)) return { statusCode: 400, body: { error: 'ids array required' } };
 
-    const updateStmt = db.prepare('UPDATE income_sources SET sort_order = ? WHERE id = ? AND user_id = ?');
-    
-    const transact = db.transaction((idList) => {
-        idList.forEach((id, index) => {
-            updateStmt.run(index, Number(id), req.user.id);
+        const timestamp = nowIso();
+        const updateStmt = db.prepare('UPDATE income_sources SET sort_order = ?, updated_at = ? WHERE id = ? AND user_id = ?');
+        
+        const transact = db.transaction((idList) => {
+            idList.forEach((id, index) => {
+                updateStmt.run(index, timestamp, Number(id), req.user.id);
+            });
         });
-    });
 
-    try {
-        transact(ids);
-        res.json({ success: true });
-        // НЕ вызываем broadcastChange — клиент сам знает что он изменил порядок
-    } catch (err) {
-        console.error("Reorder income sources failed", err);
-        res.status(500).json({ error: err.message });
-    }
+        try {
+            transact(ids);
+            return { statusCode: 200, body: { success: true } };
+        } catch (err) {
+            console.error("Reorder income sources failed", err);
+            return { statusCode: 500, body: { error: err.message } };
+        }
+    });
 });
 
 app.put('/api/income_sources/:id', (req, res) => {
-    const { name, is_active } = req.body;
-    const { id } = req.params;
-    try {
-        const stmt = db.prepare('UPDATE income_sources SET name = ?, is_active = ? WHERE id = ? AND user_id = ?');
-        const result = stmt.run(name, is_active ?? 1, id, req.user.id);
-        if (result.changes === 0) return res.status(404).json({error: 'Income source not found'});
-        res.json({ id, name, is_active: is_active ?? 1 });
-        broadcastChange(req.user.id, 'income_source', 'updated');
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    return executeIdempotent(req, res, () => {
+        const { name, is_active } = req.body;
+        const { id } = req.params;
+        try {
+            const stmt = db.prepare('UPDATE income_sources SET name = ?, is_active = ?, updated_at = ? WHERE id = ? AND user_id = ?');
+            const result = stmt.run(name, is_active ?? 1, nowIso(), id, req.user.id);
+            if (result.changes === 0) return { statusCode: 404, body: { error: 'Income source not found' } };
+            if (Number(is_active ?? 1) !== 0) {
+                clearDeletedRecord(req.user.id, 'income_source', Number(id));
+            }
+            const body = getRowById('income_sources', id);
+            broadcastChange(req.user.id, 'income_source', 'updated');
+            return { statusCode: 200, body };
+        } catch (err) {
+            return { statusCode: 500, body: { error: err.message } };
+        }
+    });
 });
 
 app.delete('/api/income_sources/:id', (req, res) => {
-    const { id } = req.params;
-    try {
-        const stmt = db.prepare('UPDATE income_sources SET is_active = 0 WHERE id = ? AND user_id = ?');
-        const result = stmt.run(id, req.user.id);
-        if (result.changes === 0) return res.status(404).json({error: 'Income source not found'});
-        res.json({ success: true });
-        broadcastChange(req.user.id, 'income_source', 'deleted');
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    return executeIdempotent(req, res, () => {
+        const { id } = req.params;
+        try {
+            const timestamp = nowIso();
+            const stmt = db.prepare('UPDATE income_sources SET is_active = 0, updated_at = ? WHERE id = ? AND user_id = ?');
+            const result = stmt.run(timestamp, id, req.user.id);
+            if (result.changes === 0) return { statusCode: 404, body: { error: 'Income source not found' } };
+            recordDeletedRecord(req.user.id, 'income_source', Number(id), timestamp);
+            const body = getRowById('income_sources', id);
+            broadcastChange(req.user.id, 'income_source', 'deleted');
+            return { statusCode: 200, body };
+        } catch (err) {
+            return { statusCode: 500, body: { error: err.message } };
+        }
+    });
 });
 
 // Months
@@ -436,9 +687,11 @@ app.get('/api/months', (req, res) => {
 });
 
 app.post('/api/months/ensure', (req, res) => {
-    const { year, month } = req.body;
-    const id = getOrCreateMonth(req.user.id, year, month);
-    res.json({ id, year, month });
+    return executeIdempotent(req, res, () => {
+        const { year, month } = req.body;
+        const id = getOrCreateMonth(req.user.id, year, month);
+        return { statusCode: 200, body: getRowById('months', id) };
+    });
 });
 
 // Incomes
@@ -451,35 +704,44 @@ app.get('/api/months/:monthId/incomes', (req, res) => {
 });
 
 app.post('/api/incomes', (req, res) => {
-    const { month_id, source, amount, date } = req.body;
-    
-    if (!checkMonthAccess(req.user.id, month_id)) return res.status(403).json({ error: 'Access denied' });
+    return executeIdempotent(req, res, () => {
+        const { month_id, source, amount, date } = req.body;
+        
+        if (!checkMonthAccess(req.user.id, month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
 
-    const info = db.prepare('INSERT INTO incomes (month_id, source, amount, date) VALUES (?, ?, ?, ?)').run(month_id, source, amount, date);
-    res.json({ id: info.lastInsertRowid, ...req.body });
-    broadcastChange(req.user.id, 'income', 'created');
+        const timestamp = nowIso();
+        const info = db.prepare('INSERT INTO incomes (month_id, source, amount, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(month_id, source, amount, date, timestamp, timestamp);
+        const body = getRowById('incomes', info.lastInsertRowid);
+        broadcastChange(req.user.id, 'income', 'created');
+        return { statusCode: 200, body };
+    });
 });
 
 app.put('/api/incomes/:id', (req, res) => {
-    const { amount } = req.body;
-    // Need to verify ownership via month_id
-    const income = db.prepare('SELECT month_id FROM incomes WHERE id = ?').get(req.params.id);
-    if (!income) return res.status(404).json({ error: 'Income not found' });
-    if (!checkMonthAccess(req.user.id, income.month_id)) return res.status(403).json({ error: 'Access denied' });
+    return executeIdempotent(req, res, () => {
+        const { amount } = req.body;
+        const income = db.prepare('SELECT month_id FROM incomes WHERE id = ?').get(req.params.id);
+        if (!income) return { statusCode: 404, body: { error: 'Income not found' } };
+        if (!checkMonthAccess(req.user.id, income.month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
 
-    db.prepare('UPDATE incomes SET amount = ? WHERE id = ?').run(amount, req.params.id);
-    res.json({ success: true });
-    broadcastChange(req.user.id, 'income', 'updated');
+        db.prepare('UPDATE incomes SET amount = ?, updated_at = ? WHERE id = ?').run(amount, nowIso(), req.params.id);
+        const body = getRowById('incomes', req.params.id);
+        broadcastChange(req.user.id, 'income', 'updated');
+        return { statusCode: 200, body };
+    });
 });
 
 app.delete('/api/incomes/:id', (req, res) => {
-    const income = db.prepare('SELECT month_id FROM incomes WHERE id = ?').get(req.params.id);
-    if (!income) return res.status(404).json({ error: 'Income not found' });
-    if (!checkMonthAccess(req.user.id, income.month_id)) return res.status(403).json({ error: 'Access denied' });
+    return executeIdempotent(req, res, () => {
+        const income = db.prepare('SELECT * FROM incomes WHERE id = ?').get(req.params.id);
+        if (!income) return { statusCode: 404, body: { error: 'Income not found' } };
+        if (!checkMonthAccess(req.user.id, income.month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
 
-    db.prepare('DELETE FROM incomes WHERE id = ?').run(req.params.id);
-    res.json({ success: true });
-    broadcastChange(req.user.id, 'income', 'deleted');
+        recordDeletedRecord(req.user.id, 'income', income.id);
+        db.prepare('DELETE FROM incomes WHERE id = ?').run(req.params.id);
+        broadcastChange(req.user.id, 'income', 'deleted');
+        return { statusCode: 200, body: { success: true, id: income.id } };
+    });
 });
 
 // Expenses
@@ -496,39 +758,48 @@ app.get('/api/months/:monthId/expenses', (req, res) => {
 });
 
 app.post('/api/expenses', (req, res) => {
-    const { month_id, category_id, amount, date, comment } = req.body;
-    
-    if (!checkMonthAccess(req.user.id, month_id)) return res.status(403).json({ error: 'Access denied' });
-    
-    // Verify category ownership
-    const category = db.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').get(category_id, req.user.id);
-    if (!category) return res.status(400).json({ error: 'Invalid category' });
+    return executeIdempotent(req, res, () => {
+        const { month_id, category_id, amount, date, comment } = req.body;
+        
+        if (!checkMonthAccess(req.user.id, month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
+        
+        const category = db.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').get(category_id, req.user.id);
+        if (!category) return { statusCode: 400, body: { error: 'Invalid category' } };
 
-    const info = db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment) VALUES (?, ?, ?, ?, ?)').run(month_id, category_id, amount, date, comment || '');
-    res.json({ id: info.lastInsertRowid, ...req.body });
-    broadcastChange(req.user.id, 'expense', 'created');
+        const timestamp = nowIso();
+        const info = db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(month_id, category_id, amount, date, comment || '', timestamp, timestamp);
+        const body = getRowById('expenses', info.lastInsertRowid);
+        broadcastChange(req.user.id, 'expense', 'created');
+        return { statusCode: 200, body };
+    });
 });
 
 app.put('/api/expenses/:id', (req, res) => {
-    const { amount } = req.body;
-    
-    const expense = db.prepare('SELECT month_id FROM expenses WHERE id = ?').get(req.params.id);
-    if (!expense) return res.status(404).json({ error: 'Expense not found' });
-    if (!checkMonthAccess(req.user.id, expense.month_id)) return res.status(403).json({ error: 'Access denied' });
+    return executeIdempotent(req, res, () => {
+        const { amount } = req.body;
+        
+        const expense = db.prepare('SELECT month_id FROM expenses WHERE id = ?').get(req.params.id);
+        if (!expense) return { statusCode: 404, body: { error: 'Expense not found' } };
+        if (!checkMonthAccess(req.user.id, expense.month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
 
-    db.prepare('UPDATE expenses SET amount = ? WHERE id = ?').run(amount, req.params.id);
-    res.json({ success: true });
-    broadcastChange(req.user.id, 'expense', 'updated');
+        db.prepare('UPDATE expenses SET amount = ?, updated_at = ? WHERE id = ?').run(amount, nowIso(), req.params.id);
+        const body = getRowById('expenses', req.params.id);
+        broadcastChange(req.user.id, 'expense', 'updated');
+        return { statusCode: 200, body };
+    });
 });
 
 app.delete('/api/expenses/:id', (req, res) => {
-    const expense = db.prepare('SELECT month_id FROM expenses WHERE id = ?').get(req.params.id);
-    if (!expense) return res.status(404).json({ error: 'Expense not found' });
-    if (!checkMonthAccess(req.user.id, expense.month_id)) return res.status(403).json({ error: 'Access denied' });
+    return executeIdempotent(req, res, () => {
+        const expense = db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id);
+        if (!expense) return { statusCode: 404, body: { error: 'Expense not found' } };
+        if (!checkMonthAccess(req.user.id, expense.month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
 
-    db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);
-    res.json({ success: true });
-    broadcastChange(req.user.id, 'expense', 'deleted');
+        recordDeletedRecord(req.user.id, 'expense', expense.id);
+        db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);
+        broadcastChange(req.user.id, 'expense', 'deleted');
+        return { statusCode: 200, body: { success: true, id: expense.id } };
+    });
 });
 
 // Budgets (Limits)
@@ -545,21 +816,26 @@ app.get('/api/months/:monthId/budgets', (req, res) => {
 });
 
 app.post('/api/budgets', (req, res) => {
-    const { month_id, category_id, limit_amount } = req.body;
-    
-    if (!checkMonthAccess(req.user.id, month_id)) return res.status(403).json({ error: 'Access denied' });
+    return executeIdempotent(req, res, () => {
+        const { month_id, category_id, limit_amount } = req.body;
+        
+        if (!checkMonthAccess(req.user.id, month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
 
-    // Check if exists
-    const existing = db.prepare('SELECT id FROM budgets WHERE month_id = ? AND category_id = ?').get(month_id, category_id);
+        const existing = db.prepare('SELECT id FROM budgets WHERE month_id = ? AND category_id = ?').get(month_id, category_id);
+        let body;
 
-    if (existing) {
-        db.prepare('UPDATE budgets SET limit_amount = ? WHERE id = ?').run(limit_amount, existing.id);
-        res.json({ id: existing.id, month_id, category_id, limit_amount });
-    } else {
-        const info = db.prepare('INSERT INTO budgets (month_id, category_id, limit_amount) VALUES (?, ?, ?)').run(month_id, category_id, limit_amount);
-        res.json({ id: info.lastInsertRowid, month_id, category_id, limit_amount });
-    }
-    broadcastChange(req.user.id, 'budget', 'updated');
+        if (existing) {
+            db.prepare('UPDATE budgets SET limit_amount = ?, updated_at = ? WHERE id = ?').run(limit_amount, nowIso(), existing.id);
+            body = getRowById('budgets', existing.id);
+        } else {
+            const timestamp = nowIso();
+            const info = db.prepare('INSERT INTO budgets (month_id, category_id, limit_amount, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(month_id, category_id, limit_amount, timestamp, timestamp);
+            body = getRowById('budgets', info.lastInsertRowid);
+        }
+
+        broadcastChange(req.user.id, 'budget', 'updated');
+        return { statusCode: 200, body };
+    });
 });
 
 // Savings
@@ -569,100 +845,269 @@ app.get('/api/savings_goals', (req, res) => {
 });
 
 app.post('/api/savings_goals', (req, res) => {
-    const { name, target_amount } = req.body;
-    const info = db.prepare('INSERT INTO savings_goals (user_id, name, target_amount, current_amount) VALUES (?, ?, ?, 0)').run(req.user.id, name, target_amount || 0);
-    res.json({ id: info.lastInsertRowid, name, target_amount, current_amount: 0 });
-    broadcastChange(req.user.id, 'savings_goal', 'created');
+    return executeIdempotent(req, res, () => {
+        const { name, target_amount } = req.body;
+        const timestamp = nowIso();
+        const info = db.prepare('INSERT INTO savings_goals (user_id, name, target_amount, current_amount, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)').run(req.user.id, name, target_amount || 0, timestamp, timestamp);
+        const body = getRowById('savings_goals', info.lastInsertRowid);
+        broadcastChange(req.user.id, 'savings_goal', 'created');
+        return { statusCode: 200, body };
+    });
 });
 
 app.put('/api/savings_goals/:id', (req, res) => {
-    const { name, target_amount, current_amount } = req.body;
-    const updates = [];
-    const values = [];
-    
-    if (name !== undefined) {
-        updates.push('name = ?');
-        values.push(name);
-    }
-    if (target_amount !== undefined) {
-        updates.push('target_amount = ?');
-        values.push(target_amount);
-    }
-    if (current_amount !== undefined) {
-        updates.push('current_amount = ?');
-        values.push(current_amount);
-    }
-    
-    if (updates.length === 0) {
-        return res.json({ success: true });
-    }
-    
-    // Check ownership
-    const goal = db.prepare('SELECT id FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
-    if (!goal) return res.status(404).json({ error: 'Goal not found' });
+    return executeIdempotent(req, res, () => {
+        const { name, target_amount, current_amount } = req.body;
+        const updates = [];
+        const values = [];
+        
+        if (name !== undefined) {
+            updates.push('name = ?');
+            values.push(name);
+        }
+        if (target_amount !== undefined) {
+            updates.push('target_amount = ?');
+            values.push(target_amount);
+        }
+        if (current_amount !== undefined) {
+            updates.push('current_amount = ?');
+            values.push(current_amount);
+        }
+        
+        const goal = db.prepare('SELECT id FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+        if (!goal) return { statusCode: 404, body: { error: 'Goal not found' } };
 
-    const sql = `UPDATE savings_goals SET ${updates.join(', ')} WHERE id = ?`;
-    db.prepare(sql).run(...values, req.params.id);
-    res.json({ success: true });
-    broadcastChange(req.user.id, 'savings_goal', 'updated');
+        if (updates.length === 0) {
+            return { statusCode: 200, body: getRowById('savings_goals', req.params.id) };
+        }
+
+        updates.push('updated_at = ?');
+        values.push(nowIso());
+        const sql = `UPDATE savings_goals SET ${updates.join(', ')} WHERE id = ?`;
+        db.prepare(sql).run(...values, req.params.id);
+        const body = getRowById('savings_goals', req.params.id);
+        broadcastChange(req.user.id, 'savings_goal', 'updated');
+        return { statusCode: 200, body };
+    });
 });
 
 app.delete('/api/savings_goals/:id', (req, res) => {
-    const goal = db.prepare('SELECT id FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
-    if (!goal) return res.status(404).json({ error: 'Goal not found' });
+    return executeIdempotent(req, res, () => {
+        const goal = db.prepare('SELECT * FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+        if (!goal) return { statusCode: 404, body: { error: 'Goal not found' } };
 
-    // First delete all transactions for this goal
-    db.prepare('DELETE FROM savings_transactions WHERE goal_id = ?').run(req.params.id);
-    // Then delete the goal
-    db.prepare('DELETE FROM savings_goals WHERE id = ?').run(req.params.id);
-    res.json({ success: true });
-    broadcastChange(req.user.id, 'savings_goal', 'deleted');
+        const deletedAt = nowIso();
+        const transactions = db.prepare('SELECT id FROM savings_transactions WHERE goal_id = ?').all(req.params.id);
+        transactions.forEach((transaction) => {
+            recordDeletedRecord(req.user.id, 'savings_transaction', transaction.id, deletedAt);
+        });
+        recordDeletedRecord(req.user.id, 'savings_goal', goal.id, deletedAt);
+        db.prepare('DELETE FROM savings_transactions WHERE goal_id = ?').run(req.params.id);
+        db.prepare('DELETE FROM savings_goals WHERE id = ?').run(req.params.id);
+        broadcastChange(req.user.id, 'savings_goal', 'deleted');
+        return { statusCode: 200, body: { success: true, id: goal.id } };
+    });
 });
 
 app.post('/api/savings_transactions', (req, res) => {
-    const { goal_id, amount, date, month_id } = req.body;
-    
-    // Verify goal ownership
-    const goal = db.prepare('SELECT id, name FROM savings_goals WHERE id = ? AND user_id = ?').get(goal_id, req.user.id);
-    if (!goal) return res.status(404).json({ error: 'Goal not found' });
-    
-    if (month_id) {
-        if (!checkMonthAccess(req.user.id, month_id)) return res.status(403).json({ error: 'Access denied to month' });
-    }
+    return executeIdempotent(req, res, () => {
+        const { goal_id, amount, date, month_id } = req.body;
+        
+        const goal = db.prepare('SELECT id, name FROM savings_goals WHERE id = ? AND user_id = ?').get(goal_id, req.user.id);
+        if (!goal) return { statusCode: 404, body: { error: 'Goal not found' } };
+        
+        if (month_id && !checkMonthAccess(req.user.id, month_id)) {
+            return { statusCode: 403, body: { error: 'Access denied to month' } };
+        }
 
-    const transact = db.transaction(() => {
-        const info = db.prepare('INSERT INTO savings_transactions (goal_id, amount, date, month_id) VALUES (?, ?, ?, ?)').run(goal_id, amount, date, month_id);
-        
-        // Update goal balance
-        db.prepare('UPDATE savings_goals SET current_amount = current_amount + ? WHERE id = ?').run(amount, goal_id);
-        
-        // If deposit (positive amount), create a hidden expense to reduce available balance
-        if (amount > 0 && month_id) {
-            // Get or create "Пополнение копилки" category (hidden) for THIS USER
-            let savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
-            if (!savingsCategory) {
-                const maxOrder = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
-                const nextOrder = (maxOrder.maxOrder || 0) + 1;
-                const catInfo = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_active) VALUES (?, ?, ?, 0)').run(req.user.id, 'Пополнение копилки', nextOrder);
-                savingsCategory = { id: catInfo.lastInsertRowid };
+        const transact = db.transaction(() => {
+            const timestamp = nowIso();
+            const info = db.prepare('INSERT INTO savings_transactions (goal_id, amount, date, month_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(goal_id, amount, date, month_id, timestamp, timestamp);
+            
+            db.prepare('UPDATE savings_goals SET current_amount = current_amount + ?, updated_at = ? WHERE id = ?').run(amount, timestamp, goal_id);
+            
+            if (amount > 0 && month_id) {
+                let savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
+                if (!savingsCategory) {
+                    const maxOrder = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
+                    const nextOrder = (maxOrder.maxOrder || 0) + 1;
+                    const catInfo = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)').run(req.user.id, 'Пополнение копилки', nextOrder, timestamp, timestamp);
+                    savingsCategory = { id: catInfo.lastInsertRowid };
+                }
+                
+                db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+                    month_id,
+                    savingsCategory.id,
+                    amount,
+                    date,
+                    `Пополнение копилки "${goal.name}"`,
+                    timestamp,
+                    timestamp
+                );
             }
             
-            // Create hidden expense for the deposit amount
-            db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment) VALUES (?, ?, ?, ?, ?)').run(
-                month_id,
-                savingsCategory.id,
-                amount,
-                date,
-                `Пополнение копилки "${goal.name}"`
-            );
-        }
-        
-        return info;
-    });
+            return info;
+        });
 
-    const info = transact();
-    res.json({ id: info.lastInsertRowid, ...req.body });
-    broadcastChange(req.user.id, 'savings_transaction', 'created');
+        const info = transact();
+        const body = getRowById('savings_transactions', info.lastInsertRowid);
+        broadcastChange(req.user.id, 'savings_transaction', 'created');
+        return { statusCode: 200, body };
+    });
+});
+
+app.delete('/api/savings_transactions/:id', (req, res) => {
+    return executeIdempotent(req, res, () => {
+        const transaction = db.prepare(`
+            SELECT st.*, sg.user_id, sg.name as goal_name
+            FROM savings_transactions st
+            JOIN savings_goals sg ON st.goal_id = sg.id
+            WHERE st.id = ? AND sg.user_id = ?
+        `).get(req.params.id, req.user.id);
+
+        if (!transaction) return { statusCode: 404, body: { error: 'Savings transaction not found' } };
+
+        const transact = db.transaction(() => {
+            const timestamp = nowIso();
+
+            db.prepare('UPDATE savings_goals SET current_amount = current_amount - ?, updated_at = ? WHERE id = ?').run(transaction.amount, timestamp, transaction.goal_id);
+
+            if (transaction.amount > 0 && transaction.month_id) {
+                const savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
+                if (savingsCategory) {
+                    db.prepare(`
+                        DELETE FROM expenses
+                        WHERE id = (
+                            SELECT id
+                            FROM expenses
+                            WHERE month_id = ? AND category_id = ? AND amount = ? AND date = ? AND comment = ?
+                            ORDER BY id DESC
+                            LIMIT 1
+                        )
+                    `).run(
+                        transaction.month_id,
+                        savingsCategory.id,
+                        transaction.amount,
+                        transaction.date,
+                        `Пополнение копилки "${transaction.goal_name}"`,
+                    );
+                }
+            }
+
+            recordDeletedRecord(req.user.id, 'savings_transaction', transaction.id, timestamp);
+            db.prepare('DELETE FROM savings_transactions WHERE id = ?').run(req.params.id);
+        });
+
+        transact();
+        broadcastChange(req.user.id, 'savings_transaction', 'deleted');
+        return { statusCode: 200, body: { success: true, id: transaction.id } };
+    });
+});
+
+app.put('/api/savings_transactions/:id', (req, res) => {
+    return executeIdempotent(req, res, () => {
+        const { goal_id, amount, date, month_id } = req.body;
+
+        const existingTransaction = db.prepare(`
+            SELECT st.*, sg.user_id, sg.name as goal_name
+            FROM savings_transactions st
+            JOIN savings_goals sg ON st.goal_id = sg.id
+            WHERE st.id = ? AND sg.user_id = ?
+        `).get(req.params.id, req.user.id);
+
+        if (!existingTransaction) {
+            return { statusCode: 404, body: { error: 'Savings transaction not found' } };
+        }
+
+        const nextGoalId = goal_id ?? existingTransaction.goal_id;
+        const nextAmount = amount ?? existingTransaction.amount;
+        const nextDate = date ?? existingTransaction.date;
+        const nextMonthId = month_id !== undefined ? month_id : existingTransaction.month_id;
+
+        const nextGoal = db.prepare('SELECT id, name FROM savings_goals WHERE id = ? AND user_id = ?').get(nextGoalId, req.user.id);
+        if (!nextGoal) {
+            return { statusCode: 404, body: { error: 'Goal not found' } };
+        }
+
+        if (nextMonthId && !checkMonthAccess(req.user.id, nextMonthId)) {
+            return { statusCode: 403, body: { error: 'Access denied to month' } };
+        }
+
+        const transact = db.transaction(() => {
+            const timestamp = nowIso();
+
+            db.prepare('UPDATE savings_goals SET current_amount = current_amount - ?, updated_at = ? WHERE id = ?').run(
+                existingTransaction.amount,
+                timestamp,
+                existingTransaction.goal_id
+            );
+
+            if (existingTransaction.amount > 0 && existingTransaction.month_id) {
+                const savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
+                if (savingsCategory) {
+                    db.prepare(`
+                        DELETE FROM expenses
+                        WHERE id = (
+                            SELECT id
+                            FROM expenses
+                            WHERE month_id = ? AND category_id = ? AND amount = ? AND date = ? AND comment = ?
+                            ORDER BY id DESC
+                            LIMIT 1
+                        )
+                    `).run(
+                        existingTransaction.month_id,
+                        savingsCategory.id,
+                        existingTransaction.amount,
+                        existingTransaction.date,
+                        `Пополнение копилки "${existingTransaction.goal_name}"`,
+                    );
+                }
+            }
+
+            db.prepare(`
+                UPDATE savings_transactions
+                SET goal_id = ?, amount = ?, date = ?, month_id = ?, updated_at = ?
+                WHERE id = ?
+            `).run(nextGoalId, nextAmount, nextDate, nextMonthId, timestamp, req.params.id);
+
+            db.prepare('UPDATE savings_goals SET current_amount = current_amount + ?, updated_at = ? WHERE id = ?').run(
+                nextAmount,
+                timestamp,
+                nextGoalId
+            );
+
+            if (nextAmount > 0 && nextMonthId) {
+                let savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
+                if (!savingsCategory) {
+                    const maxOrder = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
+                    const nextOrder = (maxOrder.maxOrder || 0) + 1;
+                    const catInfo = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)').run(
+                        req.user.id,
+                        'Пополнение копилки',
+                        nextOrder,
+                        timestamp,
+                        timestamp
+                    );
+                    savingsCategory = { id: catInfo.lastInsertRowid };
+                }
+
+                db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+                    nextMonthId,
+                    savingsCategory.id,
+                    nextAmount,
+                    nextDate,
+                    `Пополнение копилки "${nextGoal.name}"`,
+                    timestamp,
+                    timestamp
+                );
+            }
+        });
+
+        transact();
+        const body = getRowById('savings_transactions', req.params.id);
+        broadcastChange(req.user.id, 'savings_transaction', 'updated');
+        return { statusCode: 200, body };
+    });
 });
 
 app.get('/api/savings_transactions/:goalId', (req, res) => {

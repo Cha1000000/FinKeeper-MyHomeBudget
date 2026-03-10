@@ -46,6 +46,12 @@ class ApiClient(
 
     private val baseUrl: String get() = tokenStorage.serverUrl + "/api"
 
+    private fun HttpRequestBuilder.applyOperationId(operationId: String?) {
+        if (!operationId.isNullOrBlank()) {
+            header("X-Operation-Id", operationId)
+        }
+    }
+
     // ── Auth ──
 
     suspend fun login(
@@ -106,6 +112,21 @@ class ApiClient(
         checkResponse(response)
     }
 
+    suspend fun getDeletedRecords(
+        entityType: String? = null,
+        since: String? = null,
+    ): List<DeletedRecord> {
+        val response =
+            client.get("$baseUrl/deleted_records") {
+                url {
+                    entityType?.takeIf { it.isNotBlank() }?.let { parameters.append("entity_type", it) }
+                    since?.takeIf { it.isNotBlank() }?.let { parameters.append("since", it) }
+                }
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
     // ── Categories ──
 
     suspend fun getCategories(): List<Category> {
@@ -114,9 +135,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun createCategory(name: String): Category {
+    suspend fun createCategory(
+        name: String,
+        operationId: String? = null,
+    ): Category {
         val response =
             client.post("$baseUrl/categories") {
+                applyOperationId(operationId)
                 setBody(CreateCategoryRequest(name))
             }
         checkResponse(response)
@@ -126,12 +151,15 @@ class ApiClient(
     suspend fun updateCategory(
         id: Int,
         request: UpdateCategoryRequest,
-    ) {
+        operationId: String? = null,
+    ): Category {
         val response =
             client.put("$baseUrl/categories/$id") {
+                applyOperationId(operationId)
                 setBody(request)
             }
         checkResponse(response)
+        return response.body()
     }
 
     suspend fun reorderCategories(ids: List<Int>) {
@@ -142,8 +170,14 @@ class ApiClient(
         checkResponse(response)
     }
 
-    suspend fun deleteCategory(id: Int) {
-        val response = client.delete("$baseUrl/categories/$id")
+    suspend fun deleteCategory(
+        id: Int,
+        operationId: String? = null,
+    ) {
+        val response =
+            client.delete("$baseUrl/categories/$id") {
+                applyOperationId(operationId)
+            }
         checkResponse(response)
     }
 
@@ -155,9 +189,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun createIncomeSource(name: String): IncomeSource {
+    suspend fun createIncomeSource(
+        name: String,
+        operationId: String? = null,
+    ): IncomeSource {
         val response =
             client.post("$baseUrl/income_sources") {
+                applyOperationId(operationId)
                 setBody(CreateIncomeSourceRequest(name))
             }
         checkResponse(response)
@@ -167,12 +205,15 @@ class ApiClient(
     suspend fun updateIncomeSource(
         id: Int,
         request: UpdateIncomeSourceRequest,
-    ) {
+        operationId: String? = null,
+    ): IncomeSource {
         val response =
             client.put("$baseUrl/income_sources/$id") {
+                applyOperationId(operationId)
                 setBody(request)
             }
         checkResponse(response)
+        return response.body()
     }
 
     suspend fun reorderIncomeSources(ids: List<Int>) {
@@ -183,8 +224,14 @@ class ApiClient(
         checkResponse(response)
     }
 
-    suspend fun deleteIncomeSource(id: Int) {
-        val response = client.delete("$baseUrl/income_sources/$id")
+    suspend fun deleteIncomeSource(
+        id: Int,
+        operationId: String? = null,
+    ) {
+        val response =
+            client.delete("$baseUrl/income_sources/$id") {
+                applyOperationId(operationId)
+            }
         checkResponse(response)
     }
 
@@ -210,9 +257,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun addIncome(request: AddIncomeRequest): Income {
+    suspend fun addIncome(
+        request: AddIncomeRequest,
+        operationId: String? = null,
+    ): Income {
         val response =
             client.post("$baseUrl/incomes") {
+                applyOperationId(operationId)
                 setBody(request)
             }
         checkResponse(response)
@@ -222,16 +273,25 @@ class ApiClient(
     suspend fun updateIncome(
         id: Int,
         amount: Double,
-    ) {
+        operationId: String? = null,
+    ): Income {
         val response =
             client.put("$baseUrl/incomes/$id") {
+                applyOperationId(operationId)
                 setBody(UpdateAmountRequest(amount))
             }
         checkResponse(response)
+        return response.body()
     }
 
-    suspend fun deleteIncome(id: Int) {
-        val response = client.delete("$baseUrl/incomes/$id")
+    suspend fun deleteIncome(
+        id: Int,
+        operationId: String? = null,
+    ) {
+        val response =
+            client.delete("$baseUrl/incomes/$id") {
+                applyOperationId(operationId)
+            }
         checkResponse(response)
     }
 
@@ -243,9 +303,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun addExpense(request: AddExpenseRequest): Expense {
+    suspend fun addExpense(
+        request: AddExpenseRequest,
+        operationId: String? = null,
+    ): Expense {
         val response =
             client.post("$baseUrl/expenses") {
+                applyOperationId(operationId)
                 setBody(request)
             }
         checkResponse(response)
@@ -255,16 +319,25 @@ class ApiClient(
     suspend fun updateExpense(
         id: Int,
         amount: Double,
-    ) {
+        operationId: String? = null,
+    ): Expense {
         val response =
             client.put("$baseUrl/expenses/$id") {
+                applyOperationId(operationId)
                 setBody(UpdateAmountRequest(amount))
             }
         checkResponse(response)
+        return response.body()
     }
 
-    suspend fun deleteExpense(id: Int) {
-        val response = client.delete("$baseUrl/expenses/$id")
+    suspend fun deleteExpense(
+        id: Int,
+        operationId: String? = null,
+    ) {
+        val response =
+            client.delete("$baseUrl/expenses/$id") {
+                applyOperationId(operationId)
+            }
         checkResponse(response)
     }
 
@@ -276,9 +349,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun setBudget(request: SetBudgetRequest): Budget {
+    suspend fun setBudget(
+        request: SetBudgetRequest,
+        operationId: String? = null,
+    ): Budget {
         val response =
             client.post("$baseUrl/budgets") {
+                applyOperationId(operationId)
                 setBody(request)
             }
         checkResponse(response)
@@ -288,12 +365,15 @@ class ApiClient(
     suspend fun updateBudget(
         id: Int,
         request: SetBudgetRequest,
-    ) {
+        operationId: String? = null,
+    ): Budget {
         val response =
-            client.put("$baseUrl/budgets/$id") {
+            client.post("$baseUrl/budgets") {
+                applyOperationId(operationId)
                 setBody(request)
             }
         checkResponse(response)
+        return response.body()
     }
 
     // ── Savings ──
@@ -304,9 +384,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun createSavingsGoal(request: CreateSavingsGoalRequest): SavingsGoal {
+    suspend fun createSavingsGoal(
+        request: CreateSavingsGoalRequest,
+        operationId: String? = null,
+    ): SavingsGoal {
         val response =
             client.post("$baseUrl/savings_goals") {
+                applyOperationId(operationId)
                 setBody(request)
             }
         checkResponse(response)
@@ -316,22 +400,35 @@ class ApiClient(
     suspend fun updateSavingsGoal(
         id: Int,
         request: UpdateSavingsGoalRequest,
-    ) {
+        operationId: String? = null,
+    ): SavingsGoal {
         val response =
             client.put("$baseUrl/savings_goals/$id") {
+                applyOperationId(operationId)
                 setBody(request)
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun deleteSavingsGoal(
+        id: Int,
+        operationId: String? = null,
+    ) {
+        val response =
+            client.delete("$baseUrl/savings_goals/$id") {
+                applyOperationId(operationId)
             }
         checkResponse(response)
     }
 
-    suspend fun deleteSavingsGoal(id: Int) {
-        val response = client.delete("$baseUrl/savings_goals/$id")
-        checkResponse(response)
-    }
-
-    suspend fun addSavingsTransaction(request: AddSavingsTransactionRequest): SavingsTransaction {
+    suspend fun addSavingsTransaction(
+        request: AddSavingsTransactionRequest,
+        operationId: String? = null,
+    ): SavingsTransaction {
         val response =
             client.post("$baseUrl/savings_transactions") {
+                applyOperationId(operationId)
                 setBody(request)
             }
         checkResponse(response)
@@ -347,16 +444,25 @@ class ApiClient(
     suspend fun updateSavingsTransaction(
         id: Int,
         request: AddSavingsTransactionRequest,
-    ) {
+        operationId: String? = null,
+    ): SavingsTransaction {
         val response =
             client.put("$baseUrl/savings_transactions/$id") {
+                applyOperationId(operationId)
                 setBody(request)
             }
         checkResponse(response)
+        return response.body()
     }
 
-    suspend fun deleteSavingsTransaction(id: Int) {
-        val response = client.delete("$baseUrl/savings_transactions/$id")
+    suspend fun deleteSavingsTransaction(
+        id: Int,
+        operationId: String? = null,
+    ) {
+        val response =
+            client.delete("$baseUrl/savings_transactions/$id") {
+                applyOperationId(operationId)
+            }
         checkResponse(response)
     }
 

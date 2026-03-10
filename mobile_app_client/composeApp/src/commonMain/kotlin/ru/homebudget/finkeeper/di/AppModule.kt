@@ -5,6 +5,7 @@ import ru.homebudget.finkeeper.data.local.dao.*
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.SyncStateStorage
 import ru.homebudget.finkeeper.data.repository.SyncService
 import ru.homebudget.finkeeper.data.repository.WebSocketService
 import ru.homebudget.finkeeper.data.repository.budget.BudgetRepository
@@ -26,6 +27,7 @@ val appModule =
         // Remote data
         single { TokenStorage() }
         single { ApiClient(get()) }
+        single { SyncStateStorage(get()) }
 
         // DAOs (DatabaseProvider предоставляется в platform-specific модулях)
         single { UserDao(get<ru.homebudget.finkeeper.data.local.database.DatabaseProvider>().database) }
@@ -47,7 +49,7 @@ val appModule =
         single { MonthRepository(get(), get(), get()) }
         single { BudgetRepository(get(), get(), get(), get(), get()) }
         single { SavingsGoalRepository(get(), get(), get()) }
-        single { SavingsTransactionRepository(get(), get(), get()) }
+        single { SavingsTransactionRepository(get(), get(), get(), get()) }
 
         // SyncManager должен быть создан после репозиториев
         single {
@@ -67,8 +69,10 @@ val appModule =
                 get(), // monthRepository
                 get(), // incomeRepository
                 get(), // expenseRepository
+                get(), // budgetRepository
                 get(), // savingsGoalRepository
                 get(), // savingsTransactionRepository
+                get(), // syncStateStorage
                 get(), // tokenStorage
             )
         }

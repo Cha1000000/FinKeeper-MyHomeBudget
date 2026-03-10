@@ -19,6 +19,8 @@ class BudgetDao(
         monthId: Long,
         categoryId: Long,
         limitAmount: Long,
+        createdAt: String? = null,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ): Long {
@@ -29,8 +31,8 @@ class BudgetDao(
                 month_id = monthId,
                 category_id = categoryId,
                 limit_amount = limitAmount,
-                created_at = now,
-                updated_at = now,
+                created_at = createdAt ?: now,
+                updated_at = updatedAt ?: createdAt ?: now,
                 server_id = serverId,
                 sync_status = syncStatus
             )
@@ -46,6 +48,7 @@ class BudgetDao(
         monthId: Long,
         categoryId: Long,
         limitAmount: Long,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ) {
@@ -54,7 +57,7 @@ class BudgetDao(
             month_id = monthId,
             category_id = categoryId,
             limit_amount = limitAmount,
-            updated_at = now,
+            updated_at = updatedAt ?: now,
             server_id = serverId,
             sync_status = syncStatus,
             id = id

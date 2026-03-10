@@ -13,6 +13,7 @@ import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.Category as RemoteCategory
 
 /**
@@ -261,12 +262,9 @@ class CategoryRepository(
     suspend fun syncWithServer(userId: Long): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
-                // Получаем данные с сервера
                 val remoteCategories = apiClient.getCategories()
-                val now = Clock.System.now().toString()
                 val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.CATEGORY.value)
 
-                // Обновляем локальные данные
                 for (remote in remoteCategories) {
                     if (remote.id.toString() in pendingDeleteServerIds) {
                         continue
@@ -275,35 +273,42 @@ class CategoryRepository(
                     val existing = categoryDao.getByServerId(remote.id.toString())
 
                     if (existing != null) {
-                        if (existing.syncStatus == SyncStatus.PENDING.value) {
+                        if (
+                            existing.syncStatus != SyncStatus.SYNCED.value ||
+                            syncManager.hasActiveQueueOperation(EntityType.CATEGORY.value, existing.id)
+                        ) {
                             continue
                         }
 
-                        // Обновляем существующую
+                        if (!shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
+                            continue
+                        }
+
                         categoryDao.update(
                             id = existing.id,
                             name = remote.name,
-                            type = "expense", // Default type
-                            icon = null,
-                            color = null,
+                            type = existing.type,
+                            icon = existing.icon,
+                            color = existing.color,
                             sortOrder = remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
-                            updatedAt = now,
+                            updatedAt = remote.updatedAt ?: existing.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
                         )
                     } else {
-                        // Создаём новую
+                        val remoteCreatedAt = remote.createdAt ?: remote.updatedAt ?: Clock.System.now().toString()
+                        val remoteUpdatedAt = remote.updatedAt ?: remote.createdAt ?: remoteCreatedAt
                         categoryDao.insert(
                             userId = userId,
                             name = remote.name,
-                            type = "expense", // Default type
+                            type = "expense",
                             icon = null,
                             color = null,
                             sortOrder = remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
-                            createdAt = now,
-                            updatedAt = now,
+                            createdAt = remoteCreatedAt,
+                            updatedAt = remoteUpdatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
                         )

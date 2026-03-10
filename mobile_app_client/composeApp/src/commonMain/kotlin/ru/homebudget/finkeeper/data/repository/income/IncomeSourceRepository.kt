@@ -12,6 +12,7 @@ import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.IncomeSource as RemoteIncomeSource
 
 /**
@@ -215,15 +216,23 @@ class IncomeSourceRepository(
                     val existing = incomeSourceDao.getByServerId(remote.id.toString())
 
                     if (existing != null) {
-                        if (existing.syncStatus == SyncStatus.PENDING.value) {
+                        if (
+                            existing.syncStatus != SyncStatus.SYNCED.value ||
+                            syncManager.hasActiveQueueOperation(EntityType.INCOME_SOURCE.value, existing.id)
+                        ) {
+                            continue
+                        }
+
+                        if (!shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
                             continue
                         }
 
                         incomeSourceDao.update(
                             id = existing.id,
                             name = remote.name,
-                            sortOrder = 0L, // Default sort order
+                            sortOrder = remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
+                            updatedAt = remote.updatedAt ?: existing.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
                         )
@@ -231,8 +240,10 @@ class IncomeSourceRepository(
                         incomeSourceDao.insert(
                             userId = userId,
                             name = remote.name,
-                            sortOrder = 0L,
+                            sortOrder = remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
+                            createdAt = remote.createdAt,
+                            updatedAt = remote.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
                         )

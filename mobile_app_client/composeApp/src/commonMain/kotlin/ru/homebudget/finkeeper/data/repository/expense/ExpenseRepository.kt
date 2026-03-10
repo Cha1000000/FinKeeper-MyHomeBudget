@@ -17,6 +17,7 @@ import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.Expense as RemoteExpense
 
 /**
@@ -231,7 +232,6 @@ class ExpenseRepository(
 
                 syncMutex.withLock {
                     val remoteExpenses = apiClient.getExpenses(serverMonthId)
-                    val now = Clock.System.now().toString()
 
                     // Предзагрузка категорий для резолва серверного categoryId → локальный
                     val allCategories = categoryDao.getAllByUser(userId)
@@ -247,9 +247,17 @@ class ExpenseRepository(
 
                         val existing = expenseDao.getByServerId(remote.id.toString())
 
-                        // Не перезаписываем записи с PENDING статусом —
-                        // они содержат локальные изменения, ещё не отправленные на сервер
-                        if (existing != null && existing.syncStatus == SyncStatus.PENDING.value) {
+                        if (
+                            existing != null &&
+                            (
+                                existing.syncStatus != SyncStatus.SYNCED.value ||
+                                    syncManager.hasActiveQueueOperation(EntityType.EXPENSE.value, existing.id)
+                            )
+                        ) {
+                            continue
+                        }
+
+                        if (existing != null && !shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
                             continue
                         }
 
@@ -275,12 +283,14 @@ class ExpenseRepository(
                                 amount = remote.amount.toLong(),
                                 description = remote.comment,
                                 date = remote.date,
-                                updatedAt = now,
+                                updatedAt = remote.updatedAt ?: existing.updatedAt,
                                 serverId = remote.id.toString(),
                                 syncStatus = SyncStatus.SYNCED.value,
                                 isHidden = existing.isHidden,
                             )
                         } else {
+                            val remoteCreatedAt = remote.createdAt ?: remote.updatedAt ?: Clock.System.now().toString()
+                            val remoteUpdatedAt = remote.updatedAt ?: remote.createdAt ?: remoteCreatedAt
                             expenseDao.insert(
                                 userId = userId,
                                 monthId = monthId,
@@ -288,8 +298,8 @@ class ExpenseRepository(
                                 amount = remote.amount.toLong(),
                                 description = remote.comment,
                                 date = remote.date,
-                                createdAt = now,
-                                updatedAt = now,
+                                createdAt = remoteCreatedAt,
+                                updatedAt = remoteUpdatedAt,
                                 serverId = remote.id.toString(),
                                 syncStatus = SyncStatus.SYNCED.value,
                                 isHidden = 0L,
@@ -300,7 +310,11 @@ class ExpenseRepository(
                     // Удаляем призрачные записи: локальные synced-записи, отсутствующие на сервере
                     val remoteServerIds = remoteExpenses.map { it.id.toString() }.toSet()
                     val allLocalExpenses = expenseDao.getByMonth(monthId)
-                    val localSyncedExpenses = allLocalExpenses.filter { it.serverId != null && it.syncStatus == SyncStatus.SYNCED.value }
+                    val localSyncedExpenses = allLocalExpenses.filter {
+                        it.serverId != null &&
+                            it.syncStatus == SyncStatus.SYNCED.value &&
+                            !syncManager.hasActiveQueueOperation(EntityType.EXPENSE.value, it.id)
+                    }
                     for (local in localSyncedExpenses) {
                         if (local.serverId !in remoteServerIds) {
                             expenseDao.deleteById(local.id)

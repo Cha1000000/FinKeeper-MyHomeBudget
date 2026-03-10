@@ -14,6 +14,7 @@ import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.Budget as RemoteBudget
 
 /**
@@ -169,30 +170,13 @@ class BudgetRepository(
 
                 val remoteBudgets = apiClient.getBudgets(serverMonthId)
                 val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.BUDGET.value)
-
-                // Предзагрузка категорий для резолва серверного categoryId → локальный
                 val allCategories = categoryDao.getAllByUser(userId)
-
-                // Удаляем все synced-бюджеты месяца перед вставкой,
-                // чтобы избежать UNIQUE constraint при исправлении categoryId
-                val existingBudgets = budgetDao.getByMonth(monthId)
-                val pendingBudgetCategoryIds =
-                    existingBudgets
-                        .filter { it.syncStatus != SyncStatus.SYNCED.value }
-                        .map { it.categoryId }
-                        .toSet()
-                for (existing in existingBudgets) {
-                    if (existing.syncStatus == SyncStatus.SYNCED.value) {
-                        budgetDao.deleteById(existing.id)
-                    }
-                }
 
                 for (remote in remoteBudgets) {
                     if (remote.id.toString() in pendingDeleteServerIds) {
                         continue
                     }
 
-                    // remote.categoryId — серверный ID, находим локальный
                     val localCategory = allCategories
                         .find { it.serverId == remote.categoryId.toString() }
                     if (localCategory == null) {
@@ -200,18 +184,46 @@ class BudgetRepository(
                     }
                     val localCategoryId = localCategory.id
 
-                    if (localCategoryId in pendingBudgetCategoryIds) {
+                    val existing =
+                        budgetDao.getByServerId(remote.id.toString())
+                            ?: budgetDao.getByMonthAndCategory(monthId, localCategoryId)
+
+                    if (
+                        existing != null &&
+                        (
+                            existing.syncStatus != SyncStatus.SYNCED.value ||
+                                syncManager.hasActiveQueueOperation(EntityType.BUDGET.value, existing.id)
+                        )
+                    ) {
                         continue
                     }
 
-                    budgetDao.insert(
-                        userId = userId,
-                        monthId = monthId,
-                        categoryId = localCategoryId,
-                        limitAmount = remote.limitAmount.toLong(),
-                        serverId = remote.id.toString(),
-                        syncStatus = SyncStatus.SYNCED.value,
-                    )
+                    if (existing != null) {
+                        if (!shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
+                            continue
+                        }
+
+                        budgetDao.update(
+                            id = existing.id,
+                            monthId = monthId,
+                            categoryId = localCategoryId,
+                            limitAmount = remote.limitAmount.toLong(),
+                            updatedAt = remote.updatedAt ?: existing.updatedAt,
+                            serverId = remote.id.toString(),
+                            syncStatus = SyncStatus.SYNCED.value,
+                        )
+                    } else {
+                        budgetDao.insert(
+                            userId = userId,
+                            monthId = monthId,
+                            categoryId = localCategoryId,
+                            limitAmount = remote.limitAmount.toLong(),
+                            createdAt = remote.createdAt,
+                            updatedAt = remote.updatedAt,
+                            serverId = remote.id.toString(),
+                            syncStatus = SyncStatus.SYNCED.value,
+                        )
+                    }
                 }
 
                 Result.success(Unit)

@@ -16,6 +16,7 @@ import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.Income as RemoteIncome
 
 /**
@@ -232,9 +233,17 @@ class IncomeRepository(
 
                         val existing = incomeDao.getByServerId(remote.id.toString())
 
-                        // Не перезаписываем записи с PENDING статусом —
-                        // они содержат локальные изменения, ещё не отправленные на сервер
-                        if (existing != null && existing.syncStatus == SyncStatus.PENDING.value) {
+                        if (
+                            existing != null &&
+                            (
+                                existing.syncStatus != SyncStatus.SYNCED.value ||
+                                    syncManager.hasActiveQueueOperation(EntityType.INCOME.value, existing.id)
+                            )
+                        ) {
+                            continue
+                        }
+
+                        if (existing != null && !shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
                             continue
                         }
 
@@ -256,6 +265,7 @@ class IncomeRepository(
                                 amount = remote.amount.toLong(),
                                 description = description,
                                 date = remote.date,
+                                updatedAt = remote.updatedAt ?: existing.updatedAt,
                                 serverId = remote.id.toString(),
                                 syncStatus = SyncStatus.SYNCED.value,
                             )
@@ -267,6 +277,8 @@ class IncomeRepository(
                                 amount = remote.amount.toLong(),
                                 description = description,
                                 date = remote.date,
+                                createdAt = remote.createdAt,
+                                updatedAt = remote.updatedAt,
                                 serverId = remote.id.toString(),
                                 syncStatus = SyncStatus.SYNCED.value,
                             )
@@ -276,7 +288,11 @@ class IncomeRepository(
                     // Удаляем призрачные записи: только SYNCED-записи, отсутствующие на сервере
                     // Не трогаем PENDING записи — они содержат локальные изменения
                     val remoteServerIds = remoteIncomes.map { it.id.toString() }.toSet()
-                    val localSyncedIncomes = incomeDao.getByMonth(monthId).filter { it.serverId != null && it.syncStatus == SyncStatus.SYNCED.value }
+                    val localSyncedIncomes = incomeDao.getByMonth(monthId).filter {
+                        it.serverId != null &&
+                            it.syncStatus == SyncStatus.SYNCED.value &&
+                            !syncManager.hasActiveQueueOperation(EntityType.INCOME.value, it.id)
+                    }
                     for (local in localSyncedIncomes) {
                         if (local.serverId !in remoteServerIds) {
                             incomeDao.deleteById(local.id)

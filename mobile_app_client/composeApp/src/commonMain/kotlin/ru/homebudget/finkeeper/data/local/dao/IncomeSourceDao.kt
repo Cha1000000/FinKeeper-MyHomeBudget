@@ -19,6 +19,8 @@ class IncomeSourceDao(
         name: String,
         sortOrder: Long = 0L,
         isActive: Long = 1L,
+        createdAt: String? = null,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ): Long {
@@ -29,8 +31,8 @@ class IncomeSourceDao(
                 name = name,
                 sort_order = sortOrder,
                 is_active = isActive,
-                created_at = now,
-                updated_at = now,
+                created_at = createdAt ?: now,
+                updated_at = updatedAt ?: createdAt ?: now,
                 server_id = serverId,
                 sync_status = syncStatus
             )
@@ -46,6 +48,7 @@ class IncomeSourceDao(
         name: String,
         sortOrder: Long,
         isActive: Long,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ) {
@@ -54,7 +57,7 @@ class IncomeSourceDao(
             name = name,
             sort_order = sortOrder,
             is_active = isActive,
-            updated_at = now,
+            updated_at = updatedAt ?: now,
             server_id = serverId,
             sync_status = syncStatus,
             id = id

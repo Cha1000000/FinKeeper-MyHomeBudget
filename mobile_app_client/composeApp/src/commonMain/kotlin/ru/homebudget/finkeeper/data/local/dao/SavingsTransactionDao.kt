@@ -39,6 +39,8 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
         type: String,
         description: String? = null,
         date: String,
+        createdAt: String? = null,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ): Long {
@@ -52,8 +54,8 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
                 type = type,
                 description = description,
                 date = date,
-                created_at = now,
-                updated_at = now,
+                created_at = createdAt ?: now,
+                updated_at = updatedAt ?: createdAt ?: now,
                 server_id = serverId,
                 sync_status = syncStatus
             )
@@ -72,6 +74,7 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
         type: String,
         description: String? = null,
         date: String,
+        updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
     ) {
@@ -83,7 +86,7 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
             type = type,
             description = description,
             date = date,
-            updated_at = now,
+            updated_at = updatedAt ?: now,
             server_id = serverId,
             sync_status = syncStatus,
             id = id

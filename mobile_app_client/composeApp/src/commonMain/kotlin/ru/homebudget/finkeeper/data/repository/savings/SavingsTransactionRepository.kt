@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import ru.homebudget.finkeeper.data.local.dao.Month
+import ru.homebudget.finkeeper.data.local.dao.SavingsGoalDao
 import ru.homebudget.finkeeper.data.local.dao.SavingsTransactionDao
 import ru.homebudget.finkeeper.data.local.model.EntityType
 import ru.homebudget.finkeeper.data.local.model.SyncOperation
@@ -13,6 +14,7 @@ import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.SavingsTransaction as RemoteSavingsTransaction
 
 /**
@@ -21,6 +23,7 @@ import ru.homebudget.finkeeper.data.model.SavingsTransaction as RemoteSavingsTra
  */
 class SavingsTransactionRepository(
     private val savingsTransactionDao: SavingsTransactionDao,
+    private val savingsGoalDao: SavingsGoalDao,
     private val apiClient: ApiClient,
     private val tokenStorage: TokenStorage,
 ) : KoinComponent {
@@ -144,7 +147,9 @@ class SavingsTransactionRepository(
     ): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
-                val remoteTransactions = apiClient.getSavingsTransactions(goalId.toInt())
+                val goal = savingsGoalDao.getById(goalId) ?: return@withContext Result.success(Unit)
+                val serverGoalId = goal.serverId?.toIntOrNull() ?: return@withContext Result.success(Unit)
+                val remoteTransactions = apiClient.getSavingsTransactions(serverGoalId)
                 val pendingDeleteServerIds =
                     syncManager.getPendingDeleteServerIds(EntityType.SAVINGS_TRANSACTION.value)
 
@@ -156,7 +161,14 @@ class SavingsTransactionRepository(
                     val existing = savingsTransactionDao.getByServerId(remote.id.toString())
 
                     if (existing != null) {
-                        if (existing.syncStatus == SyncStatus.PENDING.value) {
+                        if (
+                            existing.syncStatus != SyncStatus.SYNCED.value ||
+                            syncManager.hasActiveQueueOperation(EntityType.SAVINGS_TRANSACTION.value, existing.id)
+                        ) {
+                            continue
+                        }
+
+                        if (!shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
                             continue
                         }
 
@@ -168,18 +180,21 @@ class SavingsTransactionRepository(
                             type = existing.type,
                             description = existing.description,
                             date = remote.date,
+                            updatedAt = remote.updatedAt ?: existing.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
                         )
                     } else {
                         savingsTransactionDao.insert(
                             userId = userId,
-                            savingsGoalId = remote.goalId.toLong(),
+                            savingsGoalId = goalId,
                             monthId = null,
                             amount = remote.amount.toLong(),
                             type = if (remote.amount >= 0) "deposit" else "withdrawal",
                             description = null,
                             date = remote.date,
+                            createdAt = remote.createdAt,
+                            updatedAt = remote.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
                         )
