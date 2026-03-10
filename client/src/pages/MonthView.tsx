@@ -83,7 +83,7 @@ const SortableGroup: React.FC<SortableGroupProps> = ({ group, isExpanded, toggle
             </div>
 
             {/* Items List */}
-            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isMulti && !isExpanded ? 'max-h-0 opacity-0' : 'max-h-[1000px] opacity-100'}`}>
+            <div className={`transition-opacity duration-300 ease-in-out ${isMulti && !isExpanded ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-none opacity-100 overflow-visible'}`}>
                 <table className="w-full text-left">
                     <tbody className="divide-y divide-slate-100/60">
                         {itemsContent}
