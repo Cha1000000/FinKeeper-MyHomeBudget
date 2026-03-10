@@ -10,7 +10,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import ru.homebudget.finkeeper.data.local.dao.*
+import ru.homebudget.finkeeper.data.local.model.EntityType
 import ru.homebudget.finkeeper.data.local.model.SyncOperation
 import ru.homebudget.finkeeper.data.local.model.SyncQueueStatus
 import ru.homebudget.finkeeper.data.local.model.SyncStatus
@@ -24,7 +29,6 @@ import ru.homebudget.finkeeper.data.repository.income.IncomeSourceRepository
 import ru.homebudget.finkeeper.data.repository.month.MonthRepository
 import ru.homebudget.finkeeper.data.repository.savings.SavingsGoalRepository
 import ru.homebudget.finkeeper.data.repository.savings.SavingsTransactionRepository
-import kotlinx.datetime.Clock
 
 /**
  * Менеджер синхронизации данных между локальной БД и сервером
@@ -122,34 +126,40 @@ class SyncManager(
                 }
 
                 println("[SYNC] enqueueSync: type=$entityType, entityId=$entityId, op=$operation")
-                // Дедупликация: сохраняем корректный порядок операций для сущности.
-                // Важно: UPDATE не должен затирать pending INSERT, иначе новая запись никогда не уходит на сервер.
-                val existingPending =
+                val newPayload = buildQueuePayload(entityType, entityId, operation, payload)
+                val existingQueuedItem =
                     syncQueueDao
-                        .getPendingItems(limit = 1000)
-                        .firstOrNull { it.entityType == entityType && it.entityId == entityId }
+                        .getAllByUser(userId)
+                        .firstOrNull {
+                            it.entityType == entityType &&
+                                it.entityId == entityId &&
+                                it.status != SyncQueueStatus.COMPLETED.value &&
+                                it.status != SyncQueueStatus.SYNCING.value
+                        }
 
-                when (resolveQueueMergeAction(existingPending?.operation, operation)) {
+                val operationToPersist =
+                    when (resolveQueueMergeAction(existingQueuedItem?.operation, operation)) {
                     QueueMergeAction.KEEP_EXISTING -> {
-                        updatePendingCount()
-                        return@launch
+                        existingQueuedItem?.operation ?: operation
                     }
                     QueueMergeAction.DROP_BOTH -> {
-                        existingPending?.let { syncQueueDao.deleteById(it.id) }
+                        existingQueuedItem?.let { syncQueueDao.deleteById(it.id) }
                         updatePendingCount()
                         return@launch
                     }
                     QueueMergeAction.REPLACE_WITH_NEW -> {
-                        existingPending?.let { syncQueueDao.deleteById(it.id) }
+                        operation
                     }
                 }
+
+                existingQueuedItem?.let { syncQueueDao.deleteById(it.id) }
 
                 syncQueueDao.insert(
                     userId = userId,
                     entityType = entityType,
                     entityId = entityId,
-                    operation = operation,
-                    payload = payload,
+                    operation = operationToPersist,
+                    payload = newPayload,
                 )
                 updatePendingCount()
 
@@ -253,6 +263,13 @@ class SyncManager(
      */
     private suspend fun syncItemToServer(item: SyncQueueItem) {
         try {
+            if (shouldSkipOutdatedItem(item)) {
+                println("[SYNC] syncItemToServer SKIPPED outdated item: type=${item.entityType}, entityId=${item.entityId}, op=${item.operation}")
+                syncQueueDao.markCompleted(item.id)
+                updatePendingCount()
+                return
+            }
+
             println("[SYNC] syncItemToServer START: type=${item.entityType}, entityId=${item.entityId}, op=${item.operation}, userId=${item.userId}")
             syncQueueDao.updateStatus(
                 id = item.id,
@@ -311,7 +328,7 @@ class SyncManager(
      */
     private suspend fun syncCategoryToServer(item: SyncQueueItem) {
         if (item.operation == SyncOperation.DELETE.value) {
-            item.payload?.toIntOrNull()?.let { serverId ->
+            getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
                 apiClient.deleteCategory(serverId)
             }
             return
@@ -322,11 +339,7 @@ class SyncManager(
         when (item.operation) {
             SyncOperation.INSERT.value -> {
                 val remote = apiClient.createCategory(category.name)
-                categoryDao.updateSyncStatus(
-                    id = category.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = remote.id.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, remote.id.toString())
             }
             SyncOperation.UPDATE.value -> {
                 category.serverId?.toIntOrNull()?.let { serverId ->
@@ -338,11 +351,7 @@ class SyncManager(
                                 isActive = if (category.isActive == 1L) 1 else 0,
                             ),
                     )
-                    categoryDao.updateSyncStatus(
-                        id = category.id,
-                        syncStatus = SyncStatus.SYNCED.value,
-                        serverId = serverId.toString(),
-                    )
+                    markEntityAfterSuccessfulSync(item, serverId.toString())
                 }
             }
         }
@@ -353,7 +362,7 @@ class SyncManager(
      */
     private suspend fun syncIncomeSourceToServer(item: SyncQueueItem) {
         if (item.operation == SyncOperation.DELETE.value) {
-            item.payload?.toIntOrNull()?.let { serverId ->
+            getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
                 apiClient.deleteIncomeSource(serverId)
             }
             return
@@ -364,11 +373,7 @@ class SyncManager(
         when (item.operation) {
             SyncOperation.INSERT.value -> {
                 val remote = apiClient.createIncomeSource(source.name)
-                incomeSourceDao.updateSyncStatus(
-                    id = source.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = remote.id.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, remote.id.toString())
             }
             SyncOperation.UPDATE.value -> {
                 source.serverId?.toIntOrNull()?.let { serverId ->
@@ -380,11 +385,7 @@ class SyncManager(
                                 isActive = if (source.isActive == 1L) 1 else 0,
                             ),
                     )
-                    incomeSourceDao.updateSyncStatus(
-                        id = source.id,
-                        syncStatus = SyncStatus.SYNCED.value,
-                        serverId = serverId.toString(),
-                    )
+                    markEntityAfterSuccessfulSync(item, serverId.toString())
                 }
             }
         }
@@ -395,7 +396,7 @@ class SyncManager(
      */
     private suspend fun syncIncomeToServer(item: SyncQueueItem) {
         if (item.operation == SyncOperation.DELETE.value) {
-            item.payload?.toIntOrNull()?.let { serverId ->
+            getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
                 apiClient.deleteIncome(serverId)
             }
             return
@@ -431,11 +432,7 @@ class SyncManager(
                             date = income.date,
                         ),
                     )
-                incomeDao.updateSyncStatus(
-                    id = income.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = remote.id.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, remote.id.toString())
             }
             SyncOperation.UPDATE.value -> {
                 val serverId =
@@ -443,11 +440,7 @@ class SyncManager(
                         ?: throw IllegalStateException("Cannot sync income update: serverId is null for entityId=${item.entityId}")
 
                 apiClient.updateIncome(serverId, income.amount.toDouble())
-                incomeDao.updateSyncStatus(
-                    id = income.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = serverId.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, serverId.toString())
             }
         }
     }
@@ -457,7 +450,7 @@ class SyncManager(
      */
     private suspend fun syncExpenseToServer(item: SyncQueueItem) {
         if (item.operation == SyncOperation.DELETE.value) {
-            item.payload?.toIntOrNull()?.let { serverId ->
+            getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
                 apiClient.deleteExpense(serverId)
             }
             return
@@ -492,11 +485,7 @@ class SyncManager(
                             date = expense.date,
                         ),
                     )
-                expenseDao.updateSyncStatus(
-                    id = expense.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = remote.id.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, remote.id.toString())
             }
             SyncOperation.UPDATE.value -> {
                 val serverId =
@@ -504,11 +493,7 @@ class SyncManager(
                         ?: throw IllegalStateException("Cannot sync expense update: serverId is null for entityId=${item.entityId}")
 
                 apiClient.updateExpense(serverId, expense.amount.toDouble())
-                expenseDao.updateSyncStatus(
-                    id = expense.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = serverId.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, serverId.toString())
             }
         }
     }
@@ -627,11 +612,7 @@ class SyncManager(
                     ),
                 )
                 println("[SYNC] syncBudgetToServer INSERT: success, remoteBudget.id=${remoteBudget.id}")
-                budgetDao.updateSyncStatus(
-                    id = budget.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = remoteBudget.id.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, remoteBudget.id.toString())
                 println("[SYNC] syncBudgetToServer INSERT: syncStatus updated to SYNCED")
             }
             SyncOperation.UPDATE.value -> {
@@ -660,11 +641,7 @@ class SyncManager(
                                 ),
                         )
                         println("[SYNC] syncBudgetToServer UPDATE: updateBudget success")
-                        budgetDao.updateSyncStatus(
-                            id = budget.id,
-                            syncStatus = SyncStatus.SYNCED.value,
-                            serverId = serverId.toString(),
-                        )
+                        markEntityAfterSuccessfulSync(item, serverId.toString())
                     } catch (e: Exception) {
                         // Если получили 404 - бюджет не найден на сервере, создаём новый
                         val errorMessage = e.message ?: ""
@@ -678,11 +655,7 @@ class SyncManager(
                                 ),
                             )
                             println("[SYNC] syncBudgetToServer UPDATE: setBudget success, new id=${remoteBudget.id}")
-                            budgetDao.updateSyncStatus(
-                                id = budget.id,
-                                syncStatus = SyncStatus.SYNCED.value,
-                                serverId = remoteBudget.id.toString(),
-                            )
+                            markEntityAfterSuccessfulSync(item, remoteBudget.id.toString())
                         } else {
                             throw e // Пробрасываем другие ошибки
                         }
@@ -698,11 +671,7 @@ class SyncManager(
                         ),
                     )
                     println("[SYNC] syncBudgetToServer UPDATE: setBudget success, id=${remoteBudget.id}")
-                    budgetDao.updateSyncStatus(
-                        id = budget.id,
-                        syncStatus = SyncStatus.SYNCED.value,
-                        serverId = remoteBudget.id.toString(),
-                    )
+                    markEntityAfterSuccessfulSync(item, remoteBudget.id.toString())
                 }
             }
         }
@@ -713,7 +682,7 @@ class SyncManager(
      */
     private suspend fun syncSavingsGoalToServer(item: SyncQueueItem) {
         if (item.operation == SyncOperation.DELETE.value) {
-            item.payload?.toIntOrNull()?.let { serverId ->
+            getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
                 apiClient.deleteSavingsGoal(serverId)
             }
             return
@@ -735,11 +704,7 @@ class SyncManager(
                             targetAmount = goal.targetAmount.toDouble(),
                         ),
                     )
-                savingsGoalDao.updateSyncStatus(
-                    id = goal.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = remote.id.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, remote.id.toString())
             }
             SyncOperation.UPDATE.value -> {
                 val serverId =
@@ -757,11 +722,7 @@ class SyncManager(
                         ),
                 )
                 println("[SYNC] syncSavingsGoalToServer: UPDATE OK")
-                savingsGoalDao.updateSyncStatus(
-                    id = goal.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = serverId.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, serverId.toString())
             }
         }
     }
@@ -771,7 +732,7 @@ class SyncManager(
      */
     private suspend fun syncSavingsTransactionToServer(item: SyncQueueItem) {
         if (item.operation == SyncOperation.DELETE.value) {
-            item.payload?.toIntOrNull()?.let { serverId ->
+            getDeleteServerId(item)?.toIntOrNull()?.let { serverId ->
                 apiClient.deleteSavingsTransaction(serverId)
             }
             return
@@ -804,11 +765,7 @@ class SyncManager(
                     ),
                 )
                 println("[SYNC] syncSavingsTransactionToServer: INSERT OK, serverTransaction.id=${serverTransaction.id}")
-                savingsTransactionDao.updateSyncStatus(
-                    id = transaction.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = serverTransaction.id.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, serverTransaction.id.toString())
             }
             SyncOperation.UPDATE.value -> {
                 val goalServerId = resolveSavingsGoalServerId(transaction.savingsGoalId)
@@ -832,11 +789,7 @@ class SyncManager(
                             monthId = monthServerId,
                         ),
                 )
-                savingsTransactionDao.updateSyncStatus(
-                    id = transaction.id,
-                    syncStatus = SyncStatus.SYNCED.value,
-                    serverId = serverId.toString(),
-                )
+                markEntityAfterSuccessfulSync(item, serverId.toString())
             }
         }
     }
@@ -916,8 +869,6 @@ class SyncManager(
             _isSyncing.value = true
             syncStartedAt = Clock.System.now().toEpochMilliseconds()
             try {
-                // Повторяем ранее неудачные операции перед новой отправкой
-                syncQueueDao.retryFailed()
                 val pendingItems = syncQueueDao.getPendingItems(limit = 50)
                 println("[SYNC] scheduleProcessQueue: ${pendingItems.size} pending items")
                 for (item in pendingItems) {
@@ -948,16 +899,166 @@ class SyncManager(
     }
 
     /**
-     * Возвращает набор serverId из pending DELETE операций для указанного типа сущности.
-     * Используется в syncWithServer, чтобы не восстанавливать удалённые записи.
+     * Возвращает набор serverId из незавершённых DELETE операций для указанного типа сущности.
+     * Учитывает не только pending, но и failed/syncing элементы, чтобы remote merge
+     * не восстанавливал локально удалённые записи, пока операция окончательно не закрыта.
      */
     fun getPendingDeleteServerIds(entityType: String): Set<String> {
-        val pendingItems = syncQueueDao.getPendingItems(limit = 1000)
-        return pendingItems
-            .filter { it.entityType == entityType && it.operation == SyncOperation.DELETE.value && it.payload != null }
-            .mapNotNull { it.payload }
+        val queuedItems = syncQueueDao.getAllByUser(currentUserId)
+        return queuedItems
+            .filter {
+                it.entityType == entityType &&
+                    it.operation == SyncOperation.DELETE.value &&
+                    it.status != SyncQueueStatus.COMPLETED.value
+            }
+            .mapNotNull { extractDeleteServerId(it.payload) }
             .toSet()
     }
+
+    private fun buildQueuePayload(
+        entityType: String,
+        entityId: Long,
+        operation: String,
+        fallbackPayload: String?,
+    ): String? {
+        return encodeSyncQueuePayloadMetadata(
+            SyncQueuePayloadMetadata(
+                opId = generateOperationId(),
+                entityUpdatedAt = getEntityUpdatedAt(entityType, entityId),
+                deleteServerId =
+                    if (operation == SyncOperation.DELETE.value) {
+                        fallbackPayload
+                    } else {
+                        null
+                    },
+            ),
+        )
+    }
+
+    private fun getDeleteServerId(item: SyncQueueItem): String? = extractDeleteServerId(item.payload)
+
+    private fun shouldSkipOutdatedItem(item: SyncQueueItem): Boolean {
+        return shouldSkipOutdatedQueueItem(
+            operation = item.operation,
+            payload = item.payload,
+            currentUpdatedAt = getEntityUpdatedAt(item.entityType, item.entityId),
+        )
+    }
+
+    private fun markEntityAfterSuccessfulSync(item: SyncQueueItem, serverId: String?) {
+        val currentState = getEntitySyncState(item.entityType, item.entityId) ?: return
+
+        val shouldKeepDirtyState =
+            shouldPreserveDirtyStateAfterSuccessfulSync(
+                operation = item.operation,
+                payload = item.payload,
+                currentUpdatedAt = currentState.updatedAt,
+            )
+
+        val targetStatus =
+            if (shouldKeepDirtyState) {
+                currentState.syncStatus
+            } else {
+                SyncStatus.SYNCED.value
+            }
+
+        when (item.entityType) {
+            EntityType.CATEGORY.value ->
+                categoryDao.updateSyncStatus(
+                    id = item.entityId,
+                    syncStatus = targetStatus,
+                    serverId = serverId,
+                )
+            EntityType.INCOME_SOURCE.value ->
+                incomeSourceDao.updateSyncStatus(
+                    id = item.entityId,
+                    syncStatus = targetStatus,
+                    serverId = serverId,
+                )
+            EntityType.MONTH.value ->
+                monthDao.updateSyncStatus(
+                    id = item.entityId,
+                    syncStatus = targetStatus,
+                    serverId = serverId,
+                )
+            EntityType.INCOME.value ->
+                incomeDao.updateSyncStatus(
+                    id = item.entityId,
+                    syncStatus = targetStatus,
+                    serverId = serverId,
+                )
+            EntityType.EXPENSE.value ->
+                expenseDao.updateSyncStatus(
+                    id = item.entityId,
+                    syncStatus = targetStatus,
+                    serverId = serverId,
+                )
+            EntityType.BUDGET.value ->
+                budgetDao.updateSyncStatus(
+                    id = item.entityId,
+                    syncStatus = targetStatus,
+                    serverId = serverId,
+                )
+            EntityType.SAVINGS_GOAL.value ->
+                savingsGoalDao.updateSyncStatus(
+                    id = item.entityId,
+                    syncStatus = targetStatus,
+                    serverId = serverId,
+                )
+            EntityType.SAVINGS_TRANSACTION.value ->
+                savingsTransactionDao.updateSyncStatus(
+                    id = item.entityId,
+                    syncStatus = targetStatus,
+                    serverId = serverId,
+                )
+        }
+
+        if (shouldKeepDirtyState) {
+            println("[SYNC] markEntityAfterSuccessfulSync: preserving dirty state for ${item.entityType}#${item.entityId}, status=$targetStatus, serverId=$serverId")
+        }
+    }
+
+    private fun getEntityUpdatedAt(entityType: String, entityId: Long): String? =
+        when (entityType) {
+            EntityType.CATEGORY.value -> categoryDao.getById(entityId)?.updatedAt
+            EntityType.INCOME_SOURCE.value -> incomeSourceDao.getById(entityId)?.updatedAt
+            EntityType.MONTH.value -> monthDao.getById(entityId)?.updatedAt
+            EntityType.INCOME.value -> incomeDao.getById(entityId)?.updatedAt
+            EntityType.EXPENSE.value -> expenseDao.getById(entityId)?.updatedAt
+            EntityType.BUDGET.value -> budgetDao.getById(entityId)?.updatedAt
+            EntityType.SAVINGS_GOAL.value -> savingsGoalDao.getById(entityId)?.updatedAt
+            EntityType.SAVINGS_TRANSACTION.value -> savingsTransactionDao.getById(entityId)?.updatedAt
+            else -> null
+        }
+
+    private fun getEntitySyncState(entityType: String, entityId: Long): EntitySyncState? =
+        when (entityType) {
+            EntityType.CATEGORY.value ->
+                categoryDao.getById(entityId)?.let { EntitySyncState(it.updatedAt, it.syncStatus) }
+            EntityType.INCOME_SOURCE.value ->
+                incomeSourceDao.getById(entityId)?.let { EntitySyncState(it.updatedAt, it.syncStatus) }
+            EntityType.MONTH.value ->
+                monthDao.getById(entityId)?.let { EntitySyncState(it.updatedAt, it.syncStatus) }
+            EntityType.INCOME.value ->
+                incomeDao.getById(entityId)?.let { EntitySyncState(it.updatedAt, it.syncStatus) }
+            EntityType.EXPENSE.value ->
+                expenseDao.getById(entityId)?.let { EntitySyncState(it.updatedAt, it.syncStatus) }
+            EntityType.BUDGET.value ->
+                budgetDao.getById(entityId)?.let { EntitySyncState(it.updatedAt, it.syncStatus) }
+            EntityType.SAVINGS_GOAL.value ->
+                savingsGoalDao.getById(entityId)?.let { EntitySyncState(it.updatedAt, it.syncStatus) }
+            EntityType.SAVINGS_TRANSACTION.value ->
+                savingsTransactionDao.getById(entityId)?.let { EntitySyncState(it.updatedAt, it.syncStatus) }
+            else -> null
+        }
+
+    private fun generateOperationId(): String =
+        "${Clock.System.now().toEpochMilliseconds()}-${kotlin.random.Random.nextLong().toString(16)}"
+
+    private data class EntitySyncState(
+        val updatedAt: String?,
+        val syncStatus: String,
+    )
 
     /**
      * Обновляет количество ожидающих операций
@@ -1013,4 +1114,62 @@ internal fun resolveQueueMergeAction(existingOperation: String?, newOperation: S
         }
         else -> QueueMergeAction.REPLACE_WITH_NEW
     }
+}
+
+internal val syncQueuePayloadJson: Json =
+    Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = false
+    }
+
+@Serializable
+internal data class SyncQueuePayloadMetadata(
+    val opId: String? = null,
+    val entityUpdatedAt: String? = null,
+    val deleteServerId: String? = null,
+)
+
+internal fun encodeSyncQueuePayloadMetadata(metadata: SyncQueuePayloadMetadata): String =
+    syncQueuePayloadJson.encodeToString(metadata)
+
+internal fun decodeSyncQueuePayloadMetadata(payload: String?): SyncQueuePayloadMetadata? {
+    if (payload.isNullOrBlank()) {
+        return null
+    }
+
+    return try {
+        syncQueuePayloadJson.decodeFromString<SyncQueuePayloadMetadata>(payload)
+    } catch (_: Exception) {
+        SyncQueuePayloadMetadata(deleteServerId = payload)
+    }
+}
+
+internal fun extractDeleteServerId(payload: String?): String? = decodeSyncQueuePayloadMetadata(payload)?.deleteServerId
+
+internal fun shouldSkipOutdatedQueueItem(
+    operation: String,
+    payload: String?,
+    currentUpdatedAt: String?,
+): Boolean {
+    if (operation == SyncOperation.DELETE.value) {
+        return false
+    }
+
+    val queuedUpdatedAt = decodeSyncQueuePayloadMetadata(payload)?.entityUpdatedAt ?: return false
+    val resolvedCurrentUpdatedAt = currentUpdatedAt ?: return false
+    return queuedUpdatedAt != resolvedCurrentUpdatedAt
+}
+
+internal fun shouldPreserveDirtyStateAfterSuccessfulSync(
+    operation: String,
+    payload: String?,
+    currentUpdatedAt: String?,
+): Boolean {
+    if (operation == SyncOperation.DELETE.value) {
+        return false
+    }
+
+    val queuedUpdatedAt = decodeSyncQueuePayloadMetadata(payload)?.entityUpdatedAt ?: return false
+    val resolvedCurrentUpdatedAt = currentUpdatedAt ?: return false
+    return queuedUpdatedAt != resolvedCurrentUpdatedAt
 }

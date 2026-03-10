@@ -79,7 +79,7 @@ class DashboardViewModel(
     private fun observeSyncUpdates() {
         viewModelScope.launch {
             syncManager.dataUpdated.collect {
-                loadData()
+                loadData(showLoader = false)
             }
         }
     }
@@ -92,9 +92,13 @@ class DashboardViewModel(
         }
     }
 
-    fun loadData() {
+    fun loadData(showLoader: Boolean = true) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            if (showLoader) {
+                _state.value = _state.value.copy(isLoading = true, error = null)
+            } else {
+                _state.value = _state.value.copy(error = null)
+            }
             loadDataSuspend()
         }
     }

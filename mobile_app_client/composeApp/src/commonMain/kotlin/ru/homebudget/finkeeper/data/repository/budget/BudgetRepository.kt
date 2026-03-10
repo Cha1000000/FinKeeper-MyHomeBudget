@@ -168,6 +168,7 @@ class BudgetRepository(
                 val serverMonthId = month?.serverId?.toIntOrNull() ?: return@withContext Result.success(Unit)
 
                 val remoteBudgets = apiClient.getBudgets(serverMonthId)
+                val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.BUDGET.value)
 
                 // Предзагрузка категорий для резолва серверного categoryId → локальный
                 val allCategories = categoryDao.getAllByUser(userId)
@@ -175,6 +176,11 @@ class BudgetRepository(
                 // Удаляем все synced-бюджеты месяца перед вставкой,
                 // чтобы избежать UNIQUE constraint при исправлении categoryId
                 val existingBudgets = budgetDao.getByMonth(monthId)
+                val pendingBudgetCategoryIds =
+                    existingBudgets
+                        .filter { it.syncStatus != SyncStatus.SYNCED.value }
+                        .map { it.categoryId }
+                        .toSet()
                 for (existing in existingBudgets) {
                     if (existing.syncStatus == SyncStatus.SYNCED.value) {
                         budgetDao.deleteById(existing.id)
@@ -182,6 +188,10 @@ class BudgetRepository(
                 }
 
                 for (remote in remoteBudgets) {
+                    if (remote.id.toString() in pendingDeleteServerIds) {
+                        continue
+                    }
+
                     // remote.categoryId — серверный ID, находим локальный
                     val localCategory = allCategories
                         .find { it.serverId == remote.categoryId.toString() }
@@ -189,6 +199,10 @@ class BudgetRepository(
                         continue
                     }
                     val localCategoryId = localCategory.id
+
+                    if (localCategoryId in pendingBudgetCategoryIds) {
+                        continue
+                    }
 
                     budgetDao.insert(
                         userId = userId,

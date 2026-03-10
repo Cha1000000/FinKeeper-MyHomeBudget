@@ -234,16 +234,20 @@ class CategoryRepository(
     suspend fun deleteCategory(id: Long): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
+                val category = categoryDao.getById(id)
+                val serverId = category?.serverId
+
                 categoryDao.deleteById(id)
 
-                // Добавляем операцию в очередь синхронизации
-                syncManager.enqueueSync(
-                    userId = currentUserId,
-                    entityType = EntityType.CATEGORY.value,
-                    entityId = id,
-                    operation = SyncOperation.DELETE.value,
-                    payload = null,
-                )
+                if (serverId != null) {
+                    syncManager.enqueueSync(
+                        userId = currentUserId,
+                        entityType = EntityType.CATEGORY.value,
+                        entityId = id,
+                        operation = SyncOperation.DELETE.value,
+                        payload = serverId,
+                    )
+                }
 
                 Result.success(Unit)
             } catch (e: Exception) {
@@ -260,12 +264,21 @@ class CategoryRepository(
                 // Получаем данные с сервера
                 val remoteCategories = apiClient.getCategories()
                 val now = Clock.System.now().toString()
+                val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.CATEGORY.value)
 
                 // Обновляем локальные данные
                 for (remote in remoteCategories) {
+                    if (remote.id.toString() in pendingDeleteServerIds) {
+                        continue
+                    }
+
                     val existing = categoryDao.getByServerId(remote.id.toString())
 
                     if (existing != null) {
+                        if (existing.syncStatus == SyncStatus.PENDING.value) {
+                            continue
+                        }
+
                         // Обновляем существующую
                         categoryDao.update(
                             id = existing.id,

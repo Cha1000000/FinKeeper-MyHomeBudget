@@ -49,7 +49,7 @@ class CategoriesViewModel(
             syncManager.dataUpdated.collect {
                 // Игнорируем обновления во время режима сортировки
                 if (!_state.value.isReorderMode && !_state.value.isIncomeSourceReorderMode) {
-                    loadData()
+                    loadData(showLoader = false, syncFromServer = false)
                 }
             }
         }
@@ -63,14 +63,21 @@ class CategoriesViewModel(
         }
     }
 
-    fun loadData() {
+    fun loadData(
+        showLoader: Boolean = true,
+        syncFromServer: Boolean = true,
+    ) {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
-            loadDataSuspend()
+            if (showLoader) {
+                _state.update { it.copy(isLoading = true, error = null) }
+            } else {
+                _state.update { it.copy(error = null) }
+            }
+            loadDataSuspend(syncFromServer)
         }
     }
 
-    private suspend fun loadDataSuspend() {
+    private suspend fun loadDataSuspend(syncFromServer: Boolean = true) {
 
         try {
             // Получаем категории через репозиторий
@@ -81,8 +88,9 @@ class CategoriesViewModel(
                     categories = categoryList
                 }
 
-            // Синхронизируем категории с сервером
-            categoryRepository.syncWithServer(currentUserId)
+            if (syncFromServer) {
+                categoryRepository.syncWithServer(currentUserId)
+            }
 
             // Получаем источники дохода через репозиторий
             var incomeSources: List<IncomeSource> = emptyList()
@@ -92,8 +100,9 @@ class CategoriesViewModel(
                     incomeSources = sourceList
                 }
 
-            // Синхронизируем источники дохода с сервером
-            incomeSourceRepository.syncWithServer(currentUserId)
+            if (syncFromServer) {
+                incomeSourceRepository.syncWithServer(currentUserId)
+            }
 
             _state.update {
                 it.copy(
@@ -145,7 +154,7 @@ class CategoriesViewModel(
                     type = "expense",
                 )
 
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка создания категории") }
             }
@@ -165,7 +174,7 @@ class CategoriesViewModel(
                     name = name,
                 )
 
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка обновления категории") }
             }
@@ -182,7 +191,7 @@ class CategoriesViewModel(
                     isActive = false,
                 )
 
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка удаления категории") }
             }
@@ -199,7 +208,7 @@ class CategoriesViewModel(
                     name = name,
                 )
 
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка создания источника дохода") }
             }
@@ -219,7 +228,7 @@ class CategoriesViewModel(
                     name = name,
                 )
 
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка обновления источника дохода") }
             }
@@ -236,7 +245,7 @@ class CategoriesViewModel(
                     isActive = false,
                 )
 
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка удаления источника дохода") }
             }

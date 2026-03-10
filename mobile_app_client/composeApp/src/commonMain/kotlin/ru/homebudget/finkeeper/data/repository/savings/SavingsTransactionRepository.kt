@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
+import ru.homebudget.finkeeper.data.local.dao.Month
 import ru.homebudget.finkeeper.data.local.dao.SavingsTransactionDao
 import ru.homebudget.finkeeper.data.local.model.EntityType
 import ru.homebudget.finkeeper.data.local.model.SyncOperation
@@ -110,7 +111,7 @@ class SavingsTransactionRepository(
     /**
      * Удаление транзакции
      */
-    suspend fun deleteTransaction(id: Long): Result<Unit> =
+    suspend fun deleteTransaction(id: Long, month: Month): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
                 val transaction = savingsTransactionDao.getById(id)
@@ -118,7 +119,7 @@ class SavingsTransactionRepository(
 
                 savingsTransactionDao.deleteById(id)
 
-                if (serverId != null) {
+                if (transaction != null && serverId != null) {
                     syncManager.enqueueSync(
                         userId = transaction.userId,
                         entityType = EntityType.SAVINGS_TRANSACTION.value,
@@ -144,14 +145,25 @@ class SavingsTransactionRepository(
         withContext(Dispatchers.Default) {
             try {
                 val remoteTransactions = apiClient.getSavingsTransactions(goalId.toInt())
+                val pendingDeleteServerIds =
+                    syncManager.getPendingDeleteServerIds(EntityType.SAVINGS_TRANSACTION.value)
 
                 for (remote in remoteTransactions) {
+                    if (remote.id.toString() in pendingDeleteServerIds) {
+                        continue
+                    }
+
                     val existing = savingsTransactionDao.getByServerId(remote.id.toString())
 
                     if (existing != null) {
+                        if (existing.syncStatus == SyncStatus.PENDING.value) {
+                            continue
+                        }
+
                         savingsTransactionDao.update(
                             id = existing.id,
                             savingsGoalId = existing.savingsGoalId,
+                            monthId = existing.monthId,
                             amount = remote.amount.toLong(),
                             type = existing.type,
                             description = existing.description,
@@ -162,9 +174,10 @@ class SavingsTransactionRepository(
                     } else {
                         savingsTransactionDao.insert(
                             userId = userId,
-                            savingsGoalId = goalId,
+                            savingsGoalId = remote.goalId.toLong(),
+                            monthId = null,
                             amount = remote.amount.toLong(),
-                            type = "deposit",
+                            type = if (remote.amount >= 0) "deposit" else "withdrawal",
                             description = null,
                             date = remote.date,
                             serverId = remote.id.toString(),

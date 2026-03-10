@@ -47,7 +47,7 @@ class SavingsViewModel(
     private fun observeSyncUpdates() {
         viewModelScope.launch {
             syncManager.dataUpdated.collect {
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
             }
         }
     }
@@ -60,14 +60,21 @@ class SavingsViewModel(
         }
     }
 
-    fun loadData() {
+    fun loadData(
+        showLoader: Boolean = true,
+        syncFromServer: Boolean = true,
+    ) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            loadDataSuspend()
+            if (showLoader) {
+                _state.value = _state.value.copy(isLoading = true, error = null)
+            } else {
+                _state.value = _state.value.copy(error = null)
+            }
+            loadDataSuspend(syncFromServer)
         }
     }
 
-    private suspend fun loadDataSuspend() {
+    private suspend fun loadDataSuspend(syncFromServer: Boolean = true) {
         try {
             // Получаем цели через репозиторий
             var goals: List<SavingsGoal> = emptyList()
@@ -77,8 +84,9 @@ class SavingsViewModel(
                     goals = goalList
                 }
 
-            // Синхронизируем с сервером
-            savingsGoalRepository.syncWithServer(currentUserId)
+            if (syncFromServer) {
+                savingsGoalRepository.syncWithServer(currentUserId)
+            }
 
             _state.value = _state.value.copy(isLoading = false, goals = goals, isOffline = false)
         } catch (e: Exception) {
@@ -104,7 +112,7 @@ class SavingsViewModel(
                     targetAmount = targetAmount,
                 )
 
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
                 notifySavingsUpdated()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -128,7 +136,7 @@ class SavingsViewModel(
                     currentAmount = currentAmount,
                 )
 
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
                 notifySavingsUpdated()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -142,7 +150,7 @@ class SavingsViewModel(
                 // Удаляем локально через репозиторий
                 savingsGoalRepository.deleteSavingsGoal(id.toLong())
 
-                loadData()
+                loadData(showLoader = false, syncFromServer = false)
                 notifySavingsUpdated()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)

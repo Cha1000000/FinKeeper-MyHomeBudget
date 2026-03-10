@@ -177,16 +177,20 @@ class IncomeSourceRepository(
     suspend fun deleteIncomeSource(id: Long): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
+                val source = incomeSourceDao.getById(id)
+                val serverId = source?.serverId
+
                 incomeSourceDao.deleteById(id)
 
-                // Добавляем операцию в очередь синхронизации
-                syncManager.enqueueSync(
-                    userId = currentUserId,
-                    entityType = EntityType.INCOME_SOURCE.value,
-                    entityId = id,
-                    operation = SyncOperation.DELETE.value,
-                    payload = null,
-                )
+                if (serverId != null) {
+                    syncManager.enqueueSync(
+                        userId = currentUserId,
+                        entityType = EntityType.INCOME_SOURCE.value,
+                        entityId = id,
+                        operation = SyncOperation.DELETE.value,
+                        payload = serverId,
+                    )
+                }
 
                 Result.success(Unit)
             } catch (e: Exception) {
@@ -201,11 +205,20 @@ class IncomeSourceRepository(
         withContext(Dispatchers.Default) {
             try {
                 val remoteSources = apiClient.getIncomeSources()
+                val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.INCOME_SOURCE.value)
 
                 for (remote in remoteSources) {
+                    if (remote.id.toString() in pendingDeleteServerIds) {
+                        continue
+                    }
+
                     val existing = incomeSourceDao.getByServerId(remote.id.toString())
 
                     if (existing != null) {
+                        if (existing.syncStatus == SyncStatus.PENDING.value) {
+                            continue
+                        }
+
                         incomeSourceDao.update(
                             id = existing.id,
                             name = remote.name,

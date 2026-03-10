@@ -92,7 +92,7 @@ class MonthViewModel(
     private fun observeSyncUpdates() {
         viewModelScope.launch {
             syncManager.dataUpdated.collect {
-                loadData()
+                loadData(syncFromServer = false, showLoader = false)
             }
         }
     }
@@ -140,9 +140,16 @@ class MonthViewModel(
         tokenStorage.monthViewMonth = month
     }
 
-    fun loadData(syncFromServer: Boolean = true) {
+    fun loadData(
+        syncFromServer: Boolean = true,
+        showLoader: Boolean = true,
+    ) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            if (showLoader) {
+                _state.value = _state.value.copy(isLoading = true, error = null)
+            } else {
+                _state.value = _state.value.copy(error = null)
+            }
             loadDataSuspend(syncFromServer)
         }
     }
@@ -302,7 +309,7 @@ class MonthViewModel(
                 )
                 println("[MONTH-VM] addIncome: createIncome completed")
 
-                loadData(syncFromServer = false)
+                loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
                 println("[MONTH-VM] addIncome ERROR: ${e.message}")
                 e.printStackTrace()
@@ -386,7 +393,7 @@ class MonthViewModel(
                 )
                 println("[MONTH-VM] addExpense: createExpense completed")
 
-                loadData(syncFromServer = false)
+                loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
                 println("[MONTH-VM] addExpense ERROR: ${e.message}")
                 e.printStackTrace()
@@ -407,7 +414,7 @@ class MonthViewModel(
                     amount = amount,
                 )
 
-                loadData(syncFromServer = false)
+                loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }
@@ -426,7 +433,7 @@ class MonthViewModel(
                     amount = amount,
                 )
 
-                loadData(syncFromServer = false)
+                loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }
@@ -439,7 +446,7 @@ class MonthViewModel(
                 // Удаляем локально через репозиторий
                 incomeRepository.deleteIncome(id.toLong())
 
-                loadData(syncFromServer = false)
+                loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }
@@ -452,7 +459,7 @@ class MonthViewModel(
                 // Удаляем локально через репозиторий
                 expenseRepository.deleteExpense(id.toLong())
 
-                loadData(syncFromServer = false)
+                loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }
@@ -473,7 +480,7 @@ class MonthViewModel(
                     limitAmount = limit,
                 )
 
-                loadData(syncFromServer = false)
+                loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }
@@ -489,7 +496,7 @@ class MonthViewModel(
                     name = name,
                 )
 
-                loadData(syncFromServer = false)
+                loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message ?: "Ошибка добавления источника")
             }

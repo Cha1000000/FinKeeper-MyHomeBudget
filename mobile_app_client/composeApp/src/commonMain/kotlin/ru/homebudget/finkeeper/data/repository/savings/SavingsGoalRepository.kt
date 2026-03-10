@@ -217,8 +217,13 @@ class SavingsGoalRepository(
         withContext(Dispatchers.Default) {
             try {
                 val remoteGoals = apiClient.getSavingsGoals()
+                val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.SAVINGS_GOAL.value)
 
                 for (remote in remoteGoals) {
+                    if (remote.id.toString() in pendingDeleteServerIds) {
+                        continue
+                    }
+
                     val existing = savingsGoalDao.getByServerId(remote.id.toString())
 
                     if (existing != null) {
