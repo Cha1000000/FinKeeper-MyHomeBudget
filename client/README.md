@@ -1,73 +1,78 @@
-# React + TypeScript + Vite
+# FinKeeper Web Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Веб-клиент FinKeeper для домашней бухгалтерии.
 
-Currently, two official plugins are available:
+## Стек
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 19
+- TypeScript
+- Vite 7
+- Tailwind CSS 4
+- React Router 7
+- Recharts 3
+- Axios
+- `@dnd-kit` для drag-and-drop
 
-## React Compiler
+## Что умеет клиент
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- авторизация и хранение JWT
+- просмотр dashboard и аналитики
+- учёт доходов и расходов по месяцам
+- управление категориями и источниками дохода
+- лимиты бюджета по категориям
+- копилки и транзакции накоплений
+- настройки профиля и ручные backup/restore операции
 
-## Expanding the ESLint configuration
+## Основные команды
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Запуск Vite dev server.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+Production build клиента.
+
+```bash
+npm run lint
+```
+
+Проверка ESLint.
+
+```bash
+npm run preview
+```
+
+Локальный preview production build.
+
+## API
+
+Клиент работает с backend из корня репозитория и использует Bearer token для всех защищённых `/api/*` запросов.
+
+Основной API слой расположен в `src/api/`.
+
+## Маршруты
+
+- `/login`
+- `/`
+- `/month`
+- `/categories`
+- `/savings`
+- `/settings`
+
+## Особенности реализации
+
+- protected routes через auth guard
+- desktop layout с боковой навигацией
+- mobile layout с bottom navigation
+- периодическое обновление финансовой сводки
+- работа с дополнительными server полями не ломает web client, так как API изменения в основном additive
+
+## Связанные документы
+
+- корневой обзор проекта: `../README.md`
+- актуальная документация по sync: `../docs_and_instructions/current_sync_implementation.md`

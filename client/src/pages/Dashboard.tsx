@@ -12,6 +12,7 @@ import { ru } from 'date-fns/locale';
 import { useDataChanged } from '../hooks/useWebSocket';
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#6366f1', '#14b8a6'];
+const DOT_COLOR_CLASSES = ['bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-pink-500', 'bg-amber-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-teal-500'];
 
 interface TrendItem {
     month: string;
@@ -155,6 +156,8 @@ const Dashboard: React.FC = () => {
             <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                 <button
                     onClick={prevMonth}
+                    aria-label="Предыдущий месяц"
+                    title="Предыдущий месяц"
                     className="p-2 hover:bg-slate-100 rounded-full transition-colors"
                 >
                     <ChevronLeft className="w-5 h-5 text-slate-600" />
@@ -164,6 +167,8 @@ const Dashboard: React.FC = () => {
                 </span>
                 <button
                     onClick={nextMonth}
+                    aria-label="Следующий месяц"
+                    title="Следующий месяц"
                     className="p-2 hover:bg-slate-100 rounded-full transition-colors"
                 >
                     <ChevronRight className="w-5 h-5 text-slate-600" />
@@ -374,7 +379,7 @@ const Dashboard: React.FC = () => {
                                             <tr key={idx} className="group hover:bg-slate-50 transition-colors">
                                                 <td className="py-3 pr-2 truncate max-w-0">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
+                                                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT_COLOR_CLASSES[idx % DOT_COLOR_CLASSES.length]}`}></div>
                                                         <span className="text-slate-700 truncate font-medium">{entry.name}</span>
                                                     </div>
                                                 </td>
