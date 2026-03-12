@@ -4,7 +4,6 @@
 /server/node_modules
 /client/node_modules
 
-.windsurfrules
 .niuma-local/dialog-trigger.js
 .niuma-local/port_1ffd91cb89.txt
 .niuma-local/last_response.md

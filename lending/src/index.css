@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --color-main-bg: #141E3A;
+  --color-emerald-base: #10B981;
+  --color-emerald-glow: #047857;
+  --color-slate-text: #94A3B8;
+  --color-rose-flash: #C73850;
+  
+  --font-unbounded: "Unbounded", "Inter", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+  --color-glass-bg: rgba(255, 255, 255, 0.05);
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-slow: pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-main-bg text-white font-inter selection:bg-emerald-base/30 selection:text-white antialiased overflow-x-hidden;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-glass-bg border border-glass-border backdrop-blur-xl md:backdrop-blur-2xl rounded-2xl md:rounded-3xl shadow-xl shadow-black/20;
+  }
+  
+  .text-glow {
+    text-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  }
+}
