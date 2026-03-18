@@ -185,6 +185,23 @@ Expected future server-side additions:
 - enabling recovery by username only
 - defining provider-specific social login implementation
 
+## Implementation Status
+
+For the current production scope, this decision is implemented in `server`, `Web`, and `KMP`:
+
+- account recoverability status is exposed to clients and reflected in Settings/onboarding UX
+- self-service password recovery is available only for accounts with confirmed email
+- email verification and password reset use token-based flows with single-use tokens and TTL
+- authenticated email verification actions now explicitly expose delivery result instead of masking failed delivery as unconditional success
+- Web and KMP Settings show a visible failure-state if the confirmation email could not be sent
+- server health reporting now includes recovery mail readiness signals (`recoveryDelivery`, `appBaseUrl`)
+
+Verification completed for the current scope:
+
+- `node --check server/index.js`
+- `npm run build` in `client/`
+- `./gradlew composeApp:compileKotlinMetadata` in `mobile_app_client/`
+
 ## Related Future Work
 
 - onboarding and settings UX for account protection messaging

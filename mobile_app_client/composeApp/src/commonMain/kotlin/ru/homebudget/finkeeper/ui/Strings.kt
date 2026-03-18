@@ -210,6 +210,8 @@ object Strings {
     const val EMAIL_REMOVED = "Email удалён."
     const val EMAIL_VERIFICATION_SENT = "Письмо для подтверждения email подготовлено."
     const val EMAIL_SAVE_REQUIRES_VERIFICATION = "Email сохранён. Подтвердите его, чтобы восстановление доступа стало доступно."
+    const val EMAIL_SAVE_VERIFICATION_DELIVERY_FAILED = "Email сохранён, но письмо с подтверждением не удалось отправить. Проверьте почтовую конфигурацию сервера и попробуйте запросить подтверждение позже."
+    const val EMAIL_VERIFICATION_DELIVERY_FAILED = "Не удалось отправить письмо для подтверждения email. Проверьте почтовую конфигурацию сервера и попробуйте позже."
     const val BACKUP_CREATED = "Резервная копия успешно создана."
     const val DATA_RESTORED = "Данные успешно восстановлены."
     const val RECOVERY_PASSWORD_CHANGED = "Пароль успешно изменён. Теперь можно войти с новым паролем."

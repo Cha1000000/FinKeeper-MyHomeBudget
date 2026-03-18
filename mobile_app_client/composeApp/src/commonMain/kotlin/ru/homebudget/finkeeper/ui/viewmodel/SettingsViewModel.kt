@@ -227,16 +227,19 @@ class SettingsViewModel(
                         apiClient.updateUserEmail(normalizedEmail)
                     }
                 onSuccess(response.user)
+                val verificationDeliveryFailed = response.verificationRequired && response.delivery?.delivered == false
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
                         statusMessage =
-                            if (response.verificationRequired) {
+                            if (verificationDeliveryFailed) {
+                                Strings.EMAIL_SAVE_VERIFICATION_DELIVERY_FAILED
+                            } else if (response.verificationRequired) {
                                 Strings.EMAIL_SAVE_REQUIRES_VERIFICATION
                             } else {
                                 Strings.EMAIL_UPDATED
                             },
-                        statusIsError = false,
+                        statusIsError = verificationDeliveryFailed,
                         emailDebugToken = response.debug?.emailVerification,
                     )
             } catch (e: ApiException) {
@@ -299,11 +302,12 @@ class SettingsViewModel(
                         apiClient.requestEmailVerification()
                     }
                 onSuccess(response.user)
+                val verificationDeliveryFailed = response.verificationRequired && response.delivery?.delivered == false
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
-                        statusMessage = Strings.EMAIL_VERIFICATION_SENT,
-                        statusIsError = false,
+                        statusMessage = if (verificationDeliveryFailed) Strings.EMAIL_VERIFICATION_DELIVERY_FAILED else Strings.EMAIL_VERIFICATION_SENT,
+                        statusIsError = verificationDeliveryFailed,
                         emailDebugToken = response.debug?.emailVerification,
                     )
             } catch (e: ApiException) {

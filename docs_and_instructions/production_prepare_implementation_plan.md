@@ -844,6 +844,7 @@
 ### Batch 14 — долгосрочные продуктовые и архитектурные улучшения
 
 - **Цель:** подготовить следующую волну развития после закрытия основных production gaps
+- **Фактический статус:** частично выполнено
 - **Связанные приоритеты:** `P2-01`, `P2-03`, `P2-04`
 - **Основные файлы:**
   - `docs_and_instructions/adr/0001-email-based-account-recovery.md`
@@ -861,11 +862,27 @@
   - отдельный implementation-план onboarding: `docs_and_instructions/product_onboarding_web_kmp_plan.md`
   - явное правило: self-service recovery доступен только для аккаунтов с подтверждённым email
   - аккаунты без подтверждённого email требуют product-level mitigation через onboarding/settings
+
+- **Фактически выполнено в рамках Batch 14:**
+  - onboarding flow для `unprotected` аккаунтов реализован в Web и KMP
+  - ручной smoke/demo подтверждён для Web и KMP Android, включая CTA-переход в `Settings`
+  - Wave 4 (`P2-XP-*`) в onboarding implementation plan зафиксирован как завершённый для текущего scope
+  - recovery/recoverability story доведена до production-ready состояния для текущего scope в `server`, `Web` и `KMP`
+  - server API для email verification теперь явно возвращает результат доставки письма вместо неотличимого optimistic success
+  - health endpoint теперь отражает readiness mail/recovery-конфигурации через `recoveryDelivery` и `appBaseUrl`
+  - Web и KMP Settings показывают честный failure-state, если письмо подтверждения email не удалось отправить
+  - compile/build checks подтверждены для server, Web и KMP (`node --check`, `npm run build`, `./gradlew composeApp:compileKotlinMetadata`)
+
+- **Что остаётся незавершённым в Batch 14:**
+  - завершить provider-specific social login rollout и client UX strategy (`Google`, `Яндекс`, при возможности `Mail.ru`)
+  - зафиксировать критерии и триггеры миграции с SQLite
+  - формализовать долгосрочные release/scale решения за пределами текущего hardening scope
+
 - **Почему это отдельный batch:**
   - эти задачи не должны блокировать ближайший production hardening
 - **Зависимости:** после закрытия основной P0/P1 зоны
 - **Критерий готовности:**
-  - у проекта есть понятный план роста после базового production hardening
+  - у проекта есть не только понятный план роста после базового production hardening, но и закрытые ключевые foundation-items по recovery/onboarding
 
 ### Рекомендуемый порядок выполнения batches
 

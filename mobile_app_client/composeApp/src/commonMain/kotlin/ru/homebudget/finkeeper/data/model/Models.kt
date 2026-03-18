@@ -103,10 +103,17 @@ data class EmailVerificationResponse(
 )
 
 @Serializable
+data class EmailDeliveryStatus(
+    val delivered: Boolean,
+    val reason: String? = null,
+)
+
+@Serializable
 data class UserEmailUpdateResponse(
     val success: Boolean,
     val verificationRequired: Boolean,
     val user: User,
+    val delivery: EmailDeliveryStatus? = null,
     val debug: EmailVerificationDebug? = null,
 )
 
@@ -115,6 +122,7 @@ data class UserEmailVerificationRequestResponse(
     val success: Boolean,
     val verificationRequired: Boolean,
     val user: User,
+    val delivery: EmailDeliveryStatus? = null,
     val debug: EmailVerificationDebug? = null,
 )
 

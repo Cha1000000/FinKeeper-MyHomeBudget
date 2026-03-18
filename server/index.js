@@ -1873,6 +1873,13 @@ function buildDebugTokenPreview(token, expiresAt) {
     };
 }
 
+function buildMailDeliveryResult(mailDelivery, fallbackReason = null) {
+    return {
+        delivered: Boolean(mailDelivery?.delivered),
+        reason: mailDelivery?.reason ?? fallbackReason,
+    };
+}
+
 function findRecoverableUsersByEmail(email) {
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) {
@@ -2063,13 +2070,17 @@ app.get('/api/health', (req, res) => {
     try {
         const databaseProbe = db.prepare('SELECT 1 AS ok').get();
         const missingTables = requiredHealthTables.filter(tableName => !hasTable(tableName));
+        const mailConfig = getMailConfig();
+        const healthStatus = databaseProbe?.ok === 1 && missingTables.length === 0 && (!isProduction || mailConfig.configured) ? 'ok' : 'error';
         const payload = {
-            status: databaseProbe?.ok === 1 && missingTables.length === 0 ? 'ok' : 'error',
+            status: healthStatus,
             timestamp: nowIso(),
             uptime: Number(process.uptime().toFixed(3)),
             env: process.env.NODE_ENV || 'development',
             database: databaseProbe?.ok === 1 ? 'ok' : 'error',
             schema: missingTables.length === 0 ? 'ok' : 'error',
+            recoveryDelivery: mailConfig.configured ? 'ok' : (isProduction ? 'error' : 'dev_only'),
+            appBaseUrl: mailConfig.appBaseUrl ? 'ok' : (isProduction ? 'error' : 'dev_default'),
             missingTables,
         };
 
@@ -2109,7 +2120,7 @@ app.post('/api/auth/register', authRateLimiter, (req, res) => {
             passwordHash: hashedPassword,
             authPasswordEnabled: true,
         });
-        
+
         // Create initial backup
         createBackup(user.id);
 
@@ -2708,16 +2719,15 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
     res.json(buildUserPayload(user));
 });
 
-
 // Protect all subsequent API routes
-app.use('/api', authenticateToken); 
+app.use('/api', authenticateToken);
 
 // --- User Management & Backup ---
 
 app.put('/api/user/rename', (req, res) => {
     const { newUsername, details } = validateRenamePayload(req.body);
     if (details.length > 0) return sendValidationError(res, details);
-    
+
     try {
         db.prepare('UPDATE users SET username = ? WHERE id = ?').run(newUsername, req.user.id);
         res.json({ success: true, username: newUsername });
@@ -2737,7 +2747,7 @@ app.put('/api/user/rename', (req, res) => {
 app.put('/api/user/password', passwordRateLimiter, (req, res) => {
     const { currentPassword, newPassword, details } = validatePasswordUpdatePayload(req.body);
     if (details.length > 0) return sendValidationError(res, details);
-    
+
     const user = db.prepare('SELECT password_hash, auth_password_enabled FROM users WHERE id = ?').get(req.user.id);
     if (!user) return sendError(res, 404, 'User not found', 'user_not_found');
     if (!user.auth_password_enabled) {
@@ -2746,7 +2756,7 @@ app.put('/api/user/password', passwordRateLimiter, (req, res) => {
 
     const currentPasswordIsValid = bcrypt.compareSync(currentPassword, user.password_hash);
     if (!currentPasswordIsValid) return sendError(res, 401, 'Current password is incorrect', 'invalid_current_password');
-    
+
     const hashedPassword = bcrypt.hashSync(newPassword, 8);
     db.prepare('UPDATE users SET password_hash = ?, auth_password_enabled = 1 WHERE id = ?').run(hashedPassword, req.user.id);
     res.json({ success: true });
@@ -2807,6 +2817,7 @@ app.put('/api/user/email', emailVerificationRateLimiter, async (req, res) => {
     }
 
     let debugTokenPreview = null;
+    let verificationDelivery = undefined;
     if (hasEmailChanged || !user.email_confirmed_at) {
         const tokenResult = issueEmailVerificationToken(user.id, email);
         debugTokenPreview = buildDebugTokenPreview(tokenResult.token, tokenResult.expiresAt);
@@ -2818,6 +2829,7 @@ app.put('/api/user/email', emailVerificationRateLimiter, async (req, res) => {
                 token: tokenResult.token,
                 expiresAt: tokenResult.expiresAt,
             });
+            verificationDelivery = buildMailDeliveryResult(mailDelivery);
 
             logger.info('email_verification_requested', {
                 requestId: req.requestId,
@@ -2836,6 +2848,7 @@ app.put('/api/user/email', emailVerificationRateLimiter, async (req, res) => {
                 source: hasEmailChanged ? 'email_update' : 'verification_request_implicit',
                 error,
             });
+            verificationDelivery = buildMailDeliveryResult(null, 'send_failed');
         }
     }
 
@@ -2849,6 +2862,7 @@ app.put('/api/user/email', emailVerificationRateLimiter, async (req, res) => {
         success: true,
         verificationRequired: !updatedUser.email_confirmed_at,
         debug: debugTokenPreview ? { emailVerification: debugTokenPreview } : undefined,
+        delivery: verificationDelivery,
         user: buildUserPayload(updatedUser),
     });
 });
@@ -2875,6 +2889,7 @@ app.post('/api/user/email/verification/request', emailVerificationRateLimiter, a
 
     const { token, expiresAt } = issueEmailVerificationToken(user.id, user.email);
     const debugTokenPreview = buildDebugTokenPreview(token, expiresAt);
+    let verificationDelivery = undefined;
 
     try {
         const mailDelivery = await sendEmailVerificationEmail({
@@ -2883,6 +2898,7 @@ app.post('/api/user/email/verification/request', emailVerificationRateLimiter, a
             token,
             expiresAt,
         });
+        verificationDelivery = buildMailDeliveryResult(mailDelivery);
 
         logger.info('email_verification_requested', {
             requestId: req.requestId,
@@ -2901,12 +2917,14 @@ app.post('/api/user/email/verification/request', emailVerificationRateLimiter, a
             source: 'verification_request_explicit',
             error,
         });
+        verificationDelivery = buildMailDeliveryResult(null, 'send_failed');
     }
 
     return res.json({
         success: true,
         verificationRequired: true,
         debug: debugTokenPreview ? { emailVerification: debugTokenPreview } : undefined,
+        delivery: verificationDelivery,
         user: buildUserPayload(user),
     });
 });

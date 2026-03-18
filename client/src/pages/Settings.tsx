@@ -245,11 +245,14 @@ const Settings: React.FC = () => {
             updateUser(data.user);
             setEmail(data.user.email || data.user.recoveryEmail || '');
             setEmailDebugToken(data.debug?.emailVerification ?? null);
+            const verificationDeliveryFailed = data.verificationRequired && data.delivery?.delivered === false;
             setStatusMessage({
-                type: 'success',
-                text: data.verificationRequired
-                    ? 'Email сохранён. Подтвердите адрес, чтобы восстановление доступа стало доступно.'
-                    : 'Email обновлён.',
+                type: verificationDeliveryFailed ? 'error' : 'success',
+                text: verificationDeliveryFailed
+                    ? 'Email сохранён, но письмо с подтверждением не удалось отправить. Проверьте почтовую конфигурацию сервера и попробуйте запросить подтверждение позже.'
+                    : data.verificationRequired
+                        ? 'Email сохранён. Подтвердите адрес, чтобы восстановление доступа стало доступно.'
+                        : 'Email обновлён.',
             });
         } catch (error: unknown) {
             setStatusMessage({ type: 'error', text: getErrorMessage(error, 'Ошибка обновления email.') });
@@ -266,11 +269,14 @@ const Settings: React.FC = () => {
             const { data } = await requestEmailVerification();
             updateUser(data.user);
             setEmailDebugToken(data.debug?.emailVerification ?? null);
+            const verificationDeliveryFailed = data.verificationRequired && data.delivery?.delivered === false;
             setStatusMessage({
-                type: 'success',
-                text: data.verificationRequired
-                    ? 'Подтверждение для email подготовлено повторно.'
-                    : 'Email уже подтверждён.',
+                type: verificationDeliveryFailed ? 'error' : 'success',
+                text: verificationDeliveryFailed
+                    ? 'Не удалось отправить письмо для подтверждения email. Проверьте почтовую конфигурацию сервера и попробуйте позже.'
+                    : data.verificationRequired
+                        ? 'Подтверждение для email подготовлено повторно.'
+                        : 'Email уже подтверждён.',
             });
         } catch (error: unknown) {
             setStatusMessage({ type: 'error', text: getErrorMessage(error, 'Не удалось подготовить подтверждение email.') });

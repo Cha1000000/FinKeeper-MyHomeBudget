@@ -73,6 +73,93 @@ adb shell am start -n ru.homebudget.finkeeper/.MainActivity
 
 Артефакты находятся в `composeApp/build/compose/binaries/main/`.
 
+### Альтернативно для каждой платформы отдельно
+
+---
+
+## macOS
+
+### Запуск (без сборки дистрибутива)
+```bash
+./gradlew :composeApp:run
+```
+
+### Сборка приложения (.app)
+```bash
+./gradlew :composeApp:createDistributable
+```
+Результат: `composeApp/build/compose/binaries/main/app/FinKeeper.app`
+
+### Сборка DMG-образа
+```bash
+./gradlew :composeApp:packageDmg
+```
+Результат: `composeApp/build/compose/binaries/main/dmg/FinKeeper-1.1.0.dmg`
+
+### Сборка PKG-установщика
+```bash
+./gradlew :composeApp:packagePkg
+```
+Результат: `composeApp/build/compose/binaries/main/pkg/FinKeeper-1.1.0.pkg`
+
+---
+
+## Windows
+
+### Запуск (без сборки дистрибутива)
+```bash
+./gradlew :composeApp:run
+```
+
+### Сборка приложения (.exe)
+```bash
+./gradlew :composeApp:createDistributable
+```
+Результат: `composeApp/build/compose/binaries/main/app/FinKeeper/`
+
+### Сборка MSI-установщика
+```bash
+./gradlew :composeApp:packageMsi
+```
+Результат: `composeApp/build/compose/binaries/main/msi/FinKeeper-1.1.0.msi`
+
+> **Примечание:** Для сборки MSI необходим [WiX Toolset](https://wixtoolset.org/).
+
+### Сборка EXE-установщика
+```bash
+./gradlew :composeApp:packageExe
+```
+Результат: `composeApp/build/compose/binaries/main/exe/FinKeeper-1.1.0.exe`
+
+---
+
+## Linux
+
+### Запуск (без сборки дистрибутива)
+```bash
+./gradlew :composeApp:run
+```
+
+### Сборка приложения
+```bash
+./gradlew :composeApp:createDistributable
+```
+Результат: `composeApp/build/compose/binaries/main/app/FinKeeper/`
+
+### Сборка DEB-пакета
+```bash
+./gradlew :composeApp:packageDeb
+```
+Результат: `composeApp/build/compose/binaries/main/deb/finkeeper_1.1.0-1_amd64.deb`
+
+### Сборка RPM-пакета
+```bash
+./gradlew :composeApp:packageRpm
+```
+Результат: `composeApp/build/compose/binaries/main/rpm/finkeeper-1.1.0-1.x86_64.rpm`
+
+---
+
 ## Тесты
 
 ### Все common/unit tests

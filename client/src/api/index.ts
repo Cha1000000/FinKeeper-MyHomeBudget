@@ -193,10 +193,16 @@ export interface EmailVerificationResponse {
     user: User;
 }
 
+export interface EmailDeliveryStatus {
+    delivered: boolean;
+    reason: string | null;
+}
+
 export interface UserEmailUpdateResponse {
     success: boolean;
     verificationRequired: boolean;
     user: User;
+    delivery?: EmailDeliveryStatus;
     debug?: {
         emailVerification?: DebugTokenPreview;
     };
@@ -206,6 +212,7 @@ export interface UserEmailVerificationRequestResponse {
     success: boolean;
     verificationRequired: boolean;
     user: User;
+    delivery?: EmailDeliveryStatus;
     debug?: {
         emailVerification?: DebugTokenPreview;
     };
