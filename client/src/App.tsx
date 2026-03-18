@@ -7,6 +7,9 @@ import Categories from './pages/Categories';
 import Savings from './pages/Savings';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import PasswordRecovery from './pages/PasswordRecovery';
+import EmailVerification from './pages/EmailVerification';
+import SocialAuthCallback from './pages/SocialAuthCallback';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 const RequireAuth: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -28,6 +31,10 @@ const AppRoutes: React.FC = () => {
     return (
         <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/password-recovery" element={<PasswordRecovery />} />
+            <Route path="/verify-email" element={<EmailVerification />} />
+            <Route path="/auth/google/callback" element={<SocialAuthCallback />} />
+            <Route path="/auth/yandex/callback" element={<SocialAuthCallback />} />
             
             <Route path="/" element={
                 <RequireAuth>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { AUTH_LOGOUT_REQUIRED_EVENT, AUTH_TOKEN_CHANGED_EVENT, getToken } from '../auth/tokenStorage';
 
 export interface DataChangedEvent {
     type: 'data_changed';
@@ -19,9 +20,29 @@ export function useWebSocket() {
     const reconnectDelay = useRef(1000);
     const connectRef = useRef<(() => void) | null>(null);
 
+    const disconnect = useCallback(() => {
+        if (reconnectTimer.current) {
+            clearTimeout(reconnectTimer.current);
+            reconnectTimer.current = null;
+        }
+
+        if (wsRef.current) {
+            wsRef.current.onclose = null;
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+    }, []);
+
     const connect = useCallback(() => {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         if (!token) return;
+
+        if (
+            wsRef.current &&
+            (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)
+        ) {
+            return;
+        }
 
         // Determine WebSocket URL from current location
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -50,7 +71,10 @@ export function useWebSocket() {
         ws.onclose = (event) => {
             wsRef.current = null;
             // Don't reconnect if closed intentionally (4001/4003 = auth errors)
-            if (event.code === 4001 || event.code === 4003) return;
+            if (event.code === 4001 || event.code === 4003) {
+                window.dispatchEvent(new Event(AUTH_LOGOUT_REQUIRED_EVENT));
+                return;
+            }
 
             // Reconnect with exponential backoff (max 30s)
             reconnectTimer.current = setTimeout(() => {
@@ -72,13 +96,20 @@ export function useWebSocket() {
         connect();
 
         return () => {
-            if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-            if (wsRef.current) {
-                wsRef.current.onclose = null; // Prevent reconnect on unmount
-                wsRef.current.close();
-            }
+            disconnect();
         };
-    }, [connect]);
+    }, [connect, disconnect]);
+
+    useEffect(() => {
+        const handleTokenChange = () => {
+            disconnect();
+            reconnectDelay.current = 1000;
+            connectRef.current?.();
+        };
+
+        window.addEventListener(AUTH_TOKEN_CHANGED_EVENT, handleTokenChange);
+        return () => window.removeEventListener(AUTH_TOKEN_CHANGED_EVENT, handleTokenChange);
+    }, [disconnect]);
 }
 
 /**

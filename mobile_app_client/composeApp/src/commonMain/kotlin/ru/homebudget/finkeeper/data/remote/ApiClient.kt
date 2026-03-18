@@ -3,12 +3,16 @@ package ru.homebudget.finkeeper.data.remote
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
+import io.ktor.client.plugins.HttpSend
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import io.ktor.util.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.ui.Strings
@@ -16,6 +20,7 @@ import ru.homebudget.finkeeper.ui.Strings
 class ApiClient(
     private val tokenStorage: TokenStorage,
 ) {
+    private val refreshMutex = Mutex()
     private val json =
         Json {
             ignoreUnknownKeys = true
@@ -37,10 +42,24 @@ class ApiClient(
             }
             defaultRequest {
                 contentType(ContentType.Application.Json)
-                val token = tokenStorage.token
+                val token = tokenStorage.accessToken
                 if (token != null) {
                     header("Authorization", "Bearer $token")
                 }
+            }
+        }.also { httpClient ->
+            httpClient.plugin(HttpSend).intercept { request ->
+                val originalCall = execute(request)
+                val statusCode = originalCall.response.status.value
+                if (!shouldAttemptRefresh(statusCode) || !shouldHandleAuthRetry(request)) {
+                    return@intercept originalCall
+                }
+
+                val refreshedToken = recoverAuthToken(extractBearerToken(request)) ?: return@intercept originalCall
+                request.attributes.put(AUTH_RETRY_MARKER, true)
+                request.headers.remove(HttpHeaders.Authorization)
+                request.headers.append(HttpHeaders.Authorization, "Bearer $refreshedToken")
+                execute(request)
             }
         }
 
@@ -52,6 +71,69 @@ class ApiClient(
         }
     }
 
+    private fun HttpRequestBuilder.applyRefreshTransportHeader() {
+        header("X-Refresh-Transport", "body")
+    }
+
+    private fun persistAuthData(authData: AuthData) {
+        tokenStorage.accessToken = authData.accessToken
+        tokenStorage.refreshToken = authData.refreshToken
+        tokenStorage.userId = authData.user.id.toLong()
+    }
+
+    private fun shouldAttemptRefresh(statusCode: Int): Boolean = statusCode == 401 || statusCode == 403
+    
+    private fun isAuthEndpoint(url: String): Boolean {
+        return (
+            url.contains("/auth/login") ||
+                url.contains("/auth/register") ||
+                url.contains("/auth/refresh") ||
+                url.contains("/auth/oauth/exchange") ||
+                url.contains("/auth/oauth/") ||
+                url.contains("/auth/password-recovery/") ||
+                url.contains("/auth/email-verification/") ||
+                url.contains("/auth/logout")
+        )
+    }
+
+    private fun shouldHandleAuthRetry(request: HttpRequestBuilder): Boolean {
+        if (request.attributes.contains(AUTH_RETRY_MARKER)) {
+            return false
+        }
+        if (tokenStorage.refreshToken.isNullOrBlank()) {
+            return false
+        }
+        return !isAuthEndpoint(request.url.buildString())
+    }
+
+    private fun extractBearerToken(request: HttpRequestBuilder): String? {
+        return request.headers[HttpHeaders.Authorization]
+            ?.removePrefix("Bearer ")
+            ?.trim()
+            ?.ifBlank { null }
+    }
+
+    private suspend fun recoverAuthToken(failedToken: String?): String? {
+        val currentToken = tokenStorage.accessToken
+        if (!currentToken.isNullOrBlank() && currentToken != failedToken) {
+            return currentToken
+        }
+
+        return refreshMutex.withLock {
+            val latestToken = tokenStorage.accessToken
+            if (!latestToken.isNullOrBlank() && latestToken != failedToken) {
+                return@withLock latestToken
+            }
+
+            try {
+                refreshAuth().accessToken
+            } catch (_: Exception) {
+                tokenStorage.clear(AuthSessionEvent.SessionExpired)
+                null
+            }
+        }
+    }
+
     // ── Auth ──
 
     suspend fun login(
@@ -60,6 +142,7 @@ class ApiClient(
     ): AuthData {
         val response =
             client.post("$baseUrl/auth/login") {
+                applyRefreshTransportHeader()
                 setBody(LoginRequest(username, password))
             }
         checkResponse(response)
@@ -72,16 +155,114 @@ class ApiClient(
     ): AuthData {
         val response =
             client.post("$baseUrl/auth/register") {
+                applyRefreshTransportHeader()
                 setBody(LoginRequest(username, password))
             }
         checkResponse(response)
         return response.body()
     }
 
+    suspend fun refreshAuth(): AuthData {
+        val refreshToken =
+            tokenStorage.refreshToken
+                ?: throw ApiException(
+                    statusCode = 401,
+                    message = "Refresh token required",
+                )
+        val response =
+            client.post("$baseUrl/auth/refresh") {
+                applyRefreshTransportHeader()
+                setBody(RefreshTokenRequest(refreshToken))
+            }
+        checkResponse(response)
+        val authData = response.body<AuthData>()
+        persistAuthData(authData)
+        return authData
+    }
+
+    suspend fun logout() {
+        val refreshToken = tokenStorage.refreshToken
+        val response =
+            client.post("$baseUrl/auth/logout") {
+                if (refreshToken != null) {
+                    applyRefreshTransportHeader()
+                    setBody(RefreshTokenRequest(refreshToken))
+                }
+            }
+        checkResponse(response)
+    }
+
     suspend fun getMe(): User {
         val response = client.get("$baseUrl/auth/me")
         checkResponse(response)
         return response.body()
+    }
+
+    suspend fun requestPasswordRecovery(email: String): PasswordRecoveryRequestResponse {
+        val response =
+            client.post("$baseUrl/auth/password-recovery/request") {
+                setBody(PasswordRecoveryRequest(email))
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun confirmPasswordRecovery(
+        token: String,
+        newPassword: String,
+    ): PasswordRecoveryConfirmResponse {
+        val response =
+            client.post("$baseUrl/auth/password-recovery/confirm") {
+                setBody(PasswordRecoveryConfirmRequest(token, newPassword))
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun confirmEmailVerification(token: String): User {
+        val response =
+            client.post("$baseUrl/auth/email-verification/confirm") {
+                setBody(EmailVerificationConfirmRequest(token))
+            }
+        checkResponse(response)
+        val payload = response.body<EmailVerificationResponse>()
+        return payload.user
+    }
+
+    suspend fun getSocialProviders(): List<SocialProvider> {
+        val response = client.get("$baseUrl/auth/social/providers")
+        checkResponse(response)
+        return response.body<SocialProvidersResponse>().providers
+    }
+
+    suspend fun startNativeSocialAuth(
+        provider: String,
+        clientType: String,
+    ): NativeSocialAuthStartResponse {
+        val response =
+            client.post("$baseUrl/auth/oauth/$provider/native/start") {
+                setBody(NativeSocialAuthStartRequest(clientType = clientType))
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun getNativeSocialAuthStatus(attemptToken: String): NativeSocialAuthStatusResponse {
+        val response = client.get("$baseUrl/auth/oauth/native/$attemptToken")
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun exchangeSocialAuthCode(code: String): AuthData {
+        val response =
+            client.post("$baseUrl/auth/oauth/exchange") {
+                applyRefreshTransportHeader()
+                setBody(SocialAuthExchangeRequest(code))
+            }
+        checkResponse(response)
+        val authData = response.body<AuthData>()
+        persistAuthData(authData)
+        return authData
     }
 
     // ── User ──
@@ -94,12 +275,45 @@ class ApiClient(
         checkResponse(response)
     }
 
-    suspend fun updatePassword(newPassword: String) {
+    suspend fun updatePassword(
+        currentPassword: String,
+        newPassword: String,
+    ) {
         val response =
             client.put("$baseUrl/user/password") {
-                setBody(UpdatePasswordRequest(newPassword))
+                setBody(UpdatePasswordRequest(currentPassword, newPassword))
             }
         checkResponse(response)
+    }
+
+    suspend fun updateUserEmail(email: String): UserEmailUpdateResponse {
+        val response =
+            client.put("$baseUrl/user/email") {
+                setBody(UpdateUserEmailRequest(email))
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun clearUserEmail(): UserEmailUpdateResponse {
+        val response =
+            client.put("$baseUrl/user/email") {
+                setBody(UpdateUserEmailRequest(""))
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun requestEmailVerification(): UserEmailVerificationRequestResponse {
+        val response = client.post("$baseUrl/user/email/verification/request")
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun getBackupEntries(): BackupListResponse {
+        val response = client.get("$baseUrl/user/backups")
+        checkResponse(response)
+        return response.body()
     }
 
     suspend fun createManualBackup() {
@@ -107,9 +321,16 @@ class ApiClient(
         checkResponse(response)
     }
 
-    suspend fun restoreBackup() {
-        val response = client.post("$baseUrl/user/restore")
+    suspend fun restoreBackup(
+        backupId: Int,
+        confirmationText: String,
+    ): RestoreBackupResponse {
+        val response =
+            client.post("$baseUrl/user/restore") {
+                setBody(RestoreBackupRequest(backupId, confirmationText))
+            }
         checkResponse(response)
+        return response.body()
     }
 
     suspend fun getDeletedRecords(
@@ -507,6 +728,10 @@ class ApiClient(
                             ).replace("%2\$s", response.status.description),
             )
         }
+    }
+
+    companion object {
+        private val AUTH_RETRY_MARKER = AttributeKey<Boolean>("auth_retry_marker")
     }
 }
 

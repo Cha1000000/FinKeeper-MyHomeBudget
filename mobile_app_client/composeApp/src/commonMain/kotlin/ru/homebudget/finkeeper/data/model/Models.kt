@@ -6,13 +6,147 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class AuthData(
     val token: String,
+    @SerialName("accessToken") private val rawAccessToken: String? = null,
+    @SerialName("refreshToken") val refreshToken: String? = null,
     val user: User
-)
+) {
+    val accessToken: String
+        get() = rawAccessToken ?: token
+}
 
 @Serializable
 data class User(
     val id: Int,
-    val username: String
+    val username: String,
+    val email: String? = null,
+    @SerialName("emailConfirmed") val emailConfirmed: Boolean = false,
+    @SerialName("recoverabilityStatus") val recoverabilityStatus: String = "unprotected",
+    @SerialName("canSelfRecover") val canSelfRecover: Boolean = false,
+)
+
+@Serializable
+data class SocialProvider(
+    val id: String,
+    val enabled: Boolean = false,
+    val displayName: String? = null,
+)
+
+@Serializable
+data class SocialProvidersResponse(
+    val providers: List<SocialProvider> = emptyList(),
+)
+
+@Serializable
+data class NativeSocialAuthStartRequest(
+    @SerialName("clientType") val clientType: String,
+)
+
+@Serializable
+data class NativeSocialAuthStartResponse(
+    val provider: String,
+    @SerialName("clientType") val clientType: String,
+    @SerialName("attemptToken") val attemptToken: String,
+    @SerialName("authorizeUrl") val authorizeUrl: String,
+    @SerialName("expiresAt") val expiresAt: String,
+    @SerialName("pollIntervalMs") val pollIntervalMs: Int = 1500,
+)
+
+@Serializable
+data class NativeSocialAuthStatusResponse(
+    val provider: String,
+    @SerialName("clientType") val clientType: String,
+    val status: String,
+    val code: String? = null,
+    val error: String? = null,
+    @SerialName("errorDescription") val errorDescription: String? = null,
+    @SerialName("expiresAt") val expiresAt: String,
+    @SerialName("completedAt") val completedAt: String? = null,
+)
+
+@Serializable
+data class SocialAuthExchangeRequest(
+    val code: String,
+)
+
+@Serializable
+data class DebugTokenPreview(
+    val token: String,
+    @SerialName("expiresAt") val expiresAt: String,
+)
+
+@Serializable
+data class PasswordRecoveryDebug(
+    @SerialName("passwordReset") val passwordReset: DebugTokenPreview? = null,
+)
+
+@Serializable
+data class EmailVerificationDebug(
+    @SerialName("emailVerification") val emailVerification: DebugTokenPreview? = null,
+)
+
+@Serializable
+data class PasswordRecoveryRequestResponse(
+    val success: Boolean,
+    val message: String,
+    val debug: PasswordRecoveryDebug? = null,
+)
+
+@Serializable
+data class PasswordRecoveryConfirmResponse(
+    val success: Boolean,
+)
+
+@Serializable
+data class EmailVerificationResponse(
+    val success: Boolean,
+    val user: User,
+)
+
+@Serializable
+data class UserEmailUpdateResponse(
+    val success: Boolean,
+    val verificationRequired: Boolean,
+    val user: User,
+    val debug: EmailVerificationDebug? = null,
+)
+
+@Serializable
+data class UserEmailVerificationRequestResponse(
+    val success: Boolean,
+    val verificationRequired: Boolean,
+    val user: User,
+    val debug: EmailVerificationDebug? = null,
+)
+
+@Serializable
+data class BackupEntrySummary(
+    val categories: Int = 0,
+    val incomeSources: Int = 0,
+    val savingsGoals: Int = 0,
+    val months: Int = 0,
+    val incomes: Int = 0,
+    val expenses: Int = 0,
+    val budgets: Int = 0,
+    val savingsTransactions: Int = 0,
+)
+
+@Serializable
+data class BackupEntry(
+    val id: Int,
+    val createdAt: String,
+    val sizeBytes: Int = 0,
+    val summary: BackupEntrySummary = BackupEntrySummary(),
+)
+
+@Serializable
+data class BackupListResponse(
+    val backups: List<BackupEntry> = emptyList(),
+)
+
+@Serializable
+data class RestoreBackupResponse(
+    val success: Boolean,
+    val backup: BackupEntry,
 )
 
 @Serializable
@@ -140,6 +274,32 @@ data class LoginRequest(
 )
 
 @Serializable
+data class RefreshTokenRequest(
+    @SerialName("refreshToken") val refreshToken: String
+)
+
+@Serializable
+data class PasswordRecoveryRequest(
+    val email: String,
+)
+
+@Serializable
+data class PasswordRecoveryConfirmRequest(
+    val token: String,
+    @SerialName("newPassword") val newPassword: String,
+)
+
+@Serializable
+data class EmailVerificationConfirmRequest(
+    val token: String,
+)
+
+@Serializable
+data class UpdateUserEmailRequest(
+    val email: String,
+)
+
+@Serializable
 data class AddIncomeRequest(
     @SerialName("month_id") val monthId: Int,
     val source: String,
@@ -234,10 +394,25 @@ data class UpdateUsernameRequest(
 
 @Serializable
 data class UpdatePasswordRequest(
+    @SerialName("currentPassword") val currentPassword: String,
     @SerialName("newPassword") val newPassword: String
 )
 
 @Serializable
+data class RestoreBackupRequest(
+    @SerialName("backupId") val backupId: Int,
+    @SerialName("confirmationText") val confirmationText: String,
+)
+
+@Serializable
+data class ValidationErrorDetail(
+    val field: String? = null,
+    val message: String? = null
+)
+
+@Serializable
 data class ErrorResponse(
-    val error: String? = null
+    val error: String? = null,
+    val code: String? = null,
+    val details: List<ValidationErrorDetail> = emptyList()
 )

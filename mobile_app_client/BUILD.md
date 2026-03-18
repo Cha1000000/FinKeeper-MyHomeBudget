@@ -16,6 +16,10 @@ Kotlin Multiplatform проект с поддержкой Android, iOS, macOS, W
 
 ```bash
 ./gradlew :composeApp:assembleDebug
+
+./gradlew :composeApp:installDebug
+
+adb shell am start -n ru.homebudget.finkeeper/.MainActivity
 ```
 
 ### Release APK

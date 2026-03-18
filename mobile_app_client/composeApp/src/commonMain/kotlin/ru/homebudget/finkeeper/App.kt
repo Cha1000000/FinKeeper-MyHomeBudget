@@ -55,9 +55,15 @@ fun App() {
                     state = authState,
                     onLogin = { u, p -> authViewModel.login(u, p) },
                     onRegister = { u, p -> authViewModel.register(u, p) },
+                    onLoginWithSocial = { provider -> authViewModel.loginWithSocial(provider) },
+                    onRequestPasswordRecovery = { email -> authViewModel.requestPasswordRecovery(email) },
+                    onConfirmPasswordRecovery = { token, newPassword, onSuccess ->
+                        authViewModel.confirmPasswordRecovery(token, newPassword, onSuccess)
+                    },
                     onClearError = { authViewModel.clearError() },
                     onServerUrlChange = { authViewModel.updateServerUrl(it) },
-                    currentServerUrl = authViewModel.currentServerUrl
+                    currentServerUrl = authViewModel.currentServerUrl,
+                    showServerSettingsEnabled = BuildConfig.SHOW_SERVER_SETTINGS,
                 )
                 else -> {
                     val dashboardViewModel = koinInject<DashboardViewModel>()

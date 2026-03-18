@@ -3,6 +3,8 @@ package ru.homebudget.finkeeper.di
 import org.koin.dsl.module
 import ru.homebudget.finkeeper.data.local.dao.*
 import ru.homebudget.finkeeper.data.remote.ApiClient
+import ru.homebudget.finkeeper.data.remote.SecureTokenStorage
+import ru.homebudget.finkeeper.data.remote.SocialAuthLauncher
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.SyncManager
 import ru.homebudget.finkeeper.data.repository.SyncStateStorage
@@ -25,7 +27,7 @@ import ru.homebudget.finkeeper.ui.viewmodel.*
 val appModule =
     module {
         // Remote data
-        single { TokenStorage() }
+        single<TokenStorage> { TokenStorage(secureTokenStorage = get<SecureTokenStorage>()) }
         single { ApiClient(get()) }
         single { SyncStateStorage(get()) }
 
@@ -78,12 +80,12 @@ val appModule =
         }
 
         // ViewModels
-        factory { AuthViewModel(get(), get()) }
+        factory { AuthViewModel(get(), get(), get<SocialAuthLauncher>()) }
         factory { DashboardViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { MonthViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { CategoriesViewModel(get(), get(), get(), get(), get()) }
         factory { SavingsViewModel(get(), get(), get(), get(), get()) }
-        factory { SettingsViewModel(get()) }
+        factory { SettingsViewModel(get(), get(), get()) }
 
         // Сервис авто-синхронизации
         single { SyncService(get(), get(), get(), get()) }

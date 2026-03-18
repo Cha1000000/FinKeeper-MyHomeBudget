@@ -38,11 +38,13 @@ FinKeeper-MyHomeBudget/
 ## Backend (сервер)
 
 - **Стек**: Express 5, SQLite (better-sqlite3), JWT (jsonwebtoken), bcryptjs, cors, WebSocket (ws)
-- **Порт**: `3002`
-- **Авторизация**: регистрация/логин с хешированием паролей и JWT (365 дней). Middleware `authenticateToken` защищает все `/api/*` маршруты
+- **Порт**: `PORT` из env, по умолчанию `3002`
+- **Авторизация**: регистрация/логин с хешированием паролей и JWT (365 дней). Middleware `authenticateToken` защищает все `/api/*` маршруты. `JWT_SECRET` обязателен через env
 - **Резервные копии**: JSON-снапшоты данных пользователя (макс 5), создаются при логине, проверке токена (раз в час), вручную. Транзакционное восстановление
 - **WebSocket**: real-time обновления между клиентами
 - **Sync contract**: сервер поддерживает `created_at` / `updated_at`, tombstones через `deleted_records` и idempotent write requests через `operationId`
+- **Production hardening**: `helmet`, CORS allowlist через `ALLOWED_ORIGINS`, лимит JSON body через `JSON_BODY_LIMIT`
+- **Rate limiting**: отдельные лимиты на `register/login`, `password change` и `backup restore` с `429` и `Retry-After`
 
 ### Схема БД
 

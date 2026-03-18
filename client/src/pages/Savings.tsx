@@ -5,12 +5,14 @@ import { getSavingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, 
 import type { SavingsGoal } from '../api';
 import { formatCurrency } from '../utils';
 import Modal from '../components/Modal';
+import PageState from '../components/PageState';
 import { useDataChanged } from '../hooks/useWebSocket';
 
 const Savings: React.FC = () => {
     const [goals, setGoals] = useState<SavingsGoal[]>([]);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
     const [isTransModalOpen, setIsTransModalOpen] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     
     // New Goal State
     const [newGoalName, setNewGoalName] = useState('');
@@ -26,12 +28,30 @@ const Savings: React.FC = () => {
     const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
     const [transAmount, setTransAmount] = useState('');
     const [transType, setTransType] = useState<'deposit' | 'withdraw'>('deposit');
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const resetGoalForm = () => {
+        setEditingGoalId(null);
+        setEditGoalName('');
+        setEditGoalTarget('');
+        setEditGoalCurrent('');
+        setNewGoalName('');
+        setNewGoalTarget('');
+    };
 
     const loadData = async () => {
+        setIsLoading(true);
+        setError(null);
         try {
             const res = await getSavingsGoals();
             setGoals(res.data);
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            setError('Не удалось загрузить копилки. Проверьте соединение и попробуйте ещё раз.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     useEffect(() => { 
@@ -51,7 +71,10 @@ const Savings: React.FC = () => {
             setNewGoalTarget('');
             loadData();
             window.dispatchEvent(new Event('savingsUpdated'));
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            setError('Не удалось создать копилку. Попробуйте ещё раз.');
+        }
     };
 
     const openEditGoal = (goal: SavingsGoal) => {
@@ -72,28 +95,28 @@ const Savings: React.FC = () => {
                 current_amount: parseFloat(editGoalCurrent) || 0
             });
             setIsGoalModalOpen(false);
-            setEditingGoalId(null);
-            setEditGoalName('');
-            setEditGoalTarget('');
-            setEditGoalCurrent('');
+            resetGoalForm();
             loadData();
             window.dispatchEvent(new Event('savingsUpdated'));
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            setError('Не удалось обновить копилку. Попробуйте ещё раз.');
+        }
     };
 
     const handleDeleteGoal = async () => {
         if (!editingGoalId) return;
-        if (!confirm('Вы уверены, что хотите удалить эту копилку?')) return;
         try {
             await deleteSavingsGoal(editingGoalId);
+            setIsDeleteConfirmOpen(false);
             setIsGoalModalOpen(false);
-            setEditingGoalId(null);
-            setEditGoalName('');
-            setEditGoalTarget('');
-            setEditGoalCurrent('');
+            resetGoalForm();
             loadData();
             window.dispatchEvent(new Event('savingsUpdated'));
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            setError('Не удалось удалить копилку. Попробуйте ещё раз.');
+        }
     };
 
     const openTransaction = (goalId: number, type: 'deposit' | 'withdraw') => {
@@ -124,11 +147,52 @@ const Savings: React.FC = () => {
             setTransAmount('');
             loadData();
             window.dispatchEvent(new Event('savingsUpdated'));
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            setError('Не удалось выполнить операцию по копилке. Попробуйте ещё раз.');
+        }
     };
+
+    if (isLoading && goals.length === 0) {
+        return (
+            <PageState
+                variant="loading"
+                title="Загружаем копилки"
+                description="Подготавливаем ваши цели и текущее состояние накоплений."
+            />
+        );
+    }
+
+    if (error && goals.length === 0) {
+        return (
+            <PageState
+                variant="error"
+                title="Не удалось открыть копилки"
+                description={error}
+                actionLabel="Повторить"
+                onAction={() => {
+                    void loadData();
+                }}
+            />
+        );
+    }
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
+            {error && (
+                <div role="alert" aria-live="polite" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between">
+                    <span>{error}</span>
+                    <button
+                        onClick={() => {
+                            void loadData();
+                        }}
+                        className="rounded-xl bg-rose-600 px-4 py-2 text-white transition-colors hover:bg-rose-700"
+                    >
+                        Повторить
+                    </button>
+                </div>
+            )}
+
             <div className="flex items-center justify-between">
                 <div className="flex flex-col">
                     <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -148,62 +212,70 @@ const Savings: React.FC = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {goals.map((goal) => {
-                    const progress = goal.target_amount > 0
-                        ? Math.min((goal.current_amount / goal.target_amount) * 100, 100)
-                        : 0;
-                    
-                    return (
-                        <div key={goal.id} className="bg-gradient-to-br from-emerald-50/95 to-emerald-600/70 backdrop-blur-md rounded-3xl shadow-[0_8px_40px_rgba(16,185,129,0.08)] border border-emerald-200/70 p-6 flex flex-col justify-between h-full cursor-pointer hover:shadow-[0_15px_50px_rgba(16,185,129,0.15)] hover:-translate-y-1 transition-all" onClick={() => openEditGoal(goal)}>
-                            <div className="mb-6">
-                                <div className="flex justify-between items-start mb-3">
-                                    <h3 className="text-lg font-bold text-slate-800 leading-tight">{goal.name}</h3>
-                                    <div className="bg-slate-100/80 text-slate-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200/50">
-                                        {progress.toFixed(0)}%
+            {goals.length === 0 ? (
+                <PageState
+                    variant="empty"
+                    title="Копилок пока нет"
+                    description="Создайте первую цель накоплений, чтобы отслеживать прогресс и операции пополнения или снятия."
+                    actionLabel="Создать цель"
+                    onAction={() => setIsGoalModalOpen(true)}
+                />
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {goals.map((goal) => {
+                        const progress = goal.target_amount > 0
+                            ? Math.min((goal.current_amount / goal.target_amount) * 100, 100)
+                            : 0;
+                        
+                        return (
+                            <div key={goal.id} className="bg-gradient-to-br from-emerald-50/95 to-emerald-600/70 backdrop-blur-md rounded-3xl shadow-[0_8px_40px_rgba(16,185,129,0.08)] border border-emerald-200/70 p-6 flex flex-col justify-between h-full cursor-pointer hover:shadow-[0_15px_50px_rgba(16,185,129,0.15)] hover:-translate-y-1 transition-all" onClick={() => openEditGoal(goal)}>
+                                <div className="mb-6">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <h3 className="text-lg font-bold text-slate-800 leading-tight">{goal.name}</h3>
+                                        <div className="bg-slate-100/80 text-slate-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200/50">
+                                            {progress.toFixed(0)}%
+                                        </div>
+                                    </div>
+                                    <p className="text-3xl font-bold text-slate-900 mb-1 tracking-tight">{formatCurrency(goal.current_amount)}</p>
+                                    <p className="text-sm text-slate-400 font-medium">из {formatCurrency(goal.target_amount)}</p>
+                                </div>
+
+                                <div className="space-y-5">
+                                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                                        <div
+                                            className="bg-primary h-2.5 rounded-full transition-all duration-500"
+                                            style={{ width: `${progress}%` }}
+                                        ></div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); openTransaction(goal.id, 'deposit'); }}
+                                            className="flex items-center justify-center gap-1.5 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100/50 rounded-xl font-medium transition-colors text-sm shadow-sm"
+                                        >
+                                            <ArrowUp className="w-4 h-4" /> Пополнить
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); openTransaction(goal.id, 'withdraw'); }}
+                                            className="flex items-center justify-center gap-1.5 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100/50 rounded-xl font-medium transition-colors text-sm shadow-sm"
+                                        >
+                                            <ArrowDown className="w-4 h-4" /> Снять
+                                        </button>
                                     </div>
                                 </div>
-                                <p className="text-3xl font-bold text-slate-900 mb-1 tracking-tight">{formatCurrency(goal.current_amount)}</p>
-                                <p className="text-sm text-slate-400 font-medium">из {formatCurrency(goal.target_amount)}</p>
                             </div>
-
-                            <div className="space-y-5">
-                                <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                                    <div
-                                        className="bg-primary h-2.5 rounded-full transition-all duration-500"
-                                        style={{ width: `${progress}%` }}
-                                    ></div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); openTransaction(goal.id, 'deposit'); }}
-                                        className="flex items-center justify-center gap-1.5 py-2.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100/50 rounded-xl font-medium transition-colors text-sm shadow-sm"
-                                    >
-                                        <ArrowUp className="w-4 h-4" /> Пополнить
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); openTransaction(goal.id, 'withdraw'); }}
-                                        className="flex items-center justify-center gap-1.5 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100/50 rounded-xl font-medium transition-colors text-sm shadow-sm"
-                                    >
-                                        <ArrowDown className="w-4 h-4" /> Снять
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* Create/Edit Goal Modal */}
             <Modal
                 isOpen={isGoalModalOpen}
                 onClose={() => {
                     setIsGoalModalOpen(false);
-                    setEditingGoalId(null);
-                    setEditGoalName('');
-                    setEditGoalTarget('');
-                    setEditGoalCurrent('');
+                    setIsDeleteConfirmOpen(false);
+                    resetGoalForm();
                 }}
                 title={editingGoalId ? "Редактировать копилку" : "Создать новую копилку"}
             >
@@ -250,7 +322,7 @@ const Savings: React.FC = () => {
                         {editingGoalId && (
                             <button
                                 type="button"
-                                onClick={handleDeleteGoal}
+                                onClick={() => setIsDeleteConfirmOpen(true)}
                                 className="flex-1 bg-rose-50 text-rose-600 border border-rose-100 py-3 rounded-xl font-medium hover:bg-rose-100 transition-colors shadow-sm"
                             >
                                 Удалить копилку
@@ -288,6 +360,37 @@ const Savings: React.FC = () => {
                         {transType === 'deposit' ? 'Внести в копилку' : 'Снять средства'}
                     </button>
                 </form>
+            </Modal>
+
+            <Modal
+                isOpen={isDeleteConfirmOpen}
+                onClose={() => setIsDeleteConfirmOpen(false)}
+                title="Удаление копилки"
+            >
+                <div className="space-y-4">
+                    <p className="text-gray-600">
+                        Удалить копилку <strong>{editGoalName}</strong>?
+                    </p>
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                        Это действие удалит цель накопления и связанные операции. Отменить удаление из интерфейса будет нельзя.
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            type="button"
+                            onClick={handleDeleteGoal}
+                            className="flex-1 bg-rose-600 text-white py-3 rounded-xl font-medium hover:bg-rose-700 transition-colors"
+                        >
+                            Удалить
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsDeleteConfirmOpen(false)}
+                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                        >
+                            Отмена
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </div>
     );

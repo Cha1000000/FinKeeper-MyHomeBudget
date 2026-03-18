@@ -28,3 +28,4 @@
 # Keep Koin
 -keep class org.koin.** { *; }
 -dontwarn org.koin.**
+-dontwarn com.google.errorprone.annotations.**

@@ -33,6 +33,21 @@ fun formatDate(isoDate: String): String {
     }
 }
 
+fun formatDateTime(isoDateTime: String): String {
+    return try {
+        val instant = Instant.parse(isoDateTime)
+        val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        val day = localDateTime.date.dayOfMonth.toString().padStart(2, '0')
+        val month = localDateTime.date.monthNumber.toString().padStart(2, '0')
+        val year = localDateTime.date.year
+        val hour = localDateTime.time.hour.toString().padStart(2, '0')
+        val minute = localDateTime.time.minute.toString().padStart(2, '0')
+        "$day.$month.$year $hour:$minute"
+    } catch (_: Exception) {
+        isoDateTime
+    }
+}
+
 fun currentIsoDate(): String {
     val now = Clock.System.now()
     return now.toString()

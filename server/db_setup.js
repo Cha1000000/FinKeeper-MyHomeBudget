@@ -1,16 +1,22 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const logger = require('./logger');
 
-const dbPath = path.resolve(__dirname, 'database.sqlite');
+const dbPath = process.env.DB_PATH?.trim()
+    ? path.resolve(process.env.DB_PATH.trim())
+    : path.resolve(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
 
-console.log('Setting up database at', dbPath);
+logger.info('db_setup_started', { dbPath });
 
 const schema = `
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE,
   password_hash TEXT NOT NULL,
+  auth_password_enabled INTEGER NOT NULL DEFAULT 1,
+  email_confirmed_at TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -113,6 +119,84 @@ CREATE TABLE IF NOT EXISTS user_backups (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS auth_refresh_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS auth_email_verification_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  email TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  used_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS auth_password_reset_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  email TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  used_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS auth_identities (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  provider_user_id TEXT NOT NULL,
+  provider_email TEXT,
+  provider_email_verified INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  last_login_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE(provider, provider_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS auth_login_exchange_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  code_hash TEXT NOT NULL UNIQUE,
+  client_type TEXT,
+  redirect_uri TEXT,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  used_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS auth_social_login_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  attempt_token_hash TEXT NOT NULL UNIQUE,
+  provider TEXT NOT NULL,
+  client_type TEXT NOT NULL,
+  redirect_uri TEXT,
+  user_id INTEGER,
+  status TEXT NOT NULL,
+  exchange_code TEXT,
+  error_code TEXT,
+  error_description TEXT,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  completed_at TEXT,
+  consumed_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -138,5 +222,22 @@ CREATE TABLE IF NOT EXISTS deleted_records (
 
 db.exec(schema);
 
-console.log('Database setup complete.');
+db.exec(`
+CREATE INDEX IF NOT EXISTS idx_auth_email_verification_tokens_user_id
+ON auth_email_verification_tokens(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_auth_password_reset_tokens_user_id
+ON auth_password_reset_tokens(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_auth_identities_user_id
+ON auth_identities(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_auth_login_exchange_codes_user_id
+ON auth_login_exchange_codes(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_auth_social_login_attempts_status
+ON auth_social_login_attempts(status);
+`);
+
+logger.info('db_setup_completed', { dbPath });
 db.close();

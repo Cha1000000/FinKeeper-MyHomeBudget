@@ -2,6 +2,7 @@ package ru.homebudget.finkeeper.data.repository
 
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
+import io.ktor.http.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,24 +68,26 @@ class WebSocketService(
                     }
 
                     val serverUrl = tokenStorage.serverUrl
-                    // Convert http(s)://host:port to ws(s)://host:port
-                    val wsUrl = serverUrl
-                        .replace("https://", "wss://")
-                        .replace("http://", "ws://")
-
-                    val host = wsUrl.substringAfter("://").substringBefore(":")
-                    val port = wsUrl.substringAfterLast(":").toIntOrNull() ?: 3002
-                    val isSecure = wsUrl.startsWith("wss://")
+                    val wsUrl = Url(
+                        serverUrl
+                            .replace("https://", "wss://")
+                            .replace("http://", "ws://")
+                    )
+                    val host = wsUrl.host
+                    val port = wsUrl.port
+                    val isSecure = wsUrl.protocol == URLProtocol.WSS
+                    val basePath = wsUrl.encodedPath.trimEnd('/').ifBlank { "" }
+                    val webSocketPath = if (basePath.isEmpty()) "/?token=$token" else "$basePath/?token=$token"
 
                     println("WebSocket connecting to $host:$port")
 
                     wsClient.webSocket(
                         host = host,
                         port = port,
-                        path = "/?token=$token",
+                        path = webSocketPath,
                         request = {
                             if (isSecure) {
-                                url.protocol = io.ktor.http.URLProtocol.WSS
+                                url.protocol = URLProtocol.WSS
                             }
                         }
                     ) {

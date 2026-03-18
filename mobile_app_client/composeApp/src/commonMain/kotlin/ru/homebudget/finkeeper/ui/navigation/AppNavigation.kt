@@ -191,15 +191,40 @@ fun AppNavigation(
                 Screen.Settings ->
                     SettingsScreen(
                         state = settingsState,
+                        user = authState.user,
                         username = authState.user?.username ?: "",
                         onUpdateUsername = { name, callback ->
                             settingsViewModel.updateUsername(name, callback)
                         },
-                        onUpdatePassword = { settingsViewModel.updatePassword(it) },
+                        onUpdatePassword = { currentPassword, newPassword, onSuccess ->
+                            settingsViewModel.updatePassword(currentPassword, newPassword, onSuccess)
+                        },
+                        onUpdateEmail = { email, onSuccess ->
+                            settingsViewModel.updateUserEmail(email) { updatedUser ->
+                                authViewModel.updateUser(updatedUser)
+                                onSuccess(updatedUser)
+                            }
+                        },
+                        onClearEmail = { onSuccess ->
+                            settingsViewModel.clearUserEmail { updatedUser ->
+                                authViewModel.updateUser(updatedUser)
+                                onSuccess(updatedUser)
+                            }
+                        },
+                        onRequestEmailVerification = { onSuccess ->
+                            settingsViewModel.requestEmailVerification { updatedUser ->
+                                authViewModel.updateUser(updatedUser)
+                                onSuccess(updatedUser)
+                            }
+                        },
                         onCreateBackup = { settingsViewModel.createBackup() },
-                        onRestoreBackup = { callback -> settingsViewModel.restoreBackup(callback) },
+                        onRestoreBackup = { backupId, confirmationText, callback ->
+                            settingsViewModel.restoreBackup(backupId, confirmationText, callback)
+                        },
                         onLogout = { authViewModel.logout() },
                         onClearStatus = { settingsViewModel.clearStatus() },
+                        onRetrySync = { settingsViewModel.retrySync() },
+                        onDismissSyncError = { settingsViewModel.clearSyncError() },
                         currentThemeMode = currentThemeMode,
                         onThemeModeChange = onThemeModeChange,
                     )

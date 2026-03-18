@@ -7,6 +7,10 @@ import org.koin.dsl.module
 import ru.homebudget.finkeeper.data.local.database.DatabaseProvider
 import ru.homebudget.finkeeper.data.local.database.FinKeeperDatabase
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
+import ru.homebudget.finkeeper.data.remote.AndroidSocialAuthLauncher
+import ru.homebudget.finkeeper.data.remote.AndroidSecureTokenStorage
+import ru.homebudget.finkeeper.data.remote.SecureTokenStorage
+import ru.homebudget.finkeeper.data.remote.SocialAuthLauncher
 
 /**
  * Android модуль Koin DI
@@ -14,6 +18,9 @@ import ru.homebudget.finkeeper.data.network.NetworkMonitor
  */
 val androidAppModule =
     module {
+        single<SecureTokenStorage> { AndroidSecureTokenStorage(get()) }
+        single<SocialAuthLauncher> { AndroidSocialAuthLauncher(get()) }
+
         // Database Driver для Android
         single<SqlDriver> {
             AndroidSqliteDriver(

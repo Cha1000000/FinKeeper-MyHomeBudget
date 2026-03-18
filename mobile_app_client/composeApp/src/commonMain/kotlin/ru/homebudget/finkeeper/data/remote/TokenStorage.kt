@@ -1,17 +1,57 @@
 package ru.homebudget.finkeeper.data.remote
 
 import com.russhwolf.settings.Settings
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import ru.homebudget.finkeeper.BuildConfig
 
-class TokenStorage(private val settings: Settings = Settings()) {
+enum class AuthSessionEvent {
+    LoggedOut,
+    SessionExpired,
+}
 
-    var token: String?
-        get() = settings.getStringOrNull(KEY_TOKEN)
+class TokenStorage(
+    private val settings: Settings = Settings(),
+    private val secureTokenStorage: SecureTokenStorage,
+) {
+    private val defaultServerUrl = normalizeServerUrl(DEFAULT_SERVER_URL)
+    private val _authEvents = MutableSharedFlow<AuthSessionEvent>(extraBufferCapacity = 1)
+    val authEvents: SharedFlow<AuthSessionEvent> = _authEvents.asSharedFlow()
+
+
+    var accessToken: String?
+        get() {
+            val secureToken = secureTokenStorage.accessToken
+            if (secureToken != null) {
+                return secureToken
+            }
+
+            val legacyToken = settings.getStringOrNull(KEY_TOKEN) ?: return null
+            secureTokenStorage.accessToken = legacyToken
+            settings.remove(KEY_TOKEN)
+            return legacyToken
+        }
         set(value) {
             if (value != null) {
-                settings.putString(KEY_TOKEN, value)
+                secureTokenStorage.accessToken = value
+                settings.remove(KEY_TOKEN)
             } else {
+                secureTokenStorage.accessToken = null
                 settings.remove(KEY_TOKEN)
             }
+        }
+
+    var token: String?
+        get() = accessToken
+        set(value) {
+            accessToken = value
+        }
+
+    var refreshToken: String?
+        get() = secureTokenStorage.refreshToken
+        set(value) {
+            secureTokenStorage.refreshToken = value
         }
 
     var userId: Long
@@ -21,9 +61,27 @@ class TokenStorage(private val settings: Settings = Settings()) {
         }
 
     var serverUrl: String
-        get() = settings.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL)
+        get() {
+            if (!BuildConfig.SHOW_SERVER_SETTINGS) {
+                settings.remove(KEY_SERVER_URL)
+                return defaultServerUrl
+            }
+
+            val storedUrl = settings.getStringOrNull(KEY_SERVER_URL)
+            return normalizeServerUrl(storedUrl ?: defaultServerUrl)
+        }
         set(value) {
-            settings.putString(KEY_SERVER_URL, value)
+            if (!BuildConfig.SHOW_SERVER_SETTINGS) {
+                settings.remove(KEY_SERVER_URL)
+                return
+            }
+
+            val normalizedUrl = normalizeServerUrl(value)
+            if (normalizedUrl.isBlank()) {
+                settings.remove(KEY_SERVER_URL)
+            } else {
+                settings.putString(KEY_SERVER_URL, normalizedUrl)
+            }
         }
 
     // Theme mode: "light", "night" (soft dark), "dark" (Cyberpunk), "system"
@@ -59,10 +117,14 @@ class TokenStorage(private val settings: Settings = Settings()) {
             settings.putInt(KEY_MONTHVIEW_MONTH, value)
         }
 
-    fun clear() {
+    fun clear(authEvent: AuthSessionEvent? = null) {
+        secureTokenStorage.clear()
         settings.remove(KEY_TOKEN)
         settings.remove(KEY_USER_ID)
+        authEvent?.let { _authEvents.tryEmit(it) }
     }
+
+    private fun normalizeServerUrl(url: String): String = url.trim().trimEnd('/')
 
     companion object {
         private const val KEY_TOKEN = "auth_token"
@@ -73,6 +135,6 @@ class TokenStorage(private val settings: Settings = Settings()) {
         private const val KEY_DASHBOARD_MONTH = "dashboard_month"
         private const val KEY_MONTHVIEW_YEAR = "monthview_year"
         private const val KEY_MONTHVIEW_MONTH = "monthview_month"
-        private const val DEFAULT_SERVER_URL = "http://217.114.8.82:3002"
+        private const val DEFAULT_SERVER_URL = BuildConfig.DEFAULT_SERVER_URL
     }
 }

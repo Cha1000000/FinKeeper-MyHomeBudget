@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -26,86 +27,187 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import ru.homebudget.finkeeper.data.model.User
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
+import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
-import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SettingsState
+import ru.homebudget.finkeeper.util.formatDateTime
 
 @Composable
 fun SettingsScreen(
     state: SettingsState,
+    user: User?,
     username: String,
     onUpdateUsername: (String, () -> Unit) -> Unit,
-    onUpdatePassword: (String) -> Unit,
+    onUpdatePassword: (String, String, () -> Unit) -> Unit,
+    onUpdateEmail: (String, (User) -> Unit) -> Unit,
+    onClearEmail: ((User) -> Unit) -> Unit,
+    onRequestEmailVerification: ((User) -> Unit) -> Unit,
     onCreateBackup: () -> Unit,
-    onRestoreBackup: (() -> Unit) -> Unit,
+    onRestoreBackup: (Int, String, () -> Unit) -> Unit,
     onLogout: () -> Unit,
     onClearStatus: () -> Unit,
+    onRetrySync: () -> Unit,
+    onDismissSyncError: () -> Unit,
     currentThemeMode: String = "system",
-    onThemeModeChange: (String) -> Unit = {}
+    onThemeModeChange: (String) -> Unit = {},
 ) {
-    var newUsername by remember { mutableStateOf(username) }
+    var newUsername by remember(username) { mutableStateOf(username) }
+    var email by remember(user?.email) { mutableStateOf(user?.email ?: "") }
+    var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var restoreConfirmationText by remember { mutableStateOf("") }
     var showUsernameConfirm by remember { mutableStateOf(false) }
     var showPasswordConfirm by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
+    var selectedBackupId by remember(state.backupEntries) { mutableStateOf(state.backupEntries.firstOrNull()?.id) }
+
+    val trimmedUsername = newUsername.trim()
+    val normalizedEmail = email.trim().lowercase()
+    val usernameChanged = trimmedUsername != username
+    val emailChanged = normalizedEmail != (user?.email ?: "")
+    val usernameError = if (trimmedUsername.length > 64) Strings.USERNAME_TOO_LONG else null
+    val emailLooksValid = normalizedEmail.isEmpty() || (normalizedEmail.contains("@") && normalizedEmail.contains("."))
+    val passwordLengthError = if (newPassword.isNotEmpty() && newPassword.length < 6) Strings.PASSWORD_TOO_SHORT else null
+    val confirmPasswordError =
+        if (confirmPassword.isNotEmpty() && newPassword != confirmPassword) Strings.PASSWORDS_DO_NOT_MATCH else null
+    val restoreReady =
+        selectedBackupId != null && restoreConfirmationText.trim() == Strings.BACKUP_CONFIRMATION_VALUE
+    val selectedBackup = state.backupEntries.firstOrNull { it.id == selectedBackupId }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         ScreenHeader(
             title = Strings.SETTINGS,
             modifier = Modifier.padding(horizontal = 0.dp),
         )
 
-        // Status message
-        AnimatedVisibility(visible = state.statusMessage != null) {
-            val statusColor = if (state.statusIsError)
-                MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.primary
-
-            GlassyCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                baseColor = if (state.statusIsError)
-                    MaterialTheme.colorScheme.errorContainer
-                else MaterialTheme.colorScheme.primaryContainer,
-                highlightColor = statusColor
-            ) {
-                Text(
-                    text = state.statusMessage ?: "",
-                    modifier = Modifier.padding(16.dp),
-                    color = if (state.statusIsError)
-                        MaterialTheme.colorScheme.onErrorContainer
-                    else MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-
-        // Profile section
         GlassyCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             baseColor = MaterialTheme.colorScheme.surface,
-            highlightColor = MaterialTheme.colorScheme.primary
+            highlightColor = if (state.lastSyncError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = Strings.SYNC_STATUS,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = if (state.isOnline) Strings.SYNC_ONLINE else Strings.SYNC_OFFLINE,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (state.isOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text =
+                        when {
+                            state.isSyncing -> Strings.SYNC_IN_PROGRESS
+                            state.pendingSyncCount > 0 -> Strings.SYNC_PENDING_COUNT.replace("%1\$d", state.pendingSyncCount.toString())
+                            else -> Strings.SYNC_ALL_SENT
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text =
+                        state.lastSuccessfulSyncAt?.let {
+                            Strings.SYNC_LAST_SUCCESS.replace("%1\$s", formatDateTime(it))
+                        } ?: Strings.SYNC_LAST_SUCCESS_UNKNOWN,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                AnimatedVisibility(visible = state.lastSyncError != null) {
+                    Column {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = Strings.SYNC_ERROR_PREFIX.replace("%1\$s", state.lastSyncError ?: ""),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row {
+                    AppButton(
+                        text = Strings.SYNC_RETRY,
+                        onClick = onRetrySync,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        enabled = state.isOnline && !state.isSyncing,
+                        isLoading = state.isSyncing,
+                        style = GlassyButtonStyle.Glassy,
+                    )
+                    if (state.lastSyncError != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        AppButton(
+                            text = Strings.SYNC_DISMISS_ERROR,
+                            onClick = onDismissSyncError,
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = GlassyButtonStyle.Glassy,
+                        )
+                    }
+                }
+            }
+        }
+
+        AnimatedVisibility(visible = state.statusMessage != null) {
+            val statusColor = if (state.statusIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+
+            GlassyCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                baseColor =
+                    if (state.statusIsError) {
+                        MaterialTheme.colorScheme.errorContainer
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    },
+                highlightColor = statusColor,
+            ) {
+                Text(
+                    text = state.statusMessage ?: "",
+                    modifier = Modifier.padding(16.dp),
+                    color =
+                        if (state.statusIsError) {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        } else {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+
+        GlassyCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            baseColor = MaterialTheme.colorScheme.surface,
+            highlightColor = MaterialTheme.colorScheme.primary,
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = Strings.PROFILE,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 AppTextField(
@@ -113,39 +215,203 @@ fun SettingsScreen(
                     onValueChange = { newUsername = it; onClearStatus() },
                     label = Strings.USERNAME_LABEL,
                     imeAction = ImeAction.Done,
-                    onImeAction = { if (newUsername != username) showUsernameConfirm = true }
+                    onImeAction = {
+                        if (trimmedUsername.isNotBlank() && usernameChanged && usernameError == null) {
+                            showUsernameConfirm = true
+                        }
+                    },
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = usernameError ?: Strings.USERNAME_HELPER,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (usernameError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 AppButton(
                     text = Strings.SAVE_NAME,
                     onClick = { showUsernameConfirm = true },
-                    enabled = newUsername.isNotBlank() && newUsername != username,
+                    enabled = trimmedUsername.isNotBlank() && usernameChanged && usernameError == null && !state.isLoading,
                     isLoading = state.isLoading,
                     contentColor = Color.White,
-                    style = GlassyButtonStyle.Glassy
+                    style = GlassyButtonStyle.Glassy,
                 )
             }
         }
 
-        // Security section
         GlassyCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             baseColor = MaterialTheme.colorScheme.surface,
-            highlightColor = MaterialTheme.colorScheme.primary
+            highlightColor = MaterialTheme.colorScheme.primary,
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = Strings.ACCOUNT_PROTECTION,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                GlassyCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    baseColor =
+                        if (user?.recoverabilityStatus == "protected") {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer
+                        },
+                    highlightColor =
+                        if (user?.recoverabilityStatus == "protected") {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = if (user?.recoverabilityStatus == "protected") Strings.ACCOUNT_PROTECTED else Strings.ACCOUNT_UNPROTECTED,
+                            style = MaterialTheme.typography.titleSmall,
+                            color =
+                                if (user?.recoverabilityStatus == "protected") {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                },
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text =
+                                if (user?.recoverabilityStatus == "protected") {
+                                    Strings.ACCOUNT_PROTECTED_HELPER
+                                } else {
+                                    Strings.ACCOUNT_UNPROTECTED_HELPER
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                            color =
+                                if (user?.recoverabilityStatus == "protected") {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                AppTextField(
+                    value = email,
+                    onValueChange = { email = it; onClearStatus() },
+                    label = Strings.RECOVERY_EMAIL_LABEL,
+                    imeAction = ImeAction.Done,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text =
+                        if (user?.emailConfirmed == true) {
+                            Strings.EMAIL_CONFIRMED_HELPER
+                        } else {
+                            Strings.EMAIL_UNCONFIRMED_HELPER
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (emailLooksValid) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                )
+                AnimatedVisibility(visible = state.emailDebugToken != null) {
+                    Column {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        GlassyCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            baseColor = MaterialTheme.colorScheme.secondaryContainer,
+                            highlightColor = MaterialTheme.colorScheme.secondary,
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = Strings.EMAIL_DEBUG_TITLE,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = state.emailDebugToken?.token ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AppButton(
+                        text = if (normalizedEmail.isEmpty()) Strings.REMOVE_EMAIL else Strings.SAVE_EMAIL,
+                        onClick = {
+                            if (normalizedEmail.isEmpty()) {
+                                onClearEmail { updatedUser ->
+                                    email = updatedUser.email ?: ""
+                                }
+                            } else {
+                                onUpdateEmail(normalizedEmail) { updatedUser ->
+                                    email = updatedUser.email ?: ""
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        enabled = emailChanged && emailLooksValid && !state.isLoading,
+                        isLoading = state.isLoading,
+                        contentColor = Color.White,
+                        style = GlassyButtonStyle.Glassy,
+                    )
+                    AppButton(
+                        text = Strings.RESEND_EMAIL_VERIFICATION,
+                        onClick = {
+                            onRequestEmailVerification { updatedUser ->
+                                email = updatedUser.email ?: ""
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        enabled = !user?.email.isNullOrBlank() && user?.emailConfirmed != true && !state.isLoading,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = GlassyButtonStyle.Glassy,
+                    )
+                }
+            }
+        }
+
+        GlassyCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            baseColor = MaterialTheme.colorScheme.surface,
+            highlightColor = MaterialTheme.colorScheme.primary,
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = Strings.SECURITY,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                AppTextField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it; onClearStatus() },
+                    label = Strings.CURRENT_PASSWORD,
+                    isPassword = true,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 AppTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it; onClearStatus() },
                     label = Strings.NEW_PASSWORD,
-                    isPassword = true
+                    isPassword = true,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = passwordLengthError ?: Strings.PASSWORD_HELPER,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (passwordLengthError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 AppTextField(
@@ -153,121 +419,232 @@ fun SettingsScreen(
                     onValueChange = { confirmPassword = it },
                     label = Strings.CONFIRM_PASSWORD,
                     isPassword = true,
-                    imeAction = ImeAction.Done
+                    imeAction = ImeAction.Done,
                 )
+                if (confirmPasswordError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = confirmPasswordError,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 AppButton(
                     text = Strings.CHANGE_PASSWORD,
                     onClick = { showPasswordConfirm = true },
-                    enabled = newPassword.isNotBlank() && newPassword == confirmPassword,
+                    enabled = currentPassword.isNotBlank() && newPassword.isNotBlank() && passwordLengthError == null && confirmPasswordError == null && !state.isLoading,
                     isLoading = state.isLoading,
                     contentColor = Color.White,
-                    style = GlassyButtonStyle.Glassy
+                    style = GlassyButtonStyle.Glassy,
                 )
             }
         }
 
-        // Data management section
         GlassyCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             baseColor = MaterialTheme.colorScheme.surface,
-            highlightColor = MaterialTheme.colorScheme.primary
+            highlightColor = MaterialTheme.colorScheme.primary,
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = Strings.DATA_MANAGEMENT,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = Strings.BACKUP_HELPER,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 val colors = AppTheme.semanticColors
                 AppButton(
                     text = Strings.CREATE_BACKUP,
                     onClick = onCreateBackup,
+                    enabled = !state.isLoading,
                     isLoading = state.isLoading,
                     containerColor = colors.backupBlue,
                     contentColor = Color.White,
-                    style = GlassyButtonStyle.Glassy
+                    style = GlassyButtonStyle.Glassy,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = Strings.RESTORE_HELPER,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                if (state.isBackupsLoading) {
+                    Text(
+                        text = Strings.BACKUP_LIST_LOADING,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                } else if (state.backupEntries.isEmpty()) {
+                    Text(
+                        text = Strings.BACKUP_LIST_EMPTY,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                } else {
+                    Text(
+                        text = Strings.BACKUP_SELECT_LABEL,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    state.backupEntries.forEach { backup ->
+                        val isSelected = selectedBackupId == backup.id
+                        GlassyCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            baseColor =
+                                if (isSelected) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                },
+                            highlightColor =
+                                if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outline
+                                },
+                        ) {
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectedBackupId = backup.id }
+                                        .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { selectedBackupId = backup.id },
+                                )
+                                Column(
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = formatDateTime(backup.createdAt),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text =
+                                            "Месяцев: ${backup.summary.months} · Доходов: ${backup.summary.incomes} · " +
+                                                "Расходов: ${backup.summary.expenses} · Копилок: ${backup.summary.savingsGoals}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+                AppTextField(
+                    value = restoreConfirmationText,
+                    onValueChange = { restoreConfirmationText = it; onClearStatus() },
+                    label = Strings.BACKUP_CONFIRMATION_LABEL,
+                    imeAction = ImeAction.Done,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = Strings.BACKUP_CONFIRMATION_HELPER.replace("%1\$s", Strings.BACKUP_CONFIRMATION_VALUE),
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (restoreConfirmationText.isNotBlank() && !restoreReady) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 AppButton(
                     text = Strings.RESTORE_FROM_BACKUP,
                     onClick = { showRestoreConfirm = true },
+                    enabled = !state.isLoading && !state.isBackupsLoading && state.backupEntries.isNotEmpty() && restoreReady,
                     isLoading = state.isLoading,
                     containerColor = colors.restorePink,
                     contentColor = Color.White,
-                    style = GlassyButtonStyle.Glassy
+                    style = GlassyButtonStyle.Glassy,
                 )
             }
         }
 
-        // Theme section
         GlassyCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             baseColor = MaterialTheme.colorScheme.surface,
-            highlightColor = MaterialTheme.colorScheme.primary
+            highlightColor = MaterialTheme.colorScheme.primary,
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = Strings.THEME,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                val themeOptions = listOf(
-                    "system" to Strings.THEME_SYSTEM,
-                    "light" to Strings.THEME_LIGHT,
-                    "night" to Strings.THEME_DARK,
-                    "dark_night" to Strings.THEME_DARK_NIGHT,
-                    "dark" to Strings.THEME_CYBERPUNK,
-                )
+                val themeOptions =
+                    listOf(
+                        "system" to Strings.THEME_SYSTEM,
+                        "light" to Strings.THEME_LIGHT,
+                        "night" to Strings.THEME_DARK,
+                        "dark_night" to Strings.THEME_DARK_NIGHT,
+                        "dark" to Strings.THEME_CYBERPUNK,
+                    )
                 themeOptions.forEach { (mode, label) ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onThemeModeChange(mode) }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onThemeModeChange(mode) }
+                                .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(
                             selected = currentThemeMode == mode,
-                            onClick = null
+                            onClick = null,
                         )
                         Text(
                             text = label,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = 8.dp)
+                            modifier = Modifier.padding(start = 8.dp),
                         )
                     }
                 }
             }
         }
 
-        // Logout
         AppButton(
             text = Strings.LOGOUT,
             onClick = { showLogoutConfirm = true },
             containerColor = AppTheme.semanticColors.logoutRed,
             contentColor = Color.White,
-            style = GlassyButtonStyle.Glassy
+            style = GlassyButtonStyle.Glassy,
         )
 
         Spacer(modifier = Modifier.height(32.dp))
     }
 
-    // Dialogs
     if (showUsernameConfirm) {
         ConfirmDialog(
             title = Strings.CHANGE_NAME,
-            message = Strings.CHANGE_NAME_CONFIRM.replace("%1\u0024s", newUsername),
+            message = Strings.CHANGE_NAME_CONFIRM.replace("%1\u0024s", trimmedUsername),
             onConfirm = {
-                onUpdateUsername(newUsername) { newUsername = newUsername }
+                onUpdateUsername(trimmedUsername) { newUsername = trimmedUsername }
                 showUsernameConfirm = false
             },
-            onDismiss = { showUsernameConfirm = false }
+            onDismiss = { showUsernameConfirm = false },
         )
     }
 
@@ -276,26 +653,33 @@ fun SettingsScreen(
             title = Strings.CHANGE_PASSWORD,
             message = Strings.CHANGE_PASSWORD_CONFIRM,
             onConfirm = {
-                onUpdatePassword(newPassword)
-                newPassword = ""
-                confirmPassword = ""
+                onUpdatePassword(currentPassword, newPassword) {
+                    currentPassword = ""
+                    newPassword = ""
+                    confirmPassword = ""
+                }
                 showPasswordConfirm = false
             },
-            onDismiss = { showPasswordConfirm = false }
+            onDismiss = { showPasswordConfirm = false },
         )
     }
 
     if (showRestoreConfirm) {
         ConfirmDialog(
             title = Strings.BACKUP_RESTORE_CONFIRMATION_TITLE,
-            message = Strings.BACKUP_RESTORE_CONFIRMATION_MESSAGE,
+            message =
+                selectedBackup?.createdAt?.let {
+                    Strings.BACKUP_RESTORE_SELECTED_MESSAGE.replace("%1\$s", formatDateTime(it))
+                } ?: Strings.BACKUP_RESTORE_CONFIRMATION_MESSAGE,
             confirmText = Strings.BACKUP_RESTORE_BUTTON,
             onConfirm = {
-                onRestoreBackup {}
+                selectedBackupId?.let { backupId ->
+                    onRestoreBackup(backupId, restoreConfirmationText.trim()) {}
+                }
                 showRestoreConfirm = false
             },
             onDismiss = { showRestoreConfirm = false },
-            isDestructive = true
+            isDestructive = true,
         )
     }
 
@@ -305,7 +689,7 @@ fun SettingsScreen(
             message = Strings.LOGOUT_CONFIRM,
             onConfirm = { onLogout(); showLogoutConfirm = false },
             onDismiss = { showLogoutConfirm = false },
-            isDestructive = true
+            isDestructive = true,
         )
     }
 }

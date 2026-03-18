@@ -1,5 +1,12 @@
 package ru.homebudget.finkeeper.ui.viewmodel
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -7,7 +14,17 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ViewModelStateTest {
+    @BeforeTest
+    fun setUpMainDispatcher() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+    }
+
+    @AfterTest
+    fun tearDownMainDispatcher() {
+        Dispatchers.resetMain()
+    }
 
     // ── AuthState ──
 
@@ -39,6 +56,22 @@ class ViewModelStateTest {
         val updated = state.copy(error = "Ошибка сети")
         assertEquals("Ошибка сети", updated.error)
         assertFalse(updated.isLoading)
+    }
+
+    @Test
+    fun authState_copyWithRecoveryInfo() {
+        val debugToken =
+            ru.homebudget.finkeeper.data.model.DebugTokenPreview(
+                token = "reset-123",
+                expiresAt = "2026-03-13T10:00:00.000Z",
+            )
+        val updated =
+            AuthState(isLoading = false).copy(
+                infoMessage = "Письмо подготовлено",
+                recoveryDebugToken = debugToken,
+            )
+        assertEquals("Письмо подготовлено", updated.infoMessage)
+        assertEquals("reset-123", updated.recoveryDebugToken?.token)
     }
 
     // ── DashboardState ──
@@ -220,6 +253,10 @@ class ViewModelStateTest {
         assertNull(state.statusMessage)
         assertFalse(state.statusIsError)
         assertNull(state.error)
+        assertTrue(state.isOnline)
+        assertFalse(state.isSyncing)
+        assertEquals(0L, state.pendingSyncCount)
+        assertNull(state.emailDebugToken)
     }
 
     @Test
@@ -239,6 +276,22 @@ class ViewModelStateTest {
             statusIsError = true
         )
         assertTrue(state.statusIsError)
+    }
+
+    @Test
+    fun settingsState_copyWithEmailDebugToken() {
+        val debugToken =
+            ru.homebudget.finkeeper.data.model.DebugTokenPreview(
+                token = "verify-123",
+                expiresAt = "2026-03-13T11:00:00.000Z",
+            )
+        val state =
+            SettingsState().copy(
+                statusMessage = "Email сохранён",
+                emailDebugToken = debugToken,
+            )
+        assertEquals("Email сохранён", state.statusMessage)
+        assertEquals("verify-123", state.emailDebugToken?.token)
     }
 
     // ── AuthViewModel Validation ──
@@ -280,6 +333,40 @@ class ViewModelStateTest {
     }
 
     @Test
+    fun authViewModel_requestPasswordRecovery_emptyEmail_showsError() {
+        val viewModel = createAuthViewModel()
+
+        viewModel.requestPasswordRecovery("   ")
+
+        assertEquals("Введите email для восстановления доступа", viewModel.state.value.error)
+        assertFalse(viewModel.state.value.isLoading)
+        assertNull(viewModel.state.value.infoMessage)
+        assertNull(viewModel.state.value.recoveryDebugToken)
+    }
+
+    @Test
+    fun authViewModel_confirmPasswordRecovery_emptyToken_showsError() {
+        val viewModel = createAuthViewModel()
+
+        viewModel.confirmPasswordRecovery("   ", "secret123")
+
+        assertEquals("Введите токен восстановления", viewModel.state.value.error)
+        assertFalse(viewModel.state.value.isLoading)
+        assertNull(viewModel.state.value.infoMessage)
+    }
+
+    @Test
+    fun authViewModel_confirmPasswordRecovery_shortPassword_showsError() {
+        val viewModel = createAuthViewModel()
+
+        viewModel.confirmPasswordRecovery("token-123", "123")
+
+        assertEquals("Пароль должен быть не короче 6 символов", viewModel.state.value.error)
+        assertFalse(viewModel.state.value.isLoading)
+        assertNull(viewModel.state.value.infoMessage)
+    }
+
+    @Test
     fun authViewModel_login_validData_passesValidation() {
         val viewModel = createAuthViewModel()
 
@@ -311,11 +398,26 @@ class ViewModelStateTest {
 
     private fun createAuthViewModel(): AuthViewModel {
         val tokenStorage = ru.homebudget.finkeeper.data.remote.TokenStorage(
-            com.russhwolf.settings.MapSettings()
+            com.russhwolf.settings.MapSettings(),
+            object : ru.homebudget.finkeeper.data.remote.SecureTokenStorage {
+                override var accessToken: String? = null
+                override var refreshToken: String? = null
+
+                override fun clear() {
+                    accessToken = null
+                    refreshToken = null
+                }
+            }
         ).apply {
             clear()
         }
         val apiClient = ru.homebudget.finkeeper.data.remote.ApiClient(tokenStorage)
-        return AuthViewModel(apiClient, tokenStorage)
+        val socialAuthLauncher =
+            object : ru.homebudget.finkeeper.data.remote.SocialAuthLauncher {
+                override val clientType: String = "test"
+
+                override fun open(url: String): Boolean = false
+            }
+        return AuthViewModel(apiClient, tokenStorage, socialAuthLauncher)
     }
 }

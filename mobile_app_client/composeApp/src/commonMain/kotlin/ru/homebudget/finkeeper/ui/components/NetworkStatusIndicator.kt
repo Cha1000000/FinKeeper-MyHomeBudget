@@ -14,7 +14,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -22,10 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.StateFlow
 import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.ui.Strings
 
 /**
  * Компактный индикатор состояния сети и синхронизации.
@@ -40,15 +39,10 @@ fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
     val networkMonitor = koinInject<NetworkMonitor>()
     val syncManager = koinInject<SyncManager>()
 
-    val isOnlineState: State<Boolean> = networkMonitor.isOnline.collectAsState()
-    val isSyncingState: State<Boolean> = syncManager.isSyncing.collectAsState()
-    val pendingCountState: State<Long> = syncManager.pendingCount.collectAsState()
-    val lastSyncErrorState: State<String?> = syncManager.lastSyncError.collectAsState()
-    
-    val isOnline = isOnlineState.value
-    val isSyncing = isSyncingState.value
-    val pendingCount = pendingCountState.value
-    val lastSyncError = lastSyncErrorState.value
+    val isOnline by networkMonitor.isOnline.collectAsState()
+    val isSyncing by syncManager.isSyncing.collectAsState()
+    val pendingCount by syncManager.pendingCount.collectAsState()
+    val lastSyncError by syncManager.lastSyncError.collectAsState()
 
     Column(
         modifier = modifier,
@@ -84,7 +78,7 @@ fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
             }
 
             Text(
-                text = if (isOnline) "В сети" else "Нет связи",
+                text = if (isOnline) Strings.SYNC_ONLINE else Strings.SYNC_OFFLINE,
                 style = MaterialTheme.typography.labelMedium,
                 color = if (isOnline) Color(0xFF4CAF50) else Color(0xFFF44336),
             )
@@ -99,12 +93,12 @@ fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
         }
 
         if (!lastSyncError.isNullOrBlank()) {
+            val syncErrorText = lastSyncError ?: ""
             Text(
-                text = "Sync error: ${lastSyncError.take(90)}",
+                text = Strings.SYNC_ERROR_PREFIX.replace("%1\$s", syncErrorText.take(90)),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.clickable {
-                    // При клике на ошибку очищаем её
                     syncManager.clearSyncError()
                 },
             )

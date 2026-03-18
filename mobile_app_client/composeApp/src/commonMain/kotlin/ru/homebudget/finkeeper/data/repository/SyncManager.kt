@@ -69,6 +69,9 @@ class SyncManager(
     private val _lastSyncError = MutableStateFlow<String?>(null)
     val lastSyncError: StateFlow<String?> = _lastSyncError.asStateFlow()
 
+    private val _lastSuccessfulSyncAt = MutableStateFlow(syncStateStorage.lastSuccessfulSyncAt)
+    val lastSuccessfulSyncAt: StateFlow<String?> = _lastSuccessfulSyncAt.asStateFlow()
+
     private val _dataUpdated = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val dataUpdated: SharedFlow<Unit> = _dataUpdated.asSharedFlow()
 
@@ -95,6 +98,12 @@ class SyncManager(
      * Вызывается из UI когда пользователь хочет скрыть сообщение об ошибке.
      */
     fun clearSyncError() {
+        _lastSyncError.value = null
+    }
+
+    private fun markSyncSuccess(timestamp: String = Clock.System.now().toString()) {
+        syncStateStorage.lastSuccessfulSyncAt = timestamp
+        _lastSuccessfulSyncAt.value = timestamp
         _lastSyncError.value = null
     }
 
@@ -219,9 +228,7 @@ class SyncManager(
                 // Очистка завершённых элементов
                 syncQueueDao.clearCompleted()
                 updatePendingCount()
-
-                // Очищаем ошибку при успешной синхронизации
-                _lastSyncError.value = null
+                markSyncSuccess()
 
                 // Уведомляем подписчиков об обновлении данных
                 _dataUpdated.tryEmit(Unit)
@@ -1056,7 +1063,7 @@ class SyncManager(
                 // Очищаем ошибку, если все операции успешны (нет FAILED элементов)
                 val hasFailedItems = syncQueueDao.getFailedItems(limit = 1).isNotEmpty()
                 if (!hasFailedItems) {
-                    _lastSyncError.value = null
+                    markSyncSuccess()
                 }
                 
                 if (pendingItems.isNotEmpty()) {

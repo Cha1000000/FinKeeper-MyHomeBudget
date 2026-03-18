@@ -13,18 +13,21 @@ class ModelsSerializationTest {
 
     @Test
     fun authData_deserialize() {
-        val raw = """{"token":"abc123","user":{"id":1,"username":"test"}}"""
+        val raw = """{"token":"abc123","accessToken":"abc123","refreshToken":"refresh456","user":{"id":1,"username":"test"}}"""
         val result = json.decodeFromString<AuthData>(raw)
         assertEquals("abc123", result.token)
+        assertEquals("abc123", result.accessToken)
+        assertEquals("refresh456", result.refreshToken)
         assertEquals(1, result.user.id)
         assertEquals("test", result.user.username)
     }
 
     @Test
     fun authData_serialize() {
-        val data = AuthData(token = "tok", user = User(id = 5, username = "admin"))
+        val data = AuthData(token = "tok", refreshToken = "ref", user = User(id = 5, username = "admin"))
         val raw = json.encodeToString(AuthData.serializer(), data)
         assert(raw.contains("\"token\":\"tok\""))
+        assert(raw.contains("\"refreshToken\":\"ref\""))
         assert(raw.contains("\"username\":\"admin\""))
     }
 
@@ -36,6 +39,53 @@ class ModelsSerializationTest {
         val result = json.decodeFromString<User>(raw)
         assertEquals(42, result.id)
         assertEquals("alice", result.username)
+    }
+
+    @Test
+    fun user_deserialize_withRecoveryFields() {
+        val raw =
+            """{"id":7,"username":"alice","email":"alice@example.com","emailConfirmed":true,"recoverabilityStatus":"protected","canSelfRecover":true}"""
+        val result = json.decodeFromString<User>(raw)
+        assertEquals(7, result.id)
+        assertEquals("alice@example.com", result.email)
+        assertEquals(true, result.emailConfirmed)
+        assertEquals("protected", result.recoverabilityStatus)
+        assertEquals(true, result.canSelfRecover)
+    }
+
+    @Test
+    fun passwordRecoveryRequestResponse_deserialize_withDebugToken() {
+        val raw =
+            """{"success":true,"message":"ok","debug":{"passwordReset":{"token":"reset-123","expiresAt":"2026-03-13T10:00:00.000Z"}}}"""
+        val result = json.decodeFromString<PasswordRecoveryRequestResponse>(raw)
+        assertEquals(true, result.success)
+        assertEquals("ok", result.message)
+        assertEquals("reset-123", result.debug?.passwordReset?.token)
+        assertEquals("2026-03-13T10:00:00.000Z", result.debug?.passwordReset?.expiresAt)
+    }
+
+    @Test
+    fun userEmailUpdateResponse_deserialize_withVerificationDebug() {
+        val raw =
+            """{"success":true,"verificationRequired":true,"user":{"id":7,"username":"alice","email":"alice@example.com","emailConfirmed":false,"recoverabilityStatus":"pending_email_verification","canSelfRecover":false},"debug":{"emailVerification":{"token":"verify-123","expiresAt":"2026-03-13T11:00:00.000Z"}}}"""
+        val result = json.decodeFromString<UserEmailUpdateResponse>(raw)
+        assertEquals(true, result.success)
+        assertEquals(true, result.verificationRequired)
+        assertEquals("alice@example.com", result.user.email)
+        assertEquals(false, result.user.emailConfirmed)
+        assertEquals("pending_email_verification", result.user.recoverabilityStatus)
+        assertEquals("verify-123", result.debug?.emailVerification?.token)
+    }
+
+    @Test
+    fun userEmailVerificationRequestResponse_deserialize_withoutDebug() {
+        val raw =
+            """{"success":true,"verificationRequired":true,"user":{"id":7,"username":"alice","email":"alice@example.com","emailConfirmed":false,"recoverabilityStatus":"pending_email_verification","canSelfRecover":false}}"""
+        val result = json.decodeFromString<UserEmailVerificationRequestResponse>(raw)
+        assertEquals(true, result.success)
+        assertEquals(true, result.verificationRequired)
+        assertEquals("alice@example.com", result.user.email)
+        assertNull(result.debug)
     }
 
     // ── Category ──
@@ -256,6 +306,28 @@ class ModelsSerializationTest {
         val req = AddExpenseRequest(monthId = 1, categoryId = 1, amount = 100.0, date = "2025-01-01")
         val raw = json.encodeToString(AddExpenseRequest.serializer(), req)
         assert(raw.contains("\"comment\":null"))
+    }
+
+    @Test
+    fun passwordRecoveryConfirmRequest_serialize() {
+        val req = PasswordRecoveryConfirmRequest(token = "token-123", newPassword = "secret123")
+        val raw = json.encodeToString(PasswordRecoveryConfirmRequest.serializer(), req)
+        assert(raw.contains("\"token\":\"token-123\""))
+        assert(raw.contains("\"newPassword\":\"secret123\""))
+    }
+
+    @Test
+    fun emailVerificationConfirmRequest_serialize() {
+        val req = EmailVerificationConfirmRequest(token = "verify-123")
+        val raw = json.encodeToString(EmailVerificationConfirmRequest.serializer(), req)
+        assert(raw.contains("\"token\":\"verify-123\""))
+    }
+
+    @Test
+    fun updateUserEmailRequest_serialize() {
+        val req = UpdateUserEmailRequest(email = "alice@example.com")
+        val raw = json.encodeToString(UpdateUserEmailRequest.serializer(), req)
+        assert(raw.contains("\"email\":\"alice@example.com\""))
     }
 
     @Test

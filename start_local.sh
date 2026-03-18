@@ -12,6 +12,23 @@ fi
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
 
+load_env_file() {
+    local env_file="$1"
+    if [ -f "$env_file" ]; then
+        echo "🔐 Загрузка env: ${env_file#$PROJECT_ROOT/}"
+        set -a
+        . "$env_file"
+        set +a
+    fi
+}
+
+load_env_file "$PROJECT_ROOT/.env"
+load_env_file "$PROJECT_ROOT/.env.local"
+load_env_file "$PROJECT_ROOT/server/.env"
+load_env_file "$PROJECT_ROOT/server/.env.local"
+load_env_file "$PROJECT_ROOT/client/.env"
+load_env_file "$PROJECT_ROOT/client/.env.local"
+
 echo "🧹 Очистка портов..."
 
 # Kill any existing processes on common ports and all node/vite instances for this app
@@ -23,7 +40,7 @@ sleep 1
 
 echo "🚀 Запуск Backend (порт 3002)..."
 cd "$PROJECT_ROOT/server"
-node index.js &
+env JWT_SECRET="${JWT_SECRET:-local-dev-jwt-secret}" node index.js &
 BACKEND_PID=$!
 
 sleep 1

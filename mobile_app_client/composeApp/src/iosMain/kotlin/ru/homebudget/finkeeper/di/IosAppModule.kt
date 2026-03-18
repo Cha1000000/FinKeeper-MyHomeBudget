@@ -5,6 +5,10 @@ import org.koin.dsl.module
 import ru.homebudget.finkeeper.data.local.database.DatabaseProvider
 import ru.homebudget.finkeeper.data.local.database.FinKeeperDatabase
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
+import ru.homebudget.finkeeper.data.remote.IosSocialAuthLauncher
+import ru.homebudget.finkeeper.data.remote.IosSecureTokenStorage
+import ru.homebudget.finkeeper.data.remote.SecureTokenStorage
+import ru.homebudget.finkeeper.data.remote.SocialAuthLauncher
 
 /**
  * iOS модуль Koin DI
@@ -12,6 +16,9 @@ import ru.homebudget.finkeeper.data.network.NetworkMonitor
  */
 val iosAppModule =
     module {
+        single<SecureTokenStorage> { IosSecureTokenStorage() }
+        single<SocialAuthLauncher> { IosSocialAuthLauncher() }
+
         // Database Driver для iOS
         single {
             NativeSqliteDriver(

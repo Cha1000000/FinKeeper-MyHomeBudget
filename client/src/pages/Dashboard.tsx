@@ -10,6 +10,7 @@ import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useDataChanged } from '../hooks/useWebSocket';
+import PageState from '../components/PageState';
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#6366f1', '#14b8a6'];
 const DOT_COLOR_CLASSES = ['bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-pink-500', 'bg-amber-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-teal-500'];
@@ -52,6 +53,8 @@ const Dashboard: React.FC = () => {
     const [totalSavings, setTotalSavings] = useState<number>(0);
     const [cumulativeBalance, setCumulativeBalance] = useState<number>(0);
     const [totalLimit, setTotalLimit] = useState<number>(0);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const saveMonth = (date: Date) => {
         localStorage.setItem(DASHBOARD_MONTH_KEY, JSON.stringify({
@@ -81,6 +84,8 @@ const Dashboard: React.FC = () => {
     };
 
     const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
         try {
             // 1. Trend Data
             const trendRes = await getAnalyticsTrend();
@@ -126,6 +131,9 @@ const Dashboard: React.FC = () => {
 
         } catch (e) {
             console.error(e);
+            setError('Не удалось загрузить обзор. Проверьте соединение и попробуйте ещё раз.');
+        } finally {
+            setIsLoading(false);
         }
     }, [currentDate]);
 
@@ -145,12 +153,50 @@ const Dashboard: React.FC = () => {
     // Refresh on WebSocket data changes
     useDataChanged(null, () => { fetchData(); });
 
+    if (isLoading && !currentSummary) {
+        return (
+            <PageState
+                variant="loading"
+                title="Загружаем обзор"
+                description="Собираем сводку, структуру расходов и накопления за выбранный месяц."
+            />
+        );
+    }
+
+    if (error && !currentSummary) {
+        return (
+            <PageState
+                variant="error"
+                title="Не удалось открыть обзор"
+                description={error}
+                actionLabel="Повторить"
+                onAction={() => {
+                    void fetchData();
+                }}
+            />
+        );
+    }
+
     return (
         <div className="space-y-8 max-w-5xl mx-auto">
             <header>
                 <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Обзор финансов</h2>
                 <p className="text-gray-500 text-sm mt-1">Сводка за выбранный месяц и аналитика</p>
             </header>
+
+            {error && (
+                <div role="alert" aria-live="polite" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between">
+                    <span>{error}</span>
+                    <button
+                        onClick={() => {
+                            void fetchData();
+                        }}
+                        className="rounded-xl bg-rose-600 px-4 py-2 text-white transition-colors hover:bg-rose-700"
+                    >
+                        Повторить
+                    </button>
+                </div>
+            )}
 
             {/* Month Navigation */}
             <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">

@@ -14,6 +14,7 @@ import type { Month, Income, Expense, Category, Budget, IncomeSource } from '../
 import { formatCurrency, formatDate } from '../utils';
 import Modal from '../components/Modal';
 import { useDataChanged } from '../hooks/useWebSocket';
+import PageState from '../components/PageState';
 
 interface GroupedExpense {
     id: number;
@@ -153,6 +154,8 @@ const MonthView: React.FC = () => {
 
     const [showNewSourceConfirm, setShowNewSourceConfirm] = useState(false);
     const [newSourceName, setNewSourceName] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [pageError, setPageError] = useState<string | null>(null);
 
     // Toggle expansion
     const toggleCategory = (catId: number) => {
@@ -172,6 +175,8 @@ const MonthView: React.FC = () => {
     };
 
     const loadData = useCallback(async () => {
+        setIsLoading(true);
+        setPageError(null);
         try {
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth() + 1;
@@ -197,6 +202,9 @@ const MonthView: React.FC = () => {
             
         } catch (e) {
             console.error("Error loading data", e);
+            setPageError('Не удалось загрузить данные месяца. Попробуйте ещё раз.');
+        } finally {
+            setIsLoading(false);
         }
     }, [currentDate]);
 
@@ -440,17 +448,55 @@ const MonthView: React.FC = () => {
         }
     });
 
+    if (isLoading && !monthData) {
+        return (
+            <PageState
+                variant="loading"
+                title="Загружаем месяц"
+                description="Подготавливаем доходы, расходы, категории и лимиты выбранного месяца."
+            />
+        );
+    }
+
+    if (pageError && !monthData) {
+        return (
+            <PageState
+                variant="error"
+                title="Не удалось открыть месяц"
+                description={pageError}
+                actionLabel="Повторить"
+                onAction={() => {
+                    void loadData();
+                }}
+            />
+        );
+    }
+
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
+            {pageError && (
+                <div role="alert" aria-live="polite" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between">
+                    <span>{pageError}</span>
+                    <button
+                        onClick={() => {
+                            void loadData();
+                        }}
+                        className="rounded-xl bg-rose-600 px-4 py-2 text-white transition-colors hover:bg-rose-700"
+                    >
+                        Повторить
+                    </button>
+                </div>
+            )}
+
             {/* Header / Month Selector */}
             <div className="flex items-center justify-between bg-white/90 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
-                <button onClick={handlePrevMonth} className="p-2.5 hover:bg-slate-100 rounded-2xl transition-colors">
+                <button onClick={handlePrevMonth} aria-label="Предыдущий месяц" title="Предыдущий месяц" className="p-2.5 hover:bg-slate-100 rounded-2xl transition-colors">
                     <ChevronLeft className="w-6 h-6 text-slate-600" />
                 </button>
                 <h2 className="text-xl font-bold text-slate-800 capitalize tracking-tight">
                     {format(currentDate, 'LLLL yyyy', { locale: ru })}
                 </h2>
-                <button onClick={handleNextMonth} className="p-2.5 hover:bg-slate-100 rounded-2xl transition-colors">
+                <button onClick={handleNextMonth} aria-label="Следующий месяц" title="Следующий месяц" className="p-2.5 hover:bg-slate-100 rounded-2xl transition-colors">
                     <ChevronRight className="w-6 h-6 text-slate-600" />
                 </button>
             </div>
@@ -512,7 +558,15 @@ const MonthView: React.FC = () => {
                 {activeTab === 'expense' ? (
                     <div className="divide-y divide-slate-100/60">
                         {expenses.length === 0 && (
-                            <div className="p-8 text-center text-slate-400">Нет записей о расходах</div>
+                            <div className="p-6">
+                                <PageState
+                                    variant="empty"
+                                    title="Расходов пока нет"
+                                    description="Добавьте первый расход за этот месяц, чтобы увидеть структуру категорий и лимиты."
+                                    actionLabel="Добавить расход"
+                                    onAction={() => openAddModal('expense')}
+                                />
+                            </div>
                         )}
                         <DndContext
                             sensors={sensors}
@@ -603,7 +657,17 @@ const MonthView: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100/60">
                             {incomes.length === 0 && (
-                                <tr><td colSpan={4} className="p-8 text-center text-slate-400">Нет записей</td></tr>
+                                <tr>
+                                    <td colSpan={4} className="p-6">
+                                        <PageState
+                                            variant="empty"
+                                            title="Доходов пока нет"
+                                            description="Добавьте первый доход за этот месяц, чтобы начать расчёт баланса."
+                                            actionLabel="Добавить доход"
+                                            onAction={() => openAddModal('income')}
+                                        />
+                                    </td>
+                                </tr>
                             )}
                             {incomes.map(item => (
                                 <tr key={item.id} className="hover:bg-slate-50/50 group/row transition-colors">
@@ -694,6 +758,8 @@ const MonthView: React.FC = () => {
                                     required
                                     value={formData.categoryId}
                                     onChange={e => setFormData({ ...formData, categoryId: e.target.value })}
+                                    aria-label="Категория расхода"
+                                    title="Категория расхода"
                                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                 >
                                     <option value="">Выберите категорию</option>
@@ -746,6 +812,8 @@ const MonthView: React.FC = () => {
                                         type="number"
                                         value={limit}
                                         onChange={e => handleBudgetChange(cat.id, parseFloat(e.target.value) || 0)}
+                                        aria-label={`Лимит для категории ${cat.name}`}
+                                        title={`Лимит для категории ${cat.name}`}
                                         className="w-full p-2 pr-6 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-right"
                                     />
                                     <span className="absolute right-2 top-2 text-gray-400 text-xs">₽</span>
