@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Loader2, MailCheck, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, MailCheck } from 'lucide-react';
 import { confirmEmailVerification } from '../api';
+import StatusBanner from '../components/StatusBanner';
 import { useAuth } from '../context/AuthContext';
 
 const EmailVerification: React.FC = () => {
@@ -60,27 +61,12 @@ const EmailVerification: React.FC = () => {
           </div>
         </div>
 
-        <div
-          aria-live="polite"
-          className={`rounded-2xl border px-5 py-5 text-sm ${
-            status === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : status === 'error'
-                ? 'border-rose-200 bg-rose-50 text-rose-700'
-                : 'border-slate-200 bg-slate-50 text-slate-700'
-          }`}
+        <StatusBanner
+          variant={status === 'success' ? 'success' : status === 'error' ? 'error' : 'info'}
+          title={status === 'success' ? 'Email подтверждён' : status === 'error' ? 'Ошибка подтверждения' : 'Проверяем ссылку'}
         >
-          <div className="flex items-start gap-3">
-            {status === 'loading' ? (
-              <Loader2 className="w-5 h-5 shrink-0 mt-0.5 animate-spin" />
-            ) : status === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
-            ) : (
-              <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
-            )}
-            <p>{message}</p>
-          </div>
-        </div>
+          {message}
+        </StatusBanner>
 
         <div className="flex flex-col sm:flex-row gap-3">
           <button

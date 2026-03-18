@@ -11,13 +11,24 @@ import PasswordRecovery from './pages/PasswordRecovery';
 import EmailVerification from './pages/EmailVerification';
 import SocialAuthCallback from './pages/SocialAuthCallback';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import PageState from './components/PageState';
 
 const RequireAuth: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { user, isLoading } = useAuth();
     const location = useLocation();
 
     if (isLoading) {
-        return <div className="flex justify-center items-center h-screen">Загрузка...</div>;
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-slate-50/70 px-4 py-10">
+                <div className="w-full max-w-lg">
+                    <PageState
+                        variant="loading"
+                        title="Проверяем сессию"
+                        description="Подготавливаем доступ к приложению и восстанавливаем авторизацию, если это возможно."
+                    />
+                </div>
+            </div>
+        );
     }
 
     if (!user) {

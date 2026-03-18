@@ -15,6 +15,7 @@ import { formatCurrency, formatDate } from '../utils';
 import Modal from '../components/Modal';
 import { useDataChanged } from '../hooks/useWebSocket';
 import PageState from '../components/PageState';
+import StatusBanner from '../components/StatusBanner';
 
 interface GroupedExpense {
     id: number;
@@ -156,6 +157,12 @@ const MonthView: React.FC = () => {
     const [newSourceName, setNewSourceName] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [pageError, setPageError] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
+
+    const getActionErrorMessage = (errorValue: unknown, fallback: string) => {
+        const apiError = errorValue as { response?: { data?: { error?: string } }; message?: string };
+        return apiError.response?.data?.error || apiError.message || fallback;
+    };
 
     // Toggle expansion
     const toggleCategory = (catId: number) => {
@@ -230,6 +237,7 @@ const MonthView: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!monthData) return;
+        setActionError(null);
 
         try {
             if (activeTab === 'income') {
@@ -270,6 +278,9 @@ const MonthView: React.FC = () => {
             loadData();
         } catch (err) {
             console.error(err);
+            setActionError(getActionErrorMessage(err, activeTab === 'income'
+                ? 'Не удалось сохранить доход. Попробуйте ещё раз.'
+                : 'Не удалось сохранить расход. Попробуйте ещё раз.'));
         }
     };
 
@@ -288,6 +299,7 @@ const MonthView: React.FC = () => {
         }
 
         try {
+            setActionError(null);
             if (type === 'income') {
                 await updateIncome(id, { amount });
             } else {
@@ -296,6 +308,9 @@ const MonthView: React.FC = () => {
             await loadData();
         } catch (e) { 
             console.error(e); 
+            setActionError(getActionErrorMessage(e, type === 'income'
+                ? 'Не удалось обновить сумму дохода. Попробуйте ещё раз.'
+                : 'Не удалось обновить сумму расхода. Попробуйте ещё раз.'));
         } finally {
             setEditingId(null);
             isSavingRef.current = false;
@@ -330,17 +345,24 @@ const MonthView: React.FC = () => {
     const confirmDelete = async () => {
         if (!pendingDelete) return;
         try {
+            setActionError(null);
             if (pendingDelete.type === 'income') await deleteIncome(pendingDelete.id);
             else await deleteExpense(pendingDelete.id);
             setPendingDelete(null);
             loadData();
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            setActionError(getActionErrorMessage(e, pendingDelete.type === 'income'
+                ? 'Не удалось удалить доход. Попробуйте ещё раз.'
+                : 'Не удалось удалить расход. Попробуйте ещё раз.'));
+        }
     };
 
     const confirmAddNewSource = async (addToList: boolean) => {
         if (!monthData) return;
         
         try {
+            setActionError(null);
             if (addToList) {
                 await addIncomeSource({ name: newSourceName });
             }
@@ -359,6 +381,9 @@ const MonthView: React.FC = () => {
             loadData();
         } catch (err) {
             console.error(err);
+            setActionError(getActionErrorMessage(err, addToList
+                ? 'Не удалось добавить новый источник и сохранить доход. Попробуйте ещё раз.'
+                : 'Не удалось сохранить доход с новым источником. Попробуйте ещё раз.'));
         }
     };
 
@@ -370,8 +395,6 @@ const MonthView: React.FC = () => {
             const newIndex = categories.findIndex((c) => c.id === over.id);
 
             const newCategories = arrayMove(categories, oldIndex, newIndex);
-            
-            // Optimistic update
             setCategories(newCategories);
 
             try {
@@ -379,29 +402,28 @@ const MonthView: React.FC = () => {
                 await reorderCategories(newOrderIds);
             } catch (e) {
                 console.error("Failed to save order", e);
+                setActionError(getActionErrorMessage(e, 'Не удалось сохранить новый порядок категорий. Попробуйте ещё раз.'));
             }
         }
     };
 
     const handleBudgetChange = async (categoryId: number, limit: number) => {
         if (!monthData) return;
+
         try {
-            await setBudget({
-                month_id: monthData.id,
-                category_id: categoryId,
-                limit_amount: limit
-            });
-            // Update local state optimizing update
+            setActionError(null);
+            await setBudget({ month_id: monthData.id, category_id: categoryId, limit_amount: limit });
             setBudgets(prev => {
-                const idx = prev.findIndex(b => b.category_id === categoryId);
-                if (idx >= 0) {
-                    const newB = [...prev];
-                    newB[idx] = { ...newB[idx], limit_amount: limit };
-                    return newB;
+                const existing = prev.find(b => b.category_id === categoryId);
+                if (existing) {
+                    return prev.map(b => b.category_id === categoryId ? { ...b, limit_amount: limit } : b);
                 }
-                return [...prev, { id: 0, month_id: monthData.id, category_id: categoryId, limit_amount: limit }]; // id 0 is temp
+                return [...prev, { id: 0, month_id: monthData.id, category_id: categoryId, limit_amount: limit }];
             });
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            setActionError(getActionErrorMessage(e, 'Не удалось обновить лимит категории. Попробуйте ещё раз.'));
+        }
     };
 
     const totalIncome = incomes.reduce((sum, item) => sum + item.amount, 0);
@@ -474,18 +496,26 @@ const MonthView: React.FC = () => {
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
+            {actionError ? (
+                <StatusBanner variant="error" title="Операция не завершена">
+                    {actionError}
+                </StatusBanner>
+            ) : null}
+
             {pageError && (
-                <div role="alert" aria-live="polite" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between">
-                    <span>{pageError}</span>
-                    <button
-                        onClick={() => {
-                            void loadData();
-                        }}
-                        className="rounded-xl bg-rose-600 px-4 py-2 text-white transition-colors hover:bg-rose-700"
-                    >
-                        Повторить
-                    </button>
-                </div>
+                <StatusBanner variant="error" title="Данные месяца недоступны">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <span>{pageError}</span>
+                        <button
+                            onClick={() => {
+                                void loadData();
+                            }}
+                            className="rounded-xl bg-rose-600 px-4 py-2 text-white transition-colors hover:bg-rose-700"
+                        >
+                            Повторить
+                        </button>
+                    </div>
+                </StatusBanner>
             )}
 
             {/* Header / Month Selector */}
@@ -842,6 +872,9 @@ const MonthView: React.FC = () => {
             >
                 <div className="space-y-4">
                     <p className="text-gray-600">Сохранить изменения суммы?</p>
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        Новое значение сразу повлияет на баланс и расчёты выбранного месяца.
+                    </div>
                     <div className="flex gap-3">
                         <button
                             onClick={() => {
@@ -850,7 +883,7 @@ const MonthView: React.FC = () => {
                                 }
                                 setPendingSave(null);
                             }}
-                            className="flex-1 bg-primary text-white py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                            className="flex-1 bg-primary text-white py-3 rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-sm"
                         >
                             Сохранить
                         </button>
@@ -859,7 +892,7 @@ const MonthView: React.FC = () => {
                                 setPendingSave(null);
                                 setEditingId(null);
                             }}
-                            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
                         >
                             Отмена
                         </button>
@@ -877,10 +910,13 @@ const MonthView: React.FC = () => {
             >
                 <div className="space-y-4">
                     <p className="text-gray-600">Вы уверены, что хотите удалить эту запись?</p>
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                        Запись будет удалена из месяца без возможности восстановить её из интерфейса.
+                    </div>
                     <div className="flex gap-3">
                         <button
                             onClick={confirmDelete}
-                            className="flex-1 bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                            className="flex-1 bg-rose-600 text-white py-3 rounded-xl font-medium hover:bg-rose-700 transition-colors"
                         >
                             Удалить
                         </button>
@@ -888,7 +924,7 @@ const MonthView: React.FC = () => {
                             onClick={() => {
                                 setPendingDelete(null);
                             }}
-                            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
                         >
                             Отмена
                         </button>
@@ -907,16 +943,19 @@ const MonthView: React.FC = () => {
             >
                 <div className="space-y-4">
                     <p className="text-gray-600">Добавить новый источник <span className="font-medium">'{newSourceName}'</span> в список?</p>
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        Если подтвердить добавление, источник станет доступен и в следующих месяцах.
+                    </div>
                     <div className="flex gap-3">
                         <button
                             onClick={() => confirmAddNewSource(true)}
-                            className="flex-1 bg-primary text-white py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                            className="flex-1 bg-primary text-white py-3 rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-sm"
                         >
                             Да, добавить
                         </button>
                         <button
                             onClick={() => confirmAddNewSource(false)}
-                            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
                         >
                             Нет, только сохранить
                         </button>

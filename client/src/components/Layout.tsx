@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut, Settings } from 'lucide-react';
 import classNames from 'classnames';
@@ -27,6 +27,7 @@ const Layout: React.FC = () => {
     const [availableBalance, setAvailableBalance] = useState(0);
     const [resourceBalance, setResourceBalance] = useState(0);
     const [totalAssets, setTotalAssets] = useState(0);
+    const [sidebarRefreshError, setSidebarRefreshError] = useState<string | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const { user, logout, uiSettings } = useAuth();
     const mainRef = useRef<HTMLElement>(null);
@@ -41,6 +42,30 @@ const Layout: React.FC = () => {
         { name: 'Категории', path: '/categories', icon: Receipt },
         { name: 'Копилки', path: '/savings', icon: PiggyBank },
     ];
+
+    const refreshSidebarSummary = useCallback(async () => {
+        try {
+            const selectedDate = getSelectedDashboardDate();
+            setCurrentMonth(format(selectedDate, 'LLLL yyyy', { locale: ru }));
+
+            const monthRes = await ensureMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+            const summaryRes = await getMonthSummary(monthRes.data.id);
+            const budgetsRes = await getBudgets(monthRes.data.id);
+            const goalsRes = await getSavingsGoals();
+            const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
+            const totalLimit = budgetsRes.data.reduce((sum, item) => sum + item.limit_amount, 0);
+            const available = Math.max(0, totalLimit - summaryRes.data.expenses);
+            const cumulativeRes = await getCumulativeBalance(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+
+            setAvailableBalance(available);
+            setResourceBalance(cumulativeRes.data.cumulativeBalance);
+            setTotalAssets(cumulativeRes.data.cumulativeBalance + savingsTotal);
+            setSidebarRefreshError(null);
+        } catch (e) {
+            console.error('Sidebar refresh error:', e);
+            setSidebarRefreshError('Не удалось обновить боковую сводку. Показаны последние доступные значения.');
+        }
+    }, []);
 
     // Scrollbar auto-hide logic
     useEffect(() => {
@@ -74,47 +99,23 @@ const Layout: React.FC = () => {
     }, [uiSettings?.autoCollapseSidebar]);
 
     useEffect(() => {
-        const fetchFinancialData = async () => {
-            try {
-                // Используем выбранный месяц из localStorage (Dashboard)
-                const selectedDate = getSelectedDashboardDate();
-                // Месяц для отображения
-                setCurrentMonth(format(selectedDate, 'LLLL yyyy', { locale: ru }));
-
-                // Получить данные выбранного месяца
-                const monthRes = await ensureMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
-                const summaryRes = await getMonthSummary(monthRes.data.id);
-                const budgetsRes = await getBudgets(monthRes.data.id);
-                
-                // Сумма всех копилок
-                const goalsRes = await getSavingsGoals();
-                const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
-
-                const totalLimit = budgetsRes.data.reduce((sum, item) => sum + item.limit_amount, 0);
-                const available = Math.max(0, totalLimit - summaryRes.data.expenses);
-                setAvailableBalance(available);
-
-                // Всего активов = кумулятивный баланс до выбранного месяца + накопления
-                const cumulativeRes = await getCumulativeBalance(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
-                setResourceBalance(cumulativeRes.data.cumulativeBalance);
-                setTotalAssets(cumulativeRes.data.cumulativeBalance + savingsTotal);
-
-            } catch (e) {
-                console.error('Error fetching financial data:', e);
-            }
-        };
-
-        fetchFinancialData();
+        void refreshSidebarSummary();
         
         // Обновлять каждые 30 секунд
-        const interval = setInterval(fetchFinancialData, 30000);
+        const interval = setInterval(() => {
+            void refreshSidebarSummary();
+        }, 30000);
         
         // Listen for savings updates
-        const handleSavingsUpdate = () => fetchFinancialData();
+        const handleSavingsUpdate = () => {
+            void refreshSidebarSummary();
+        };
         window.addEventListener('savingsUpdated', handleSavingsUpdate);
         
         // Listen for dashboard month changes
-        const handleDashboardMonthChange = () => fetchFinancialData();
+        const handleDashboardMonthChange = () => {
+            void refreshSidebarSummary();
+        };
         window.addEventListener('dashboardMonthChanged', handleDashboardMonthChange);
         
         return () => {
@@ -122,27 +123,11 @@ const Layout: React.FC = () => {
             window.removeEventListener('savingsUpdated', handleSavingsUpdate);
             window.removeEventListener('dashboardMonthChanged', handleDashboardMonthChange);
         };
-    }, []);
+    }, [refreshSidebarSummary]);
 
     // Refresh sidebar financial data on any WebSocket data change
     useDataChanged(null, async () => {
-        try {
-            const selectedDate = getSelectedDashboardDate();
-            const monthRes = await ensureMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
-            const summaryRes = await getMonthSummary(monthRes.data.id);
-            const budgetsRes = await getBudgets(monthRes.data.id);
-            const goalsRes = await getSavingsGoals();
-            const savingsTotal = goalsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + (goal.current_amount || 0), 0);
-            const totalLimit = budgetsRes.data.reduce((sum, item) => sum + item.limit_amount, 0);
-            const available = Math.max(0, totalLimit - summaryRes.data.expenses);
-            setAvailableBalance(available);
-            const cumulativeRes = await getCumulativeBalance(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
-            setResourceBalance(cumulativeRes.data.cumulativeBalance);
-            setTotalAssets(cumulativeRes.data.cumulativeBalance + savingsTotal);
-            setCurrentMonth(format(selectedDate, 'LLLL yyyy', { locale: ru }));
-        } catch (e) {
-            console.error('WS refresh error:', e);
-        }
+        await refreshSidebarSummary();
     });
 
     return (
@@ -206,6 +191,20 @@ const Layout: React.FC = () => {
                     </div>
 
                     <p className="text-[10px] text-emerald-200/70 uppercase tracking-widest px-2 pt-2 border-t border-white/10">{currentMonth}</p>
+
+                    {sidebarRefreshError ? (
+                        <div className="mx-2 rounded-xl border border-amber-200/40 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-50/90">
+                            <p>{sidebarRefreshError}</p>
+                            <button
+                                onClick={() => {
+                                    void refreshSidebarSummary();
+                                }}
+                                className="mt-2 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-white/20"
+                            >
+                                Обновить сводку
+                            </button>
+                        </div>
+                    ) : null}
                     
                     <div className="bg-white/10 backdrop-blur-sm border border-white/5 rounded-xl p-3 space-y-2 shadow-inner">
                         <div className="flex justify-between items-center">

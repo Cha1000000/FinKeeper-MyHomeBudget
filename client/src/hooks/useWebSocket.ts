@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AUTH_LOGOUT_REQUIRED_EVENT, AUTH_TOKEN_CHANGED_EVENT, getToken } from '../auth/tokenStorage';
+import { refreshRememberedSession } from '../auth/sessionRecovery';
 
 export interface DataChangedEvent {
     type: 'data_changed';
@@ -17,8 +18,17 @@ export interface DataChangedEvent {
 export function useWebSocket() {
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const connectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const reconnectDelay = useRef(1000);
     const connectRef = useRef<(() => void) | null>(null);
+
+    const getWebSocketOrigin = useCallback(() => {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        if (import.meta.env.DEV) {
+            return `${protocol}//${window.location.hostname}:3002`;
+        }
+        return `${protocol}//${window.location.host}`;
+    }, []);
 
     const disconnect = useCallback(() => {
         if (reconnectTimer.current) {
@@ -26,8 +36,16 @@ export function useWebSocket() {
             reconnectTimer.current = null;
         }
 
+        if (connectTimer.current) {
+            clearTimeout(connectTimer.current);
+            connectTimer.current = null;
+        }
+
         if (wsRef.current) {
             wsRef.current.onclose = null;
+            wsRef.current.onerror = null;
+            wsRef.current.onopen = null;
+            wsRef.current.onmessage = null;
             wsRef.current.close();
             wsRef.current = null;
         }
@@ -44,9 +62,7 @@ export function useWebSocket() {
             return;
         }
 
-        // Determine WebSocket URL from current location
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}?token=${token}`;
+        const wsUrl = `${getWebSocketOrigin()}?token=${token}`;
 
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
@@ -72,7 +88,19 @@ export function useWebSocket() {
             wsRef.current = null;
             // Don't reconnect if closed intentionally (4001/4003 = auth errors)
             if (event.code === 4001 || event.code === 4003) {
-                window.dispatchEvent(new Event(AUTH_LOGOUT_REQUIRED_EVENT));
+                void refreshRememberedSession()
+                    .then((data) => {
+                        const refreshedToken = data?.accessToken || data?.token;
+                        if (refreshedToken) {
+                            reconnectDelay.current = 1000;
+                            connectRef.current?.();
+                            return;
+                        }
+                        window.dispatchEvent(new Event(AUTH_LOGOUT_REQUIRED_EVENT));
+                    })
+                    .catch(() => {
+                        window.dispatchEvent(new Event(AUTH_LOGOUT_REQUIRED_EVENT));
+                    });
                 return;
             }
 
@@ -86,19 +114,30 @@ export function useWebSocket() {
         ws.onerror = () => {
             ws.close();
         };
-    }, []);
+    }, [getWebSocketOrigin]);
+
+    const scheduleConnect = useCallback(() => {
+        if (connectTimer.current) {
+            clearTimeout(connectTimer.current);
+        }
+
+        connectTimer.current = setTimeout(() => {
+            connectTimer.current = null;
+            connect();
+        }, 0);
+    }, [connect]);
 
     useEffect(() => {
-        connectRef.current = connect;
+        connectRef.current = scheduleConnect;
     });
 
     useEffect(() => {
-        connect();
+        scheduleConnect();
 
         return () => {
             disconnect();
         };
-    }, [connect, disconnect]);
+    }, [disconnect, scheduleConnect]);
 
     useEffect(() => {
         const handleTokenChange = () => {

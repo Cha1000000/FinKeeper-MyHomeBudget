@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import axios from 'axios';
 import { exchangeSocialAuthCode, getMe, loginUser, registerUser } from '../api';
 import type { User, AuthData } from '../api';
+import { refreshRememberedSession } from '../auth/sessionRecovery';
 import {
   AUTH_LOGOUT_REQUIRED_EVENT,
   clearToken,
@@ -29,20 +30,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-let rememberSessionBootstrapPromise: Promise<{ accessToken?: string; token?: string; user?: User } | null> | null = null;
-
-function bootstrapRememberedSession() {
-  if (!rememberSessionBootstrapPromise) {
-    rememberSessionBootstrapPromise = axios
-      .post('/api/auth/refresh', {}, { withCredentials: true })
-      .then(response => response.data as { accessToken?: string; token?: string; user?: User })
-      .finally(() => {
-        rememberSessionBootstrapPromise = null;
-      });
-  }
-
-  return rememberSessionBootstrapPromise;
-}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -61,18 +48,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(data);
         } catch (error) {
           console.error("Auth check failed", error);
-          clearToken();
-          setUser(null);
+          if (shouldRememberSession()) {
+            try {
+              const data = await refreshRememberedSession();
+              if (data?.user) {
+                setUser(data.user);
+              } else {
+                const me = await getMe();
+                setUser(me.data);
+              }
+            } catch (refreshError) {
+              console.error("Auth refresh after auth check failed", refreshError);
+              clearToken();
+              setUser(null);
+            }
+          } else {
+            clearToken();
+            setUser(null);
+          }
         }
       } else if (shouldRememberSession()) {
         try {
-          const data = await bootstrapRememberedSession();
-          const refreshedToken = data?.accessToken || data?.token;
-          if (refreshedToken) {
-            setToken(refreshedToken, true);
-          }
+          const data = await refreshRememberedSession();
           if (data?.user) {
             setUser(data.user);
+          } else {
+            const me = await getMe();
+            setUser(me.data);
           }
         } catch (error) {
           console.error("Auth refresh bootstrap failed", error);

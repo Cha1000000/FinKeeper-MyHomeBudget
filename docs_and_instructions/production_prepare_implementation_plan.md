@@ -658,6 +658,7 @@
 ### Batch 7 — web auth storage и session recovery
 
 - **Цель:** довести web auth до production-ready UX и storage-модели
+- **Фактический статус:** выполнено
 - **Связанные приоритеты:** `P0-08`, `P1-05`
 - **Основные файлы:**
   - `client/src/context/AuthContext.tsx`
@@ -676,7 +677,6 @@
 - **Критерий готовности:**
   - web корректно переживает истечение сессии
   - storage соответствует новой модели
-- **Фактический статус:** выполнено
 - **Фактически внедрено:**
   - web auth persistence через `sessionStorage` и optional persistent storage для `remember me`
   - глобальный `401` handling и refresh для remembered-сессий
@@ -684,6 +684,8 @@
   - forced logout с понятным `session-expired` UX на `Login`
   - best-effort logout с вызовом серверного `/api/auth/logout`
   - ручная browser-проверка сценариев login, refresh recovery, forced logout и обычного logout
+  - follow-up fix для remembered-session: `AuthContext` теперь пытается refresh перед очисткой auth state, если `remember me` включён и access token уже истёк
+  - follow-up fix для remembered-session: WebSocket auth-close (`4003`) теперь сначала пытается восстановить remembered-session через refresh, а не делает немедленный logout
 
 ### Batch 8 — KMP secure storage и session handling
 
@@ -765,6 +767,7 @@
 ### Batch 11 — web UX polish для auth/settings/error states
 
 - **Цель:** довести web UX до более зрелого production-вида
+- **Фактический статус:** выполнено
 - **Связанные приоритеты:** `P1-06`, `P1-07`, `P1-08`
 - **Основные файлы:**
   - `client/src/pages/Login.tsx`
@@ -781,10 +784,18 @@
 - **Зависимости:** желательно после Batch 3, 4 и 7
 - **Критерий готовности:**
   - web UX по auth/settings/error scenarios стал более цельным и предсказуемым
+- **Фактически внедрено:**
+  - общий `StatusBanner` для success/error/info/warning feedback на auth/settings и ключевых страницах
+  - расширенный `PageState` для единых loading/error/empty states, включая compact-вариант
+  - унификация состояний на `Login`, `PasswordRecovery`, `EmailVerification`, `SocialAuthCallback`, `Settings`, `Dashboard`, `MonthView`, `Savings`, `Categories`
+  - stylistic polish destructive confirmation модалок в `MonthView`, `Categories`, `Savings`
+  - mutation-level error feedback в `MonthView` и `Categories`
+  - мягкий fallback UX для боковой сводки в `Layout` с сохранением последних данных и retry action
 
 ### Batch 12 — KMP UX polish для auth/settings/sync
 
 - **Цель:** улучшить KMP UX поверх уже стабилизированной security/session базы
+- **Фактический статус:** выполнено
 - **Связанные приоритеты:** `P1-09`, `P1-10`, `P1-11`
 - **Основные файлы:**
   - `mobile_app_client/.../LoginScreen.kt`
@@ -801,6 +812,13 @@
 - **Зависимости:** желательно после Batch 4, 8 и 9
 - **Критерий готовности:**
   - KMP ощущается как более зрелый пользовательский продукт, а не только как технически сильный клиент
+- **Фактически внедрено:**
+  - helper texts и валидационные подсказки на auth flow (`login/register/recovery/social`)
+  - улучшенный UX backup/restore в `SettingsScreen`: loading/empty список backup, выбор backup, confirm dialog, явное подтверждение восстановление
+  - sync UX в `SettingsScreen` и `NetworkStatusIndicator`: online/offline, pending count, retry action, clear error action
+  - отображение `lastSuccessfulSyncAt` + сохранение последней успешной синхронизации через `SyncManager`/`SyncStateStorage`
+  - более понятные offline/error сообщения в `SettingsViewModel` и `AuthViewModel` (включая `OFFLINE_RETRY_LATER`, `SESSION_EXPIRED`, `CONNECTION_ERROR`)
+  - smoke-check KMP: `./gradlew composeApp:testDebugUnitTest` (успешно)
 
 ### Batch 13 — observability, health checks и quality gates
 

@@ -4,6 +4,8 @@ import { clearUserEmail, createManualBackup, getBackupEntries, requestEmailVerif
 import type { BackupEntry } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
+import PageState from '../components/PageState';
+import StatusBanner from '../components/StatusBanner';
 
 const BACKUP_RESTORE_CONFIRMATION_TEXT = 'ВОССТАНОВИТЬ';
 
@@ -289,11 +291,11 @@ const Settings: React.FC = () => {
                 </div>
             </div>
 
-            {statusMessage && (
-                <div role="status" aria-live="polite" className={`rounded-2xl border px-5 py-4 text-sm shadow-sm ${statusMessage.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+            {statusMessage ? (
+                <StatusBanner variant={statusMessage.type === 'success' ? 'success' : 'error'}>
                     {statusMessage.text}
-                </div>
-            )}
+                </StatusBanner>
+            ) : null}
 
             <div className="grid grid-cols-1 gap-6">
                 {/* Profile Settings */}
@@ -594,13 +596,25 @@ const Settings: React.FC = () => {
                                     </button>
                                 </div>
                                 <div className="mt-4 space-y-2">
-                                    <p className="text-xs text-slate-500">
-                                        {isBackupsLoading
-                                            ? 'Загружаем список резервных копий...'
-                                            : backups.length > 0
-                                                ? `Доступно резервных копий: ${backups.length}. Последняя: ${formatBackupDate(backups[0].createdAt)}`
-                                                : 'Резервные копии пока не найдены.'}
-                                    </p>
+                                    {isBackupsLoading ? (
+                                        <PageState
+                                            variant="loading"
+                                            title="Загружаем резервные копии"
+                                            description="Обновляем список доступных точек восстановления аккаунта."
+                                            compact
+                                        />
+                                    ) : backups.length > 0 ? (
+                                        <p className="text-xs text-slate-500">
+                                            {`Доступно резервных копий: ${backups.length}. Последняя: ${formatBackupDate(backups[0].createdAt)}`}
+                                        </p>
+                                    ) : (
+                                        <PageState
+                                            variant="empty"
+                                            title="Резервных копий пока нет"
+                                            description="Создайте первую резервную копию, чтобы можно было безопасно откатить изменения данных позже."
+                                            compact
+                                        />
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -624,10 +638,12 @@ const Settings: React.FC = () => {
 
                     <div className="space-y-2">
                         {isBackupsLoading ? (
-                            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Загрузка резервных копий...
-                            </div>
+                            <PageState
+                                variant="loading"
+                                title="Загружаем резервные копии"
+                                description="Подготавливаем доступные точки восстановления для выбора."
+                                compact
+                            />
                         ) : backups.length > 0 ? (
                             backups.map((backup) => (
                                 <button
@@ -650,9 +666,12 @@ const Settings: React.FC = () => {
                                 </button>
                             ))
                         ) : (
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                Резервные копии пока не найдены. Сначала создайте новую копию.
-                            </div>
+                            <PageState
+                                variant="empty"
+                                title="Нет доступных копий"
+                                description="Сначала создайте новую резервную копию, чтобы затем можно было выполнить восстановление."
+                                compact
+                            />
                         )}
                     </div>
 
@@ -671,11 +690,11 @@ const Settings: React.FC = () => {
                         />
                     </div>
                     
-                    {modalError && (
-                        <div role="alert" aria-live="polite" className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+                    {modalError ? (
+                        <StatusBanner variant="error">
                             {modalError}
-                        </div>
-                    )}
+                        </StatusBanner>
+                    ) : null}
 
                     <div className="flex gap-3">
                         <button
@@ -707,11 +726,11 @@ const Settings: React.FC = () => {
                         Изменить имя пользователя на <strong>{normalizedUsername || username}</strong>?
                     </p>
 
-                    {modalError && (
-                        <div role="alert" aria-live="polite" className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+                    {modalError ? (
+                        <StatusBanner variant="error">
                             {modalError}
-                        </div>
-                    )}
+                        </StatusBanner>
+                    ) : null}
 
                     <div className="flex gap-3">
                         <button
@@ -746,11 +765,11 @@ const Settings: React.FC = () => {
                         После смены пароля убедитесь, что новый пароль сохранён в надёжном месте. Минимальная длина — 6 символов.
                     </div>
 
-                    {modalError && (
-                        <div role="alert" aria-live="polite" className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+                    {modalError ? (
+                        <StatusBanner variant="error">
                             {modalError}
-                        </div>
-                    )}
+                        </StatusBanner>
+                    ) : null}
 
                     <div className="flex gap-3">
                         <button

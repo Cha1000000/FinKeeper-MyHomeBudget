@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, KeyRound, Loader2, Mail, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, KeyRound, Loader2, Mail, ShieldAlert } from 'lucide-react';
 import { confirmPasswordRecovery, requestPasswordRecovery } from '../api';
+import StatusBanner from '../components/StatusBanner';
 
 const PasswordRecovery: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -193,17 +194,14 @@ const PasswordRecovery: React.FC = () => {
         )}
 
         {error ? (
-          <div role="alert" aria-live="polite" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <StatusBanner variant="error">
             {error}
-          </div>
+          </StatusBanner>
         ) : null}
 
         {successMessage ? (
-          <div role="status" aria-live="polite" className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
-              <p>{successMessage}</p>
-            </div>
+          <StatusBanner variant="success" title={mode === 'request' ? 'Запрос подготовлен' : 'Пароль обновлён'} className="space-y-3">
+            <p>{successMessage}</p>
             {debugTokenPreview ? (
               <div className="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3 text-xs text-slate-700">
                 <div className="flex items-start gap-2">
@@ -239,7 +237,7 @@ const PasswordRecovery: React.FC = () => {
                 </div>
               </div>
             ) : null}
-          </div>
+          </StatusBanner>
         ) : null}
       </div>
     </div>

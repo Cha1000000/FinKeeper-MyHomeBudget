@@ -3,6 +3,8 @@ import { Plus, Edit2, Trash2, Check, X } from 'lucide-react';
 import api, { getCategories, getIncomeSources } from '../api';
 import type { Category, IncomeSource } from '../api';
 import Modal from '../components/Modal';
+import PageState from '../components/PageState';
+import StatusBanner from '../components/StatusBanner';
 import { useDataChanged } from '../hooks/useWebSocket';
 
 type TabType = 'expenses' | 'income';
@@ -18,8 +20,18 @@ const Categories: React.FC = () => {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editName, setEditName] = useState('');
     const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
+
+    const getActionErrorMessage = (errorValue: unknown, fallback: string) => {
+        const apiError = errorValue as { response?: { data?: { error?: string } }; message?: string };
+        return apiError.response?.data?.error || apiError.message || fallback;
+    };
 
     const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
         try {
             if (activeTab === 'expenses') {
                 const res = await getCategories();
@@ -30,6 +42,11 @@ const Categories: React.FC = () => {
             }
         } catch (e) {
             console.error(e);
+            setError(activeTab === 'expenses'
+                ? 'Не удалось загрузить категории расходов. Попробуйте ещё раз.'
+                : 'Не удалось загрузить источники дохода. Попробуйте ещё раз.');
+        } finally {
+            setIsLoading(false);
         }
     }, [activeTab]);
 
@@ -43,6 +60,7 @@ const Categories: React.FC = () => {
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
+        setActionError(null);
         try {
             if (activeTab === 'expenses') {
                 await api.post('/categories', { name: newName });
@@ -54,6 +72,9 @@ const Categories: React.FC = () => {
             fetchData();
         } catch (e) {
             console.error(e);
+            setActionError(getActionErrorMessage(e, activeTab === 'expenses'
+                ? 'Не удалось создать категорию. Попробуйте ещё раз.'
+                : 'Не удалось создать источник дохода. Попробуйте ещё раз.'));
         }
     };
 
@@ -64,6 +85,7 @@ const Categories: React.FC = () => {
 
     const saveEdit = async () => {
         if (!editingId) return;
+        setActionError(null);
         try {
             if (activeTab === 'expenses') {
                 await api.put(`/categories/${editingId}`, { name: editName, is_active: 1 });
@@ -74,6 +96,9 @@ const Categories: React.FC = () => {
             fetchData();
         } catch (e) {
             console.error(e);
+            setActionError(getActionErrorMessage(e, activeTab === 'expenses'
+                ? 'Не удалось обновить категорию. Попробуйте ещё раз.'
+                : 'Не удалось обновить источник дохода. Попробуйте ещё раз.'));
         }
     };
 
@@ -88,6 +113,7 @@ const Categories: React.FC = () => {
 
     const confirmDelete = async () => {
         if (!pendingDelete) return;
+        setActionError(null);
         try {
             if (activeTab === 'expenses') {
                 await api.delete(`/categories/${pendingDelete}`);
@@ -98,17 +124,57 @@ const Categories: React.FC = () => {
             fetchData();
         } catch (e) {
             console.error(e);
+            setActionError(getActionErrorMessage(e, activeTab === 'expenses'
+                ? 'Не удалось удалить категорию. Попробуйте ещё раз.'
+                : 'Не удалось удалить источник дохода. Попробуйте ещё раз.'));
         }
     };
 
     const currentList = activeTab === 'expenses' ? categories : incomeSources;
     const itemName = activeTab === 'expenses' ? 'эту категорию' : 'этот источник дохода';
-    const listEmpty = activeTab === 'expenses' ? 'Список категорий пуст' : 'Список источников дохода пуст';
     const modalTitle = activeTab === 'expenses' ? 'Добавить категорию' : 'Добавить источник дохода';
     const buttonTitle = activeTab === 'expenses' ? 'Новая категория' : 'Новый источник';
 
+    if (isLoading && currentList.length === 0) {
+        return (
+            <PageState
+                variant="loading"
+                title={activeTab === 'expenses' ? 'Загружаем категории' : 'Загружаем источники дохода'}
+                description={activeTab === 'expenses'
+                    ? 'Подготавливаем список категорий расходов и их текущее состояние.'
+                    : 'Подготавливаем список источников дохода для работы с месяцем.'}
+            />
+        );
+    }
+
+    if (error && currentList.length === 0) {
+        return (
+            <PageState
+                variant="error"
+                title={activeTab === 'expenses' ? 'Не удалось открыть категории' : 'Не удалось открыть источники дохода'}
+                description={error}
+                actionLabel="Повторить"
+                onAction={() => {
+                    void fetchData();
+                }}
+            />
+        );
+    }
+
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
+            {actionError ? (
+                <StatusBanner variant="error" title="Операция не завершена">
+                    {actionError}
+                </StatusBanner>
+            ) : null}
+
+            {error ? (
+                <StatusBanner variant="error">
+                    {error}
+                </StatusBanner>
+            ) : null}
+
             <div className="flex items-center justify-between mb-2">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Категории и источники</h2>
@@ -150,7 +216,16 @@ const Categories: React.FC = () => {
             <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
                 <ul className="divide-y divide-slate-100/60">
                     {currentList.length === 0 && (
-                        <li className="p-8 text-center text-gray-400">{listEmpty}</li>
+                        <li className="p-6">
+                            <PageState
+                                variant="empty"
+                                title={activeTab === 'expenses' ? 'Категорий пока нет' : 'Источников дохода пока нет'}
+                                description={activeTab === 'expenses'
+                                    ? 'Добавьте первую категорию расходов, чтобы затем использовать её в месячных операциях и лимитах.'
+                                    : 'Добавьте первый источник дохода, чтобы он был доступен при создании доходов.'}
+                                compact
+                            />
+                        </li>
                     )}
                     {currentList.map((item) => (
                         <li key={item.id} className="p-4 px-6 hover:bg-slate-50/50 flex items-center justify-between group transition-colors">
@@ -160,13 +235,15 @@ const Categories: React.FC = () => {
                                         type="text"
                                         value={editName}
                                         onChange={(e) => setEditName(e.target.value)}
+                                        aria-label={activeTab === 'expenses' ? 'Редактировать название категории' : 'Редактировать название источника дохода'}
                                         className="flex-1 p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                        placeholder={activeTab === 'expenses' ? 'Название категории' : 'Название источника'}
                                         autoFocus
                                     />
-                                    <button onClick={saveEdit} className="p-2.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors">
+                                    <button onClick={saveEdit} aria-label="Сохранить изменения" title="Сохранить изменения" className="p-2.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors">
                                         <Check className="w-5 h-5" />
                                     </button>
-                                    <button onClick={cancelEdit} className="p-2.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+                                    <button onClick={cancelEdit} aria-label="Отменить редактирование" title="Отменить редактирование" className="p-2.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -174,10 +251,10 @@ const Categories: React.FC = () => {
                                 <>
                                     <span className="font-medium text-slate-700">{item.name}</span>
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => startEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                        <button onClick={() => startEdit(item)} aria-label="Редактировать" title="Редактировать" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                             <Edit2 className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                        <button onClick={() => handleDelete(item.id)} aria-label="Удалить" title="Удалить" className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -221,16 +298,19 @@ const Categories: React.FC = () => {
             >
                 <div className="space-y-4">
                     <p className="text-gray-600">Уверены, что хотите удалить {itemName}?</p>
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                        Элемент будет скрыт из активного списка и перестанет быть доступен для новых операций.
+                    </div>
                     <div className="flex gap-3">
                         <button
                             onClick={confirmDelete}
-                            className="flex-1 bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                            className="flex-1 bg-rose-600 text-white py-3 rounded-xl font-medium hover:bg-rose-700 transition-colors"
                         >
                             Удалить
                         </button>
                         <button
                             onClick={() => setPendingDelete(null)}
-                            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
                         >
                             Отмена
                         </button>

@@ -3,6 +3,8 @@ import { AlertCircle, Inbox, Loader2, RefreshCw } from 'lucide-react';
 
 interface PageStateProps {
     actionLabel?: string;
+    className?: string;
+    compact?: boolean;
     description: string;
     onAction?: () => void;
     title: string;
@@ -39,21 +41,37 @@ const icons = {
     loading: Loader2,
 } as const;
 
-const PageState: React.FC<PageStateProps> = ({ actionLabel, description, onAction, title, variant }) => {
+const PageState: React.FC<PageStateProps> = ({ actionLabel, className = '', compact = false, description, onAction, title, variant }) => {
     const Icon = icons[variant];
     const palette = styles[variant];
+    const wrapperClassName = compact
+        ? `rounded-2xl border p-5 text-center shadow-[0_8px_24px_rgb(0,0,0,0.04)] backdrop-blur-md ${palette.container}`
+        : `rounded-3xl border p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-md ${palette.container}`;
+    const accentClassName = compact
+        ? `mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border ${palette.accent}`
+        : `mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border ${palette.accent}`;
+    const iconClassName = compact
+        ? `h-5 w-5 ${variant === 'loading' ? 'animate-spin' : ''}`
+        : `h-7 w-7 ${variant === 'loading' ? 'animate-spin' : ''}`;
+    const titleClassName = compact ? `text-base font-bold ${palette.title}` : `text-lg font-bold ${palette.title}`;
+    const descriptionClassName = compact
+        ? `mx-auto mt-2 max-w-md text-sm ${palette.description}`
+        : `mx-auto mt-2 max-w-md text-sm ${palette.description}`;
+    const buttonClassName = compact
+        ? `mx-auto mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors ${palette.button}`
+        : `mx-auto mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${palette.button}`;
 
     return (
-        <div className={`rounded-3xl border p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-md ${palette.container}`}>
-            <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border ${palette.accent}`}>
-                <Icon className={`h-7 w-7 ${variant === 'loading' ? 'animate-spin' : ''}`} />
+        <div className={`${wrapperClassName} ${className}`.trim()}>
+            <div className={accentClassName}>
+                <Icon className={iconClassName} />
             </div>
-            <h3 className={`text-lg font-bold ${palette.title}`}>{title}</h3>
-            <p className={`mx-auto mt-2 max-w-md text-sm ${palette.description}`}>{description}</p>
+            <h3 className={titleClassName}>{title}</h3>
+            <p className={descriptionClassName}>{description}</p>
             {actionLabel && onAction ? (
                 <button
                     onClick={onAction}
-                    className={`mx-auto mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${palette.button}`}
+                    className={buttonClassName}
                 >
                     <RefreshCw className="h-4 w-4" />
                     {actionLabel}

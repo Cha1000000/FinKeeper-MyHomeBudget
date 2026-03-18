@@ -7,6 +7,43 @@ export const AUTH_LOGOUT_REQUIRED_EVENT = 'auth:logout-required';
 
 let memoryToken: string | null = null;
 
+const decodeBase64Url = (value: string): string | null => {
+    try {
+        const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+        return typeof window !== 'undefined' ? window.atob(padded) : null;
+    } catch {
+        return null;
+    }
+};
+
+const isTokenUsable = (token: string | null): token is string => {
+    if (!token) {
+        return false;
+    }
+
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+        return false;
+    }
+
+    const payloadJson = decodeBase64Url(parts[1]);
+    if (!payloadJson) {
+        return false;
+    }
+
+    try {
+        const payload = JSON.parse(payloadJson) as { exp?: number };
+        if (typeof payload.exp !== 'number') {
+            return false;
+        }
+
+        return payload.exp * 1000 > Date.now();
+    } catch {
+        return false;
+    }
+};
+
 const getSessionStorage = (): Storage | null => {
     if (typeof window === 'undefined') {
         return null;
@@ -38,22 +75,36 @@ const clearLegacyLocalToken = () => {
     storage?.removeItem(TOKEN_KEY);
 };
 
+const clearSessionToken = () => {
+    getSessionStorage()?.removeItem(TOKEN_KEY);
+};
+
 export const getToken = (): string | null => {
-    if (memoryToken) {
+    if (isTokenUsable(memoryToken)) {
         return memoryToken;
     }
 
+    memoryToken = null;
+
     const sessionToken = readFromSession();
-    if (sessionToken) {
+    if (isTokenUsable(sessionToken)) {
         memoryToken = sessionToken;
         return sessionToken;
     }
 
+    if (sessionToken) {
+        clearSessionToken();
+    }
+
     if (shouldRememberSession()) {
         const localToken = readFromLocal();
-        if (localToken) {
+        if (isTokenUsable(localToken)) {
             memoryToken = localToken;
             return localToken;
+        }
+
+        if (localToken) {
+            clearLegacyLocalToken();
         }
     }
 
@@ -94,7 +145,7 @@ export const setToken = (token: string, persist = shouldRememberSession()) => {
 
 export const clearToken = () => {
     memoryToken = null;
-    getSessionStorage()?.removeItem(TOKEN_KEY);
+    clearSessionToken();
     clearLegacyLocalToken();
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event(AUTH_TOKEN_CHANGED_EVENT));

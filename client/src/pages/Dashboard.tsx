@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useDataChanged } from '../hooks/useWebSocket';
 import PageState from '../components/PageState';
+import StatusBanner from '../components/StatusBanner';
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#6366f1', '#14b8a6'];
 const DOT_COLOR_CLASSES = ['bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-pink-500', 'bg-amber-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-teal-500'];
@@ -185,17 +186,19 @@ const Dashboard: React.FC = () => {
             </header>
 
             {error && (
-                <div role="alert" aria-live="polite" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between">
-                    <span>{error}</span>
-                    <button
-                        onClick={() => {
-                            void fetchData();
-                        }}
-                        className="rounded-xl bg-rose-600 px-4 py-2 text-white transition-colors hover:bg-rose-700"
-                    >
-                        Повторить
-                    </button>
-                </div>
+                <StatusBanner variant="error" title="Обзор обновлён не полностью">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <span>{error}</span>
+                        <button
+                            onClick={() => {
+                                void fetchData();
+                            }}
+                            className="rounded-xl bg-rose-600 px-4 py-2 text-white transition-colors hover:bg-rose-700"
+                        >
+                            Повторить
+                        </button>
+                    </div>
+                </StatusBanner>
             )}
 
             {/* Month Navigation */}

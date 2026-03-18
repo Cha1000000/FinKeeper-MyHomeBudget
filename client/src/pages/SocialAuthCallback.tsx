@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
+import StatusBanner from '../components/StatusBanner';
 import { useAuth } from '../context/AuthContext';
 
 const SocialAuthCallback: React.FC = () => {
@@ -80,19 +81,12 @@ const SocialAuthCallback: React.FC = () => {
           <h1 className="text-xl font-semibold text-slate-900">{`Вход через ${providerDisplayName}`}</h1>
         </div>
 
-        <div
-          role="status"
-          aria-live="polite"
-          className={`rounded-2xl border px-4 py-4 text-sm ${
-            status === 'error'
-              ? 'border-rose-200 bg-rose-50 text-rose-700'
-              : status === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-emerald-200 bg-emerald-50/80 text-slate-700'
-          }`}
+        <StatusBanner
+          variant={status === 'success' ? 'success' : status === 'error' ? 'error' : 'info'}
+          title={status === 'success' ? 'Вход завершён' : status === 'error' ? 'Ошибка входа' : 'Завершаем авторизацию'}
         >
           {message}
-        </div>
+        </StatusBanner>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link

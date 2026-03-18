@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { getSocialProviders } from '../api';
 import { clearAuthNotice, getAuthNotice, setRememberSession, shouldRememberSession } from '../auth/tokenStorage';
+import StatusBanner from '../components/StatusBanner';
 import { useAuth } from '../context/AuthContext';
 
 const Login: React.FC = () => {
@@ -282,17 +283,17 @@ const Login: React.FC = () => {
             </label>
           ) : null}
 
-          {authNotice && (
-            <div role="status" aria-live="polite" className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm text-center">
+          {authNotice ? (
+            <StatusBanner variant="warning" className="text-left">
               {authNotice}
-            </div>
-          )}
+            </StatusBanner>
+          ) : null}
 
-          {error && (
-            <div role="alert" aria-live="polite" className="bg-red-50 border border-red-200 text-red-600 rounded-lg p-3 text-sm text-center">
+          {error ? (
+            <StatusBanner variant="error" className="text-left">
               {error}
-            </div>
-          )}
+            </StatusBanner>
+          ) : null}
 
           <div>
             <button
