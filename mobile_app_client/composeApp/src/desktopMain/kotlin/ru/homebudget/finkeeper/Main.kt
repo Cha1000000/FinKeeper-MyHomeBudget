@@ -133,8 +133,8 @@ fun main() {
             title = "FinKeeper",
             state = windowState,
             resizable = true,
-            undecorated = false,
-            transparent = false,
+            undecorated = true,
+            transparent = true,
             icon = painterResource("icon.png"),
         ) {
             desktopAwtWindow = this.window
