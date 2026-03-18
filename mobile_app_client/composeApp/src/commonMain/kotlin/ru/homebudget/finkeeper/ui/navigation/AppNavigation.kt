@@ -21,11 +21,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.koin.compose.koinInject
+import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.GlassyCard
@@ -57,6 +59,7 @@ import ru.homebudget.finkeeper.ui.screens.DashboardScreen
 import ru.homebudget.finkeeper.ui.screens.MonthViewScreen
 import ru.homebudget.finkeeper.ui.screens.SavingsScreen
 import ru.homebudget.finkeeper.ui.screens.SettingsScreen
+import ru.homebudget.finkeeper.ui.onboarding.SecurityOnboardingPromptState
 import ru.homebudget.finkeeper.ui.theme.AppSemanticColors
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.AuthViewModel
@@ -66,8 +69,6 @@ import ru.homebudget.finkeeper.ui.viewmodel.MonthViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsViewModel
 import ru.homebudget.finkeeper.ui.viewmodel.SettingsViewModel
 import ru.homebudget.finkeeper.util.AppLogoIcon
-import ru.homebudget.finkeeper.util.DraggableArea
-import ru.homebudget.finkeeper.util.LocalWindowControls
 import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.util.formatCurrency
 
@@ -92,8 +93,13 @@ fun AppNavigation(
     currentThemeMode: String,
     onThemeModeChange: (String) -> Unit,
 ) {
+    val tokenStorage = koinInject<TokenStorage>()
+    val securityOnboardingPromptState = remember { SecurityOnboardingPromptState(tokenStorage) }
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
+    var showSecurityOnboardingPrompt by remember { mutableStateOf(false) }
+    var securityPromptShownThisSession by remember { mutableStateOf(false) }
+    var securityPromptSessionUserId by remember { mutableStateOf<Int?>(null) }
 
     val authState by authViewModel.state.collectAsState()
     val dashboardState by dashboardViewModel.state.collectAsState()
@@ -107,127 +113,178 @@ fun AppNavigation(
 
     val desktopPadding = if (isDesktop) 80.dp else 0.dp
 
+    LaunchedEffect(authState.user?.id, authState.user?.recoverabilityStatus, currentScreen) {
+        val user = authState.user
+        if (user == null) {
+            showSecurityOnboardingPrompt = false
+            securityPromptShownThisSession = false
+            securityPromptSessionUserId = null
+            return@LaunchedEffect
+        }
+
+        if (securityPromptSessionUserId != user.id) {
+            securityPromptSessionUserId = user.id
+            securityPromptShownThisSession = false
+        }
+
+        if (user.recoverabilityStatus == "protected") {
+            securityOnboardingPromptState.reset()
+            showSecurityOnboardingPrompt = false
+            securityPromptShownThisSession = false
+            return@LaunchedEffect
+        }
+
+        if (currentScreen == Screen.Settings) {
+            showSecurityOnboardingPrompt = false
+            return@LaunchedEffect
+        }
+
+        if (securityOnboardingPromptState.shouldShow(user, securityPromptShownThisSession)) {
+            securityOnboardingPromptState.markShown(user)
+            securityPromptShownThisSession = true
+            showSecurityOnboardingPrompt = true
+        } else {
+            showSecurityOnboardingPrompt = false
+        }
+    }
+
     val screenContent: @Composable () -> Unit = {
         Box(modifier = Modifier.padding(horizontal = desktopPadding)) {
-            when (currentScreen) {
-                Screen.Dashboard ->
-                    PullToRefreshWrapper(
-                        isRefreshing = dashboardState.isRefreshing,
-                        onRefresh = { dashboardViewModel.refreshData() },
-                    ) {
-                        DashboardScreen(
-                            state = dashboardState,
-                            onRefresh = { dashboardViewModel.loadData() },
-                            onPrevMonth = { dashboardViewModel.prevMonth() },
-                            onNextMonth = { dashboardViewModel.nextMonth() },
-                        )
-                    }
-
-                Screen.MonthView ->
-                    PullToRefreshWrapper(
-                        isRefreshing = monthState.isRefreshing,
-                        onRefresh = { monthViewModel.refreshData() },
-                    ) {
-                        MonthViewScreen(
-                            state = monthState,
-                            onPrevMonth = { monthViewModel.prevMonth() },
-                            onNextMonth = { monthViewModel.nextMonth() },
-                            onSetActiveTab = { monthViewModel.setActiveTab(it) },
-                            onAddIncome = { source, amount -> monthViewModel.addIncome(source, amount) },
-                            onAddIncomeWithSourceCheck = { source, amount -> monthViewModel.addIncomeWithSourceCheck(source, amount) },
-                            onAddExpense = { catId, amount, comment -> monthViewModel.addExpense(catId, amount, comment) },
-                            onUpdateIncome = { id, amount -> monthViewModel.updateIncome(id, amount) },
-                            onUpdateExpense = { id, amount -> monthViewModel.updateExpense(id, amount) },
-                            onDeleteIncome = { monthViewModel.deleteIncome(it) },
-                            onDeleteExpense = { monthViewModel.deleteExpense(it) },
-                            onSetBudget = { catId, limit -> monthViewModel.setBudget(catId, limit) },
-                            onAddIncomeSource = { monthViewModel.addIncomeSource(it) },
-                            onConfirmAddIncomeSource = { monthViewModel.confirmAddIncomeSource() },
-                            onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
-                            onReorderExpenseGroups = { monthViewModel.reorderExpenseGroups(it) },
-                            onRefresh = { monthViewModel.loadData() },
-                        )
-                    }
-
-                Screen.Categories ->
-                    PullToRefreshWrapper(
-                        isRefreshing = categoriesState.isRefreshing,
-                        onRefresh = { categoriesViewModel.refreshData() },
-                    ) {
-                        CategoriesScreen(
-                            state = categoriesState,
-                            onSetActiveTab = { categoriesViewModel.setActiveTab(it) },
-                            onAddCategory = { categoriesViewModel.addCategory(it) },
-                            onUpdateCategory = { id, name -> categoriesViewModel.updateCategory(id, name) },
-                            onDeactivateCategory = { categoriesViewModel.deactivateCategory(it) },
-                            onAddIncomeSource = { categoriesViewModel.addIncomeSource(it) },
-                            onUpdateIncomeSource = { id, name -> categoriesViewModel.updateIncomeSource(id, name) },
-                            onDeactivateIncomeSource = { categoriesViewModel.deactivateIncomeSource(it) },
-                            onRefresh = { categoriesViewModel.loadData() },
-                            onToggleReorderMode = { categoriesViewModel.toggleReorderMode() },
-                            onToggleIncomeSourceReorderMode = { categoriesViewModel.toggleIncomeSourceReorderMode() },
-                            onUpdateCategoriesOrder = { categoriesViewModel.updateCategoriesOrder(it) },
-                            onUpdateIncomeSourcesOrder = { categoriesViewModel.updateIncomeSourcesOrder(it) },
-                            onReorderCategories = { categoriesViewModel.reorderCategories(it) },
-                            onReorderIncomeSources = { categoriesViewModel.reorderIncomeSources(it) },
-                        )
-                    }
-
-                Screen.Savings ->
-                    PullToRefreshWrapper(
-                        isRefreshing = savingsState.isRefreshing,
-                        onRefresh = { savingsViewModel.refreshData() },
-                    ) {
-                        SavingsScreen(
-                            state = savingsState,
-                            onCreateGoal = { name, target -> savingsViewModel.createGoal(name, target) },
-                            onUpdateGoal = { id, name, target, current -> savingsViewModel.updateGoal(id, name, target, current) },
-                            onDeleteGoal = { savingsViewModel.deleteGoal(it) },
-                            onAddTransaction = { goalId, amount -> savingsViewModel.addTransaction(goalId, amount) },
-                            onRefresh = { savingsViewModel.loadData() },
-                        )
-                    }
-
-                Screen.Settings ->
-                    SettingsScreen(
-                        state = settingsState,
-                        user = authState.user,
-                        username = authState.user?.username ?: "",
-                        onUpdateUsername = { name, callback ->
-                            settingsViewModel.updateUsername(name, callback)
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (showSecurityOnboardingPrompt) {
+                    SecurityOnboardingPromptCard(
+                        onOpenSettings = {
+                            authState.user?.let { securityOnboardingPromptState.dismiss(it) }
+                            showSecurityOnboardingPrompt = false
+                            currentScreen = Screen.Settings
                         },
-                        onUpdatePassword = { currentPassword, newPassword, onSuccess ->
-                            settingsViewModel.updatePassword(currentPassword, newPassword, onSuccess)
+                        onDismiss = {
+                            authState.user?.let { securityOnboardingPromptState.dismiss(it) }
+                            showSecurityOnboardingPrompt = false
                         },
-                        onUpdateEmail = { email, onSuccess ->
-                            settingsViewModel.updateUserEmail(email) { updatedUser ->
-                                authViewModel.updateUser(updatedUser)
-                                onSuccess(updatedUser)
-                            }
-                        },
-                        onClearEmail = { onSuccess ->
-                            settingsViewModel.clearUserEmail { updatedUser ->
-                                authViewModel.updateUser(updatedUser)
-                                onSuccess(updatedUser)
-                            }
-                        },
-                        onRequestEmailVerification = { onSuccess ->
-                            settingsViewModel.requestEmailVerification { updatedUser ->
-                                authViewModel.updateUser(updatedUser)
-                                onSuccess(updatedUser)
-                            }
-                        },
-                        onCreateBackup = { settingsViewModel.createBackup() },
-                        onRestoreBackup = { backupId, confirmationText, callback ->
-                            settingsViewModel.restoreBackup(backupId, confirmationText, callback)
-                        },
-                        onLogout = { authViewModel.logout() },
-                        onClearStatus = { settingsViewModel.clearStatus() },
-                        onRetrySync = { settingsViewModel.retrySync() },
-                        onDismissSyncError = { settingsViewModel.clearSyncError() },
-                        currentThemeMode = currentThemeMode,
-                        onThemeModeChange = onThemeModeChange,
                     )
+                }
+
+                when (currentScreen) {
+                    Screen.Dashboard ->
+                        PullToRefreshWrapper(
+                            isRefreshing = dashboardState.isRefreshing,
+                            onRefresh = { dashboardViewModel.refreshData() },
+                        ) {
+                            DashboardScreen(
+                                state = dashboardState,
+                                onRefresh = { dashboardViewModel.loadData() },
+                                onPrevMonth = { dashboardViewModel.prevMonth() },
+                                onNextMonth = { dashboardViewModel.nextMonth() },
+                            )
+                        }
+
+                    Screen.MonthView ->
+                        PullToRefreshWrapper(
+                            isRefreshing = monthState.isRefreshing,
+                            onRefresh = { monthViewModel.refreshData() },
+                        ) {
+                            MonthViewScreen(
+                                state = monthState,
+                                onPrevMonth = { monthViewModel.prevMonth() },
+                                onNextMonth = { monthViewModel.nextMonth() },
+                                onSetActiveTab = { monthViewModel.setActiveTab(it) },
+                                onAddIncome = { source, amount -> monthViewModel.addIncome(source, amount) },
+                                onAddIncomeWithSourceCheck = { source, amount -> monthViewModel.addIncomeWithSourceCheck(source, amount) },
+                                onAddExpense = { catId, amount, comment -> monthViewModel.addExpense(catId, amount, comment) },
+                                onUpdateIncome = { id, amount -> monthViewModel.updateIncome(id, amount) },
+                                onUpdateExpense = { id, amount -> monthViewModel.updateExpense(id, amount) },
+                                onDeleteIncome = { monthViewModel.deleteIncome(it) },
+                                onDeleteExpense = { monthViewModel.deleteExpense(it) },
+                                onSetBudget = { catId, limit -> monthViewModel.setBudget(catId, limit) },
+                                onAddIncomeSource = { monthViewModel.addIncomeSource(it) },
+                                onConfirmAddIncomeSource = { monthViewModel.confirmAddIncomeSource() },
+                                onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
+                                onReorderExpenseGroups = { monthViewModel.reorderExpenseGroups(it) },
+                                onRefresh = { monthViewModel.loadData() },
+                            )
+                        }
+
+                    Screen.Categories ->
+                        PullToRefreshWrapper(
+                            isRefreshing = categoriesState.isRefreshing,
+                            onRefresh = { categoriesViewModel.refreshData() },
+                        ) {
+                            CategoriesScreen(
+                                state = categoriesState,
+                                onSetActiveTab = { categoriesViewModel.setActiveTab(it) },
+                                onAddCategory = { categoriesViewModel.addCategory(it) },
+                                onUpdateCategory = { id, name -> categoriesViewModel.updateCategory(id, name) },
+                                onDeactivateCategory = { categoriesViewModel.deactivateCategory(it) },
+                                onAddIncomeSource = { categoriesViewModel.addIncomeSource(it) },
+                                onUpdateIncomeSource = { id, name -> categoriesViewModel.updateIncomeSource(id, name) },
+                                onDeactivateIncomeSource = { categoriesViewModel.deactivateIncomeSource(it) },
+                                onRefresh = { categoriesViewModel.loadData() },
+                                onToggleReorderMode = { categoriesViewModel.toggleReorderMode() },
+                                onToggleIncomeSourceReorderMode = { categoriesViewModel.toggleIncomeSourceReorderMode() },
+                                onUpdateCategoriesOrder = { categoriesViewModel.updateCategoriesOrder(it) },
+                                onUpdateIncomeSourcesOrder = { categoriesViewModel.updateIncomeSourcesOrder(it) },
+                                onReorderCategories = { categoriesViewModel.reorderCategories(it) },
+                                onReorderIncomeSources = { categoriesViewModel.reorderIncomeSources(it) },
+                            )
+                        }
+
+                    Screen.Savings ->
+                        PullToRefreshWrapper(
+                            isRefreshing = savingsState.isRefreshing,
+                            onRefresh = { savingsViewModel.refreshData() },
+                        ) {
+                            SavingsScreen(
+                                state = savingsState,
+                                onCreateGoal = { name, target -> savingsViewModel.createGoal(name, target) },
+                                onUpdateGoal = { id, name, target, current -> savingsViewModel.updateGoal(id, name, target, current) },
+                                onDeleteGoal = { savingsViewModel.deleteGoal(it) },
+                                onAddTransaction = { goalId, amount -> savingsViewModel.addTransaction(goalId, amount) },
+                                onRefresh = { savingsViewModel.loadData() },
+                            )
+                        }
+
+                    Screen.Settings ->
+                        SettingsScreen(
+                            state = settingsState,
+                            user = authState.user,
+                            username = authState.user?.username ?: "",
+                            onUpdateUsername = { name, callback ->
+                                settingsViewModel.updateUsername(name, callback)
+                            },
+                            onUpdatePassword = { currentPassword, newPassword, onSuccess ->
+                                settingsViewModel.updatePassword(currentPassword, newPassword, onSuccess)
+                            },
+                            onUpdateEmail = { email, onSuccess ->
+                                settingsViewModel.updateUserEmail(email) { updatedUser ->
+                                    authViewModel.updateUser(updatedUser)
+                                    onSuccess(updatedUser)
+                                }
+                            },
+                            onClearEmail = { onSuccess ->
+                                settingsViewModel.clearUserEmail { updatedUser ->
+                                    authViewModel.updateUser(updatedUser)
+                                    onSuccess(updatedUser)
+                                }
+                            },
+                            onRequestEmailVerification = { onSuccess ->
+                                settingsViewModel.requestEmailVerification { updatedUser ->
+                                    authViewModel.updateUser(updatedUser)
+                                    onSuccess(updatedUser)
+                                }
+                            },
+                            onCreateBackup = { settingsViewModel.createBackup() },
+                            onRestoreBackup = { backupId, confirmationText, callback ->
+                                settingsViewModel.restoreBackup(backupId, confirmationText, callback)
+                            },
+                            onLogout = { authViewModel.logout() },
+                            onClearStatus = { settingsViewModel.clearStatus() },
+                            onRetrySync = { settingsViewModel.retrySync() },
+                            onDismissSyncError = { settingsViewModel.clearSyncError() },
+                            currentThemeMode = currentThemeMode,
+                            onThemeModeChange = onThemeModeChange,
+                        )
+                }
             }
         }
     }
@@ -253,7 +310,7 @@ fun AppNavigation(
                     .fillMaxHeight()
             ) {
                 Column(modifier = Modifier.fillMaxSize().then(
-                    if (ru.homebudget.finkeeper.util.isDesktop) Modifier.padding(top = 40.dp) else Modifier
+                    if (isDesktop) Modifier.padding(top = 40.dp) else Modifier
                 )) {
                     screenContent()
                 }
@@ -337,6 +394,57 @@ fun AppNavigation(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SecurityOnboardingPromptCard(
+    onOpenSettings: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    GlassyCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        baseColor = Color(0xFFFFF6E5),
+        highlightColor = Color(0xFFF59E0B).copy(alpha = 0.22f),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = Strings.SECURITY_ONBOARDING_TITLE,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color(0xFF7C2D12),
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = Strings.SECURITY_ONBOARDING_MESSAGE,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF9A3412),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AppButton(
+                    text = Strings.LATER,
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    containerColor = Color.White.copy(alpha = 0.82f),
+                    contentColor = Color(0xFF92400E),
+                    style = GlassyButtonStyle.Glassy,
+                )
+                AppButton(
+                    text = Strings.SECURITY_ONBOARDING_ACTION,
+                    onClick = onOpenSettings,
+                    modifier = Modifier.weight(1.35f).height(48.dp),
+                    containerColor = Color(0xFFF59E0B),
+                    contentColor = Color.White,
+                    style = GlassyButtonStyle.Glassy,
+                )
             }
         }
     }
@@ -632,7 +740,6 @@ fun DesktopWindowControls(
     onClose: () -> Unit,
     onMinimize: () -> Unit,
     onToggleFullscreen: () -> Unit,
-    isDark: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Row(

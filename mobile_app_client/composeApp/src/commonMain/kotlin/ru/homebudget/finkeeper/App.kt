@@ -7,17 +7,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.util.DraggableArea
 import ru.homebudget.finkeeper.util.LocalWindowControls
 import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.ui.navigation.DesktopWindowControls
-import ru.homebudget.finkeeper.ui.theme.BackgroundDarkNight
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.data.remote.TokenStorage
-import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.navigation.AppNavigation
 import ru.homebudget.finkeeper.ui.screens.LoginScreen
 import ru.homebudget.finkeeper.ui.screens.SplashScreen
@@ -91,7 +87,6 @@ fun App() {
 
         if (isDesktop) {
             val windowControls = LocalWindowControls.current
-            val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
             
             Box(
                 modifier = Modifier
@@ -109,7 +104,6 @@ fun App() {
                     onClose = windowControls.onClose,
                     onMinimize = windowControls.onMinimize,
                     onToggleFullscreen = windowControls.onToggleFullscreen,
-                    isDark = isDark,
                     modifier = Modifier.align(Alignment.TopEnd)
                 )
             }

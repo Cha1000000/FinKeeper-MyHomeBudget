@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut, Settings } from 'lucide-react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu, LogOut, Settings, ShieldAlert } from 'lucide-react';
 import classNames from 'classnames';
 import { ensureMonth, getMonthSummary, getSavingsGoals, getCumulativeBalance, getBudgets } from '../api';
 import type { SavingsGoal } from '../api';
@@ -9,6 +9,12 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket, useDataChanged } from '../hooks/useWebSocket';
+import {
+    dismissSecurityOnboardingPrompt,
+    markSecurityOnboardingPromptShown,
+    resetSecurityOnboardingPromptState,
+    shouldShowSecurityOnboardingPrompt,
+} from '../onboarding/securityPrompt';
 
 const DASHBOARD_MONTH_KEY = 'dashboard_selected_month';
 const APP_VERSION = import.meta.env.VITE_APP_VERSION;
@@ -28,10 +34,13 @@ const Layout: React.FC = () => {
     const [resourceBalance, setResourceBalance] = useState(0);
     const [totalAssets, setTotalAssets] = useState(0);
     const [sidebarRefreshError, setSidebarRefreshError] = useState<string | null>(null);
+    const [isSecurityPromptVisible, setIsSecurityPromptVisible] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const { user, logout, uiSettings } = useAuth();
     const mainRef = useRef<HTMLElement>(null);
     const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const location = useLocation();
+    const navigate = useNavigate();
 
     // Establish WebSocket connection (one per Layout mount)
     useWebSocket();
@@ -129,6 +138,50 @@ const Layout: React.FC = () => {
     useDataChanged(null, async () => {
         await refreshSidebarSummary();
     });
+
+    useEffect(() => {
+        if (!user) {
+            setIsSecurityPromptVisible(false);
+            return;
+        }
+
+        if (user.recoverabilityStatus === 'protected') {
+            resetSecurityOnboardingPromptState();
+            setIsSecurityPromptVisible(false);
+            return;
+        }
+
+        if (location.pathname === '/settings') {
+            setIsSecurityPromptVisible(false);
+            return;
+        }
+
+        if (shouldShowSecurityOnboardingPrompt(user.recoverabilityStatus)) {
+            markSecurityOnboardingPromptShown(user.recoverabilityStatus);
+            setIsSecurityPromptVisible(true);
+            return;
+        }
+
+        setIsSecurityPromptVisible(false);
+    }, [location.pathname, user]);
+
+    const handleSecurityPromptDismiss = useCallback(() => {
+        if (!user) {
+            setIsSecurityPromptVisible(false);
+            return;
+        }
+
+        dismissSecurityOnboardingPrompt(user.recoverabilityStatus);
+        setIsSecurityPromptVisible(false);
+    }, [user]);
+
+    const handleSecurityPromptOpenSettings = useCallback(() => {
+        if (user) {
+            dismissSecurityOnboardingPrompt(user.recoverabilityStatus);
+        }
+        setIsSecurityPromptVisible(false);
+        navigate('/settings');
+    }, [navigate, user]);
 
     return (
         <div className="flex h-screen overflow-hidden">
@@ -295,6 +348,46 @@ const Layout: React.FC = () => {
                         }
                     }}
                 >
+                {isSecurityPromptVisible ? (
+                    <div className="mx-auto mb-6 max-w-5xl rounded-3xl border border-amber-200 bg-white/90 p-5 shadow-[0_12px_40px_rgba(245,158,11,0.12)] backdrop-blur-xl">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                            <div className="flex gap-4">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                                    <ShieldAlert className="h-6 w-6" />
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700">
+                                        Защита аккаунта
+                                    </p>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900">
+                                            Добавьте email для восстановления доступа
+                                        </h2>
+                                        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                                            Сейчас аккаунт не защищён: без подтверждённого email самостоятельное восстановление доступа недоступно. Подключите email в настройках, чтобы не потерять доступ к данным.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3 sm:flex-row md:justify-end">
+                                <button
+                                    onClick={handleSecurityPromptOpenSettings}
+                                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700"
+                                >
+                                    Добавить email
+                                    <ArrowRight className="h-4 w-4" />
+                                </button>
+                                <button
+                                    onClick={handleSecurityPromptDismiss}
+                                    className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50"
+                                >
+                                    Позже
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
                 <Outlet />
             </main>
         </div>

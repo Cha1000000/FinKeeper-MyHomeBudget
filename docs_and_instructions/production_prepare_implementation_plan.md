@@ -847,6 +847,7 @@
 - **Связанные приоритеты:** `P2-01`, `P2-03`, `P2-04`
 - **Основные файлы:**
   - `docs_and_instructions/adr/0001-email-based-account-recovery.md`
+  - `docs_and_instructions/product_onboarding_web_kmp_plan.md`
   - `docs_and_instructions/production_prepare_implementation_plan.md`
   - остальные файлы будут зависеть от выбранных следующих решений
 - **Что внедрять:**
@@ -857,6 +858,7 @@
   - долгосрочные release/scale решения
 - **Уже зафиксировано в рамках Batch 14:**
   - `ADR-0001` с направлением на `email-based account recovery`
+  - отдельный implementation-план onboarding: `docs_and_instructions/product_onboarding_web_kmp_plan.md`
   - явное правило: self-service recovery доступен только для аккаунтов с подтверждённым email
   - аккаунты без подтверждённого email требуют product-level mitigation через onboarding/settings
 - **Почему это отдельный batch:**
