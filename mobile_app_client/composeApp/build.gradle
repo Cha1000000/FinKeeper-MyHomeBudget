@@ -237,6 +237,9 @@ tasks.register('generateBuildConfig') {
     def version = appVersionStr
     def defaultServerUrl = defaultServerUrlStr.endsWith("/") ? defaultServerUrlStr[0..-2] : defaultServerUrlStr
     def showServerSettings = showServerSettingsStr.toBoolean()
+    inputs.property("buildConfigVersion", version)
+    inputs.property("buildConfigDefaultServerUrl", defaultServerUrl)
+    inputs.property("buildConfigShowServerSettings", showServerSettings)
     outputs.dir(outputDir)
     doLast {
         def dir = new File(outputDir.get().asFile, "ru/homebudget/finkeeper")
