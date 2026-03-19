@@ -179,7 +179,7 @@ const Dashboard: React.FC = () => {
     }
 
     return (
-        <div className="space-y-8 max-w-5xl mx-auto">
+        <div className="mx-auto w-full min-w-0 max-w-5xl space-y-8">
             <header>
                 <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Обзор финансов</h2>
                 <p className="text-gray-500 text-sm mt-1">Сводка за выбранный месяц и аналитика</p>
@@ -317,13 +317,13 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Trend Chart */}
-                <div className="bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+                <div className="min-w-0 overflow-hidden bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
                     <div className="flex items-center justify-between mb-8">
                         <h3 className="text-lg font-bold text-slate-800 tracking-tight">Динамика финансов</h3>
                         <span className="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">6 месяцев</span>
                     </div>
-                    <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-80 w-full min-w-0">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={320}>
                             <BarChart data={trendData} barGap={4}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
                                 <XAxis
@@ -355,14 +355,14 @@ const Dashboard: React.FC = () => {
 
                 {/* Breakdown Chart & Table */}
                 {/* Breakdown Chart & Table */}
-                <div className="bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col">
+                <div className="min-w-0 overflow-hidden bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col">
                     <h3 className="text-lg font-bold text-slate-800 tracking-tight mb-8">Структура расходов</h3>
                     
                     <div className="flex flex-col xl:flex-row items-center gap-8 h-full">
                         {/* Chart */}
-                        <div className="w-full xl:flex-1 h-64 relative min-w-0">
+                        <div className="relative h-64 w-full min-w-0 xl:flex-1">
                             {expenseStructure.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={256}>
                                     <PieChart>
                                         <Pie
                                             data={expenseStructure}

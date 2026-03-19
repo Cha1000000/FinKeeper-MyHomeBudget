@@ -341,7 +341,7 @@ const Layout: React.FC = () => {
             {/* Main Content with Gradient and Inner Glow */}
             <main 
                     ref={mainRef}
-                    className="smart-scrollbar flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-green-50/20 via-emerald-50 to-teal-100 shadow-[inset_0_0_80px_rgba(16,185,129,0.3)]"
+                    className="smart-scrollbar min-w-0 flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-green-50/20 via-emerald-50 to-teal-100 shadow-[inset_0_0_80px_rgba(16,185,129,0.3)]"
                     onClick={() => {
                         if (uiSettings?.autoCollapseSidebar && !isCollapsed) {
                             setIsCollapsed(true);

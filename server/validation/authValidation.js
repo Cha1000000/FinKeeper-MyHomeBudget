@@ -1,5 +1,23 @@
+const config = require('../config');
+
 function buildValidationDetail(field, message) {
     return { field, message };
+}
+
+function normalizeInputString(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeEmail(value) {
+    return normalizeInputString(value).toLowerCase();
+}
+
+function readRawString(value) {
+    return typeof value === 'string' ? value : '';
+}
+
+function isValidEmail(value) {
+    return config.EMAIL_REGEX.test(value);
 }
 
 function createAuthValidation({
@@ -215,6 +233,18 @@ function createAuthValidation({
     };
 }
 
+const defaultValidation = createAuthValidation({
+    normalizeEmail,
+    normalizeInputString,
+    readRawString,
+    isValidEmail,
+});
+
 module.exports = {
+    normalizeInputString,
+    normalizeEmail,
+    readRawString,
+    isValidEmail,
     createAuthValidation,
+    ...defaultValidation,
 };
