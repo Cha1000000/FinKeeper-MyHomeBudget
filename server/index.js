@@ -2066,6 +2066,19 @@ const passwordRecoveryConfirmRateLimiter = createRateLimiter({
     windowMs: rateLimitWindowMs,
 });
 
+// Periodic cleanup of expired rate-limit buckets to prevent memory leaks
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, bucket] of rateLimitBuckets) {
+        const activeBucket = bucket.filter(ts => now - ts < rateLimitWindowMs);
+        if (activeBucket.length === 0) {
+            rateLimitBuckets.delete(key);
+        } else {
+            rateLimitBuckets.set(key, activeBucket);
+        }
+    }
+}, 60 * 1000);
+
 app.get('/api/health', (req, res) => {
     try {
         const databaseProbe = db.prepare('SELECT 1 AS ok').get();
@@ -3746,6 +3759,10 @@ wss.on('connection', (ws, req) => {
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.type !== 'access') {
+            ws.close(4003, 'Invalid token type');
+            return;
+        }
         ws.userId = decoded.id;
         ws.isAlive = true;
         logger.info('websocket_connected', { userId: decoded.id });
