@@ -245,7 +245,7 @@ const Dashboard: React.FC = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-5">
-                <div className="bg-gradient-to-br from-emerald-50/95 to-emerald-100/60 dark:from-emerald-950/40 dark:to-emerald-900/40 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(16,185,129,0.08)] border border-emerald-200/60 dark:border-emerald-800/50 hover:shadow-[0_12px_40px_rgba(16,185,129,0.15)] transition-all">
+                <div className="bg-[image:var(--color-stat-emerald-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-emerald-border)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.15)] transition-all">
                     <div className="flex gap-4 items-center mb-4">
                         <div className="p-3 bg-emerald-100/80 dark:bg-emerald-900/60 rounded-2xl text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-200/50 dark:border-emerald-800/50">
                             <TrendingUp className="w-5 h-5" />
@@ -257,7 +257,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-rose-50/95 to-rose-100/60 dark:from-rose-950/40 dark:to-rose-900/40 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(244,63,94,0.08)] border border-rose-200/60 dark:border-rose-800/50 hover:shadow-[0_12px_40px_rgba(244,63,94,0.15)] transition-all">
+                <div className="bg-[image:var(--color-stat-rose-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-rose-border)] hover:shadow-[0_12px_40px_rgba(244,63,94,0.15)] transition-all">
                     <div className="flex gap-4 items-center mb-4">
                         <div className="p-3 bg-rose-100/80 dark:bg-rose-900/60 rounded-2xl text-rose-600 dark:text-rose-400 shadow-sm border border-rose-200/50 dark:border-rose-800/50">
                             <TrendingDown className="w-5 h-5" />
@@ -269,7 +269,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-cyan-50/95 to-cyan-100/60 dark:from-cyan-950/40 dark:to-cyan-900/40 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(6,182,212,0.08)] border border-cyan-200/60 dark:border-cyan-800/50 hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)] transition-all">
+                <div className="bg-[image:var(--color-stat-cyan-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-cyan-border)] hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)] transition-all">
                     <div className="flex gap-4 items-center mb-4">
                         <div className="p-3 bg-cyan-100/80 dark:bg-cyan-900/60 rounded-2xl text-cyan-600 dark:text-cyan-400 shadow-sm border border-cyan-200/50 dark:border-cyan-800/50">
                             <PiggyBank className="w-5 h-5" />
@@ -281,7 +281,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-blue-50/95 to-indigo-50/60 dark:from-blue-950/40 dark:to-indigo-950/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(59,130,246,0.08)] border border-blue-200/60 dark:border-blue-800/50 hover:shadow-[0_12px_40px_rgba(59,130,246,0.15)] transition-all">
+                <div className="bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.15)] transition-all">
                     <div className="flex flex-col justify-center h-full">
                         <p className="text-sm font-medium text-blue-800/80 dark:text-blue-300/80 mb-1">% в копилку</p>
                         <div className="flex items-baseline gap-2">
@@ -293,7 +293,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-amber-50/95 to-yellow-100/60 dark:from-amber-950/40 dark:to-yellow-950/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(245,158,11,0.08)] border border-amber-200/60 dark:border-amber-800/50 hover:shadow-[0_12px_40px_rgba(245,158,11,0.15)] transition-all relative overflow-hidden">
+                <div className="bg-[image:var(--color-stat-amber-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-amber-border)] hover:shadow-[0_12px_40px_rgba(245,158,11,0.15)] transition-all relative overflow-hidden">
                     {(Math.max(0, totalLimit - (currentSummary?.expenses || 0))) < 0 && (
                         <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200 dark:bg-rose-900/50 rounded-bl-full blur-2xl opacity-40"></div>
                     )}
@@ -305,7 +305,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-orange-50/95 to-orange-100/60 dark:from-orange-950/40 dark:to-orange-900/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(249,115,22,0.08)] border border-orange-200/60 dark:border-orange-800/50 hover:shadow-[0_12px_40px_rgba(249,115,22,0.15)] transition-all">
+                <div className="bg-[image:var(--color-stat-orange-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-orange-border)] hover:shadow-[0_12px_40px_rgba(249,115,22,0.15)] transition-all">
                     <div className="flex flex-col justify-center h-full">
                         <p className="text-sm font-medium text-orange-800/80 dark:text-orange-300/80 mb-1">В наличии без накоплений</p>
                         <p className="text-2xl font-bold text-orange-950 dark:text-orange-100 tracking-tight">
@@ -319,7 +319,7 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Trend Chart */}
-                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] transition-colors">
+                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] transition-colors">
                     <div className="flex items-center justify-between mb-8">
                         <h3 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight">Динамика финансов</h3>
                         <span className="text-xs font-medium text-slate-500 dark:text-[var(--color-text-muted)] bg-slate-100 dark:bg-[var(--color-surface-soft)] px-3 py-1.5 rounded-full transition-colors">6 месяцев</span>
@@ -358,7 +358,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Breakdown Chart & Table */}
-                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] flex flex-col transition-colors">
+                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] flex flex-col transition-colors">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight mb-8">Структура расходов</h3>
                     
                     <div className="flex flex-col xl:flex-row items-center gap-8 h-full">

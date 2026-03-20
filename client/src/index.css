@@ -4,6 +4,23 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Cards */
+  --color-stat-emerald-bg: linear-gradient(to bottom right, rgba(236, 253, 245, 0.95), rgba(209, 250, 229, 0.6));
+  --color-stat-emerald-border: rgba(167, 243, 208, 0.6);
+  --color-stat-rose-bg: linear-gradient(to bottom right, rgba(255, 241, 242, 0.95), rgba(255, 228, 230, 0.6));
+  --color-stat-rose-border: rgba(254, 205, 211, 0.6);
+  --color-stat-cyan-bg: linear-gradient(to bottom right, rgba(236, 254, 255, 0.95), rgba(207, 250, 254, 0.6));
+  --color-stat-cyan-border: rgba(165, 243, 252, 0.6);
+  --color-stat-blue-bg: linear-gradient(to bottom right, rgba(239, 246, 255, 0.95), rgba(224, 231, 255, 0.6));
+  --color-stat-blue-border: rgba(191, 219, 254, 0.6);
+  --color-stat-amber-bg: linear-gradient(to bottom right, rgba(255, 251, 235, 0.95), rgba(254, 243, 199, 0.6));
+  --color-stat-amber-border: rgba(253, 230, 138, 0.6);
+  --color-stat-orange-bg: linear-gradient(to bottom right, rgba(255, 247, 237, 0.95), rgba(255, 237, 213, 0.6));
+  --color-stat-orange-border: rgba(253, 216, 171, 0.6);
+
+  --color-savings-card-bg: linear-gradient(to bottom right, rgba(236, 253, 245, 0.95), rgba(5, 150, 105, 0.7));
+  --color-savings-card-border: rgba(167, 243, 208, 0.7);
+
   /* --- Light Theme (Default) --- */
   --color-primary: #1b905bff;
   --color-brand: #6b8e23;
@@ -28,10 +45,30 @@
   --shadow-card: 0 1px 3px 0 rgb(47 62 48 / 0.1), 0 1px 2px -1px rgb(47 62 48 / 0.1);
   --shadow-card-hover: 0 10px 15px -3px rgb(47 62 48 / 0.1), 0 4px 6px -4px rgb(47 62 48 / 0.1);
   
-  --sidebar-gradient: linear-gradient(to bottom, rgba(16, 64, 40, 0.85), rgba(16, 64, 40, 0.85), rgba(13, 51, 38, 0.85));
+  --sidebar-gradient: linear-gradient(to bottom, rgba(6, 78, 59, 0.85), rgba(5, 150, 105, 0.85), rgba(19, 78, 74, 0.85));
+  --mobile-nav-gradient: linear-gradient(to right, rgba(6, 78, 59, 0.9), rgba(4, 120, 87, 0.9), rgba(19, 78, 74, 0.9));
+  --color-sidebar-border: rgba(255, 255, 255, 0.2);
+  --color-sidebar-divider: rgba(255, 255, 255, 0.1);
 }
 
 [data-theme="dark"] {
+  /* Cards */
+  --color-stat-emerald-bg: linear-gradient(to bottom right, rgba(2, 44, 34, 0.4), rgba(6, 78, 59, 0.4));
+  --color-stat-emerald-border: rgba(6, 95, 70, 0.5);
+  --color-stat-rose-bg: linear-gradient(to bottom right, rgba(76, 5, 25, 0.4), rgba(136, 19, 55, 0.4));
+  --color-stat-rose-border: rgba(159, 18, 57, 0.5);
+  --color-stat-cyan-bg: linear-gradient(to bottom right, rgba(8, 51, 68, 0.4), rgba(22, 78, 99, 0.4));
+  --color-stat-cyan-border: rgba(21, 94, 117, 0.5);
+  --color-stat-blue-bg: linear-gradient(to bottom right, rgba(23, 37, 84, 0.4), rgba(30, 58, 138, 0.4));
+  --color-stat-blue-border: rgba(30, 64, 175, 0.5);
+  --color-stat-amber-bg: linear-gradient(to bottom right, rgba(69, 26, 3, 0.4), rgba(120, 53, 15, 0.4));
+  --color-stat-amber-border: rgba(146, 64, 14, 0.5);
+  --color-stat-orange-bg: linear-gradient(to bottom right, rgba(67, 20, 7, 0.4), rgba(124, 45, 18, 0.4));
+  --color-stat-orange-border: rgba(154, 52, 18, 0.5);
+
+  --color-savings-card-bg: linear-gradient(to bottom right, rgba(2, 44, 34, 0.4), rgba(6, 78, 59, 0.4));
+  --color-savings-card-border: rgba(6, 95, 70, 0.5);
+
   /* --- Dark Theme --- */
   --color-primary: #10b981; /* Bright emerald */
   --color-brand: #22c55e;
@@ -60,10 +97,76 @@
   --shadow-card-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
 
   --sidebar-gradient: linear-gradient(to bottom, rgba(2, 44, 34, 0.95), rgba(2, 44, 34, 0.95), rgba(4, 47, 46, 0.95));
+  --mobile-nav-gradient: linear-gradient(to right, rgba(2, 44, 34, 0.95), rgba(2, 44, 34, 0.95), rgba(4, 47, 46, 0.95));
+  --color-sidebar-border: rgba(6, 95, 70, 0.5);
+  --color-sidebar-divider: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="night"] {
+  /* --- Night Theme --- */
+  --color-primary: #0284c7;
+  --color-brand: #0369a1;
+  --color-brand-light: #38bdf8;
+  --color-success: #00d28d;
+  --color-danger: #ff4d4d;
+  --color-warning: #ffb84d;
+
+  --color-background: #090a0f;
+  --color-background-gradient-start: #090a0f;
+  --color-background-gradient-end: #0b0c14;
+
+  --color-surface: #121521;
+  --color-surface-soft: #191d2d;
+  
+  --color-text-main: #f0f2f5;
+  --color-text-muted: #949eb5;
+  --color-text-inverted: #090a0f;
+
+  --color-border-default: #252b41;
+  --color-border-strong: #333b5a;
+
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.5);
+  --shadow-card-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+
+  --sidebar-gradient: linear-gradient(to bottom, #0f172a, #0f172a, #020617);
+  --mobile-nav-gradient: linear-gradient(to right, #0f172a, #0f172a, #020617);
+  --color-sidebar-border: #1e293b;
+  --color-sidebar-divider: #1e293b;
+
+  /* Cards */
+  --color-stat-emerald-bg: var(--color-surface);
+  --color-stat-emerald-border: var(--color-border-default);
+  --color-stat-rose-bg: var(--color-surface);
+  --color-stat-rose-border: var(--color-border-default);
+  --color-stat-cyan-bg: var(--color-surface);
+  --color-stat-cyan-border: var(--color-border-default);
+  --color-stat-blue-bg: var(--color-surface);
+  --color-stat-blue-border: var(--color-border-default);
+  --color-stat-amber-bg: var(--color-surface);
+  --color-stat-amber-border: var(--color-border-default);
+  --color-stat-orange-bg: var(--color-surface);
+  --color-stat-orange-border: var(--color-border-default);
+
+  --color-savings-card-bg: var(--color-surface);
+  --color-savings-card-border: var(--color-border-default);
 }
 
 /* stylelint-disable at-rule-no-unknown */
 @theme {
+  --color-stat-emerald-bg: var(--color-stat-emerald-bg);
+  --color-stat-emerald-border: var(--color-stat-emerald-border);
+  --color-stat-rose-bg: var(--color-stat-rose-bg);
+  --color-stat-rose-border: var(--color-stat-rose-border);
+  --color-stat-cyan-bg: var(--color-stat-cyan-bg);
+  --color-stat-cyan-border: var(--color-stat-cyan-border);
+  --color-stat-blue-bg: var(--color-stat-blue-bg);
+  --color-stat-blue-border: var(--color-stat-blue-border);
+  --color-stat-amber-bg: var(--color-stat-amber-bg);
+  --color-stat-amber-border: var(--color-stat-amber-border);
+  --color-stat-orange-bg: var(--color-stat-orange-bg);
+  --color-stat-orange-border: var(--color-stat-orange-border);
+  --color-savings-card-bg: var(--color-savings-card-bg);
+  --color-savings-card-border: var(--color-savings-card-border);
   --color-primary: var(--color-primary);
   --color-brand: var(--color-brand);
   --color-brand-light: var(--color-brand-light);

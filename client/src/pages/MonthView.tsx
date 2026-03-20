@@ -519,7 +519,7 @@ const MonthView: React.FC = () => {
             )}
 
             {/* Header / Month Selector */}
-            <div className="flex items-center justify-between bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] transition-colors">
+            <div className="flex items-center justify-between bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] transition-colors">
                 <button onClick={handlePrevMonth} aria-label="Предыдущий месяц" title="Предыдущий месяц" className="p-2.5 hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d] rounded-2xl transition-colors">
                     <ChevronLeft className="w-6 h-6 text-slate-600 dark:text-[var(--color-text-muted)]" />
                 </button>
@@ -533,15 +533,15 @@ const MonthView: React.FC = () => {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(16,185,129,0.06)] border border-emerald-200/50 dark:border-emerald-800/50 transition-colors">
+                <div className="bg-[image:var(--color-stat-emerald-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-emerald-border)] transition-colors">
                     <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mb-1">Доходы</p>
                     <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300 tracking-tight">{formatCurrency(totalIncome)}</p>
                 </div>
-                <div className="bg-gradient-to-br from-rose-50/90 to-rose-100/50 dark:from-rose-950/40 dark:to-rose-900/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(244,63,94,0.06)] border border-rose-200/50 dark:border-rose-800/50 transition-colors">
+                <div className="bg-[image:var(--color-stat-rose-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-rose-border)] transition-colors">
                     <p className="text-sm text-rose-600 dark:text-rose-400 font-medium mb-1">Расходы</p>
                     <p className="text-3xl font-bold text-rose-700 dark:text-rose-300 tracking-tight">{formatCurrency(totalExpense)}</p>
                 </div>
-                <div className="bg-gradient-to-br from-blue-50/90 to-indigo-50/50 dark:from-blue-950/40 dark:to-indigo-950/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(59,130,246,0.06)] border border-blue-200/50 dark:border-blue-800/50 cursor-pointer hover:shadow-[0_8px_30px_rgba(59,130,246,0.12)] transition-all" onClick={() => setIsBudgetModalOpen(true)}>
+                <div className="bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] cursor-pointer hover:shadow-sm dark:shadow-none transition-all" onClick={() => setIsBudgetModalOpen(true)}>
                     <div className="flex justify-between items-center mb-1">
                         <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Лимит трат на месяц</p>
                         <span className="text-xs text-blue-500 dark:text-blue-300 font-bold bg-blue-100/80 dark:bg-blue-900/60 px-2 py-0.5 rounded-lg border border-blue-200/50 dark:border-blue-700/50 transition-colors">
@@ -584,7 +584,7 @@ const MonthView: React.FC = () => {
             </div>
 
             {/* Tables */}
-            <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
+            <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
                 {activeTab === 'expense' ? (
                     <div className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60">
                         {expenses.length === 0 && (
@@ -827,7 +827,7 @@ const MonthView: React.FC = () => {
                 title="Настройка бюджета (лимитов)"
             >
                 <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-3 -mr-3">
-                    <div className="bg-gradient-to-r from-blue-100/60 to-indigo-100/40 dark:from-blue-900/40 dark:to-indigo-900/20 backdrop-blur-md p-2 rounded-2xl mb-6 shadow-sm border border-blue-200/50 dark:border-blue-800/50 text-center transition-colors">
+                    <div className="bg-gradient-to-r from-blue-100/60 to-indigo-100/40 dark:from-blue-900/40 dark:to-indigo-900/20 backdrop-blur-md p-2 rounded-2xl mb-6 shadow-sm border border-[var(--color-stat-blue-border)] text-center transition-colors">
                         <p className="text-sm font-medium text-blue-800/80 dark:text-blue-300/80 mb-1">Общий лимит на месяц</p>
                         <p className="text-xl font-bold tracking-tight text-blue-900 dark:text-blue-100">{formatCurrency(totalLimit)}</p>
                     </div>

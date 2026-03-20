@@ -15,7 +15,7 @@ import {
 
 interface UiSettings {
   autoCollapseSidebar: boolean;
-  theme: 'light' | 'dark' | 'system';
+  theme: 'light' | 'dark' | 'night' | 'system';
 }
 
 interface AuthContextType {

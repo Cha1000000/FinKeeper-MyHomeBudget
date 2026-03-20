@@ -231,7 +231,7 @@ const Savings: React.FC = () => {
                             : 0;
                         
                         return (
-                            <div key={goal.id} className="bg-gradient-to-br from-emerald-50/95 to-emerald-600/70 dark:from-emerald-950/40 dark:to-emerald-900/40 backdrop-blur-md rounded-3xl shadow-[0_8px_40px_rgba(16,185,129,0.08)] border border-emerald-200/70 dark:border-emerald-800/50 p-6 flex flex-col justify-between h-full cursor-pointer hover:shadow-[0_15px_50px_rgba(16,185,129,0.15)] dark:hover:shadow-[0_15px_50px_rgba(16,185,129,0.1)] hover:-translate-y-1 transition-all" onClick={() => openEditGoal(goal)}>
+                            <div key={goal.id} className="bg-[image:var(--color-savings-card-bg)] backdrop-blur-md rounded-3xl shadow-[0_8px_40px_rgba(16,185,129,0.08)] border border-[var(--color-savings-card-border)] p-6 flex flex-col justify-between h-full cursor-pointer hover:shadow-[0_15px_50px_rgba(16,185,129,0.15)] dark:hover:shadow-none hover:-translate-y-1 transition-all" onClick={() => openEditGoal(goal)}>
                                 <div className="mb-6">
                                     <div className="flex justify-between items-start mb-3">
                                         <h3 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] leading-tight">{goal.name}</h3>

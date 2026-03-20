@@ -550,40 +550,52 @@ const Settings: React.FC = () => {
                                 </p>
                             </div>
                             
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <button
                                     onClick={() => updateUiSettings({ theme: 'light' })}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all ${
+                                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border transition-all ${
                                         uiSettings.theme === 'light'
                                             ? 'border-indigo-500 bg-indigo-50/50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-300'
                                             : 'border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-600 dark:text-[var(--color-text-muted)] hover:border-slate-300 dark:hover:border-slate-600'
                                     }`}
                                 >
-                                    <Sun className="w-5 h-5" />
+                                    <Sun className="w-5 h-5 shrink-0" />
                                     <span className="font-medium">Светлая</span>
                                 </button>
                                 
                                 <button
                                     onClick={() => updateUiSettings({ theme: 'dark' })}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all ${
+                                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border transition-all ${
                                         uiSettings.theme === 'dark'
                                             ? 'border-indigo-500 bg-indigo-50/50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-300'
                                             : 'border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-600 dark:text-[var(--color-text-muted)] hover:border-slate-300 dark:hover:border-slate-600'
                                     }`}
                                 >
-                                    <Moon className="w-5 h-5" />
+                                    <Moon className="w-5 h-5 shrink-0" />
                                     <span className="font-medium">Тёмная</span>
                                 </button>
                                 
                                 <button
+                                    onClick={() => updateUiSettings({ theme: 'night' })}
+                                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border transition-all ${
+                                        uiSettings.theme === 'night'
+                                            ? 'border-indigo-500 bg-indigo-50/50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-300'
+                                            : 'border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-600 dark:text-[var(--color-text-muted)] hover:border-slate-300 dark:hover:border-slate-600'
+                                    }`}
+                                >
+                                    <Moon className="w-5 h-5 shrink-0" />
+                                    <span className="font-medium">Ночная</span>
+                                </button>
+                                
+                                <button
                                     onClick={() => updateUiSettings({ theme: 'system' })}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all ${
+                                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border transition-all ${
                                         (!uiSettings.theme || uiSettings.theme === 'system')
                                             ? 'border-indigo-500 bg-indigo-50/50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-300'
                                             : 'border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-600 dark:text-[var(--color-text-muted)] hover:border-slate-300 dark:hover:border-slate-600'
                                     }`}
                                 >
-                                    <Monitor className="w-5 h-5" />
+                                    <Monitor className="w-5 h-5 shrink-0" />
                                     <span className="font-medium">Системная</span>
                                 </button>
                             </div>

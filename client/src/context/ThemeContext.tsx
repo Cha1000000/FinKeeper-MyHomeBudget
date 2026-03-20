@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 
-type Theme = 'light' | 'dark' | 'system';
+type Theme = 'light' | 'dark' | 'night' | 'system';
 
 interface ThemeContextType {
   theme: Theme;
-  resolvedTheme: 'light' | 'dark';
+  resolvedTheme: 'light' | 'dark' | 'night';
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -13,13 +13,13 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { uiSettings } = useAuth();
   const theme = uiSettings.theme || 'light';
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark' | 'night'>('light');
 
   useEffect(() => {
     const root = window.document.documentElement;
 
     const applyTheme = (currentTheme: Theme) => {
-      let effectiveTheme: 'light' | 'dark';
+      let effectiveTheme: 'light' | 'dark' | 'night';
 
       if (currentTheme === 'system') {
         effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -28,8 +28,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       root.setAttribute('data-theme', effectiveTheme);
-      // Also add 'dark' class for standard Tailwind dark mode support if needed
-      if (effectiveTheme === 'dark') {
+      
+      // Handle standard Tailwind dark class for both dark modes
+      if (effectiveTheme === 'dark' || effectiveTheme === 'night') {
         root.classList.add('dark');
       } else {
         root.classList.remove('dark');
