@@ -43,20 +43,20 @@ const EmailVerification: React.FC = () => {
   }, [token]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-lg w-full space-y-8 bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-white/60">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 dark:from-[#061811] dark:via-[#030a07] dark:to-[#040d0a] py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
+      <div className="max-w-lg w-full space-y-8 bg-[var(--color-surface)] dark:bg-[var(--color-surface)] p-8 sm:p-10 rounded-3xl shadow-xl border border-white/60 dark:border-[var(--color-border-default)] transition-colors">
         <div className="space-y-4">
-          <Link to="/login" className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 transition-colors">
+          <Link to="/login" className="inline-flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Вернуться ко входу
           </Link>
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-700">
+            <div className="p-3 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 transition-colors">
               <MailCheck className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Подтверждение email</h1>
-              <p className="text-sm text-slate-500 mt-1">Подтверждённый email включает самостоятельное восстановление доступа.</p>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-[var(--color-text-main)] transition-colors">Подтверждение email</h1>
+              <p className="text-sm text-slate-500 dark:text-[var(--color-text-muted)] mt-1 transition-colors">Подтверждённый email включает самостоятельное восстановление доступа.</p>
             </div>
           </div>
         </div>
@@ -71,13 +71,13 @@ const EmailVerification: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={() => navigate('/settings')}
-            className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700"
+            className="flex-1 rounded-2xl bg-[var(--color-primary)] px-4 py-3 font-semibold text-white shadow-lg shadow-emerald-200 dark:shadow-none transition-all hover:opacity-90"
           >
             Перейти в настройки
           </button>
           <Link
             to="/login"
-            className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center font-semibold text-slate-700 transition-all hover:bg-slate-50"
+            className="flex-1 rounded-2xl border border-slate-200 dark:border-[var(--color-border-strong)] bg-white dark:bg-[var(--color-surface-soft)] px-4 py-3 text-center font-semibold text-slate-700 dark:text-[var(--color-text-main)] transition-colors hover:bg-slate-50 dark:hover:bg-[#2a3441]"
           >
             Ко входу
           </Link>

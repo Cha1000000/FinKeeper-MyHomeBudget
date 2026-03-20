@@ -11,6 +11,7 @@ import PasswordRecovery from './pages/PasswordRecovery';
 import EmailVerification from './pages/EmailVerification';
 import SocialAuthCallback from './pages/SocialAuthCallback';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import PageState from './components/PageState';
 
 const RequireAuth: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -66,9 +67,11 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-        <BrowserRouter>
-            <AppRoutes />
-        </BrowserRouter>
+        <ThemeProvider>
+            <BrowserRouter>
+                <AppRoutes />
+            </BrowserRouter>
+        </ThemeProvider>
     </AuthProvider>
   );
 };

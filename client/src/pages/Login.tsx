@@ -140,18 +140,18 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl border border-white/50">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 dark:from-[#061811] dark:via-[#030a07] dark:to-[#040d0a] py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
+      <div className="max-w-md w-full space-y-8 bg-[var(--color-surface)] dark:bg-[var(--color-surface)] p-10 rounded-2xl shadow-xl border border-white/50 dark:border-[var(--color-border-default)] transition-colors">
         <div className="flex flex-col items-center">
             {/* Logo */}
-            <div className="bg-emerald-100 p-3 rounded-full mb-4 shadow-inner">
+            <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-full mb-4 shadow-inner transition-colors">
                 <img src="/purse.svg" alt="FinKeeper Logo" className="h-12 w-12" />
             </div>
             
             {/* App Name */}
-            <h1 className="text-3xl font-bold text-emerald-800 tracking-tight">FinKeeper</h1>
+            <h1 className="text-3xl font-bold text-[var(--color-primary)] dark:text-emerald-400 tracking-tight transition-colors">FinKeeper</h1>
             
-            <h2 className="mt-2 text-center text-lg font-medium text-gray-500">
+            <h2 className="mt-2 text-center text-lg font-medium text-gray-500 dark:text-[var(--color-text-muted)] transition-colors">
                 {isLogin ? 'Вход в систему' : 'Создание аккаунта'}
             </h2>
         </div>
@@ -159,13 +159,13 @@ const Login: React.FC = () => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-5">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1 ml-1">Имя пользователя</label>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-[var(--color-text-main)] mb-1 ml-1 transition-colors">Имя пользователя</label>
               <input
                 id="username"
                 name="username"
                 type="text"
                 required
-                className="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-shadow shadow-sm disabled:bg-gray-50 disabled:text-gray-500"
+                className="appearance-none block w-full px-4 py-3 border border-gray-300 dark:border-[var(--color-border-strong)] placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-[var(--color-text-main)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)] sm:text-sm transition-colors shadow-sm disabled:bg-gray-50 dark:disabled:bg-[#111820] disabled:text-gray-500 dark:disabled:text-[#8b9a8e] bg-white dark:bg-[var(--color-surface-soft)]"
                 placeholder="Введите имя"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -173,39 +173,39 @@ const Login: React.FC = () => {
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1 ml-1">Пароль</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-[var(--color-text-main)] mb-1 ml-1 transition-colors">Пароль</label>
               <input
                 id="password"
                 name="password"
                 type="password"
                 required
-                className={`appearance-none block w-full px-4 py-3 border placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-shadow shadow-sm disabled:bg-gray-50 disabled:text-gray-500 ${
-                  passwordIsTooShort ? 'border-amber-300 bg-amber-50/50' : 'border-gray-300'
+                className={`appearance-none block w-full px-4 py-3 border placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-[var(--color-text-main)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)] sm:text-sm transition-colors shadow-sm disabled:bg-gray-50 dark:disabled:bg-[#111820] disabled:text-gray-500 dark:disabled:text-[#8b9a8e] bg-white dark:bg-[var(--color-surface-soft)] ${
+                  passwordIsTooShort ? 'border-amber-300 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/30' : 'border-gray-300 dark:border-[var(--color-border-strong)]'
                 }`}
                 placeholder={isLogin ? 'Введите пароль' : 'Минимум 6 символов'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isSubmitting}
               />
-              <p className={`mt-2 text-xs ml-1 ${passwordIsTooShort ? 'text-amber-700' : 'text-gray-500'}`}>
+              <p className={`mt-2 text-xs ml-1 transition-colors ${passwordIsTooShort ? 'text-amber-700 dark:text-amber-500' : 'text-gray-500 dark:text-[var(--color-text-muted)]'}`}>
                 {isLogin
                   ? 'Используйте пароль от вашей учётной записи.'
                   : 'Пароль должен содержать минимум 6 символов. Чем длиннее пароль, тем надёжнее защита.'}
               </p>
               {isLogin ? (
                 <div className="mt-3 flex items-start justify-between gap-3">
-                  <p className="text-xs text-gray-500 max-w-[75%]">
+                  <p className="text-xs text-gray-500 dark:text-[var(--color-text-muted)] max-w-[75%] transition-colors">
                     Самостоятельное восстановление доступа работает только для аккаунтов с подтверждённым email.
                   </p>
                   <Link
                     to="/password-recovery"
-                    className="shrink-0 text-xs font-medium text-emerald-700 hover:text-emerald-800 transition-colors"
+                    className="shrink-0 text-xs font-medium text-[var(--color-primary)] hover:opacity-80 transition-colors"
                   >
                     Забыли пароль?
                   </Link>
                 </div>
               ) : (
-                <p className="mt-3 text-xs ml-1 text-gray-500">
+                <p className="mt-3 text-xs ml-1 text-gray-500 dark:text-[var(--color-text-muted)] transition-colors">
                   После регистрации добавьте и подтвердите email в настройках, чтобы восстановление доступа было доступно.
                 </p>
               )}
@@ -215,16 +215,16 @@ const Login: React.FC = () => {
           {isLogin ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-slate-200" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">или</span>
-                <div className="h-px flex-1 bg-slate-200" />
+                <div className="h-px flex-1 bg-slate-200 dark:bg-[#3d4a5c]" />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">или</span>
+                <div className="h-px flex-1 bg-slate-200 dark:bg-[#3d4a5c]" />
               </div>
 
               <button
                 type="button"
                 disabled={!canUseGoogle}
                 onClick={handleGoogleLogin}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-emerald-200 hover:bg-emerald-50/50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-[var(--color-border-strong)] bg-white dark:bg-[var(--color-surface-soft)] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-[var(--color-text-main)] shadow-sm transition-all hover:border-emerald-200 dark:hover:border-emerald-800/50 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isGoogleSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -243,7 +243,7 @@ const Login: React.FC = () => {
                 type="button"
                 disabled={!canUseYandex}
                 onClick={handleYandexLogin}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-red-200 hover:bg-red-50/40 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-[var(--color-border-strong)] bg-white dark:bg-[var(--color-surface-soft)] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-[var(--color-text-main)] shadow-sm transition-all hover:border-red-200 dark:hover:border-red-800/50 hover:bg-red-50/40 dark:hover:bg-red-900/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isYandexSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -264,17 +264,17 @@ const Login: React.FC = () => {
                 {isYandexSubmitting ? 'Перенаправляем в Яндекс...' : 'Войти с Яндекс ID'}
               </button>
 
-              <p className="text-xs text-center text-gray-500">
+              <p className="text-xs text-center text-gray-500 dark:text-[var(--color-text-muted)] transition-colors">
                 {socialLoginHint}
               </p>
             </div>
           ) : null}
 
           {isLogin ? (
-            <label className="flex items-center gap-3 text-sm text-gray-600">
+            <label className="flex items-center gap-3 text-sm text-gray-600 dark:text-[var(--color-text-muted)] transition-colors">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-4 w-4 rounded border-gray-300 dark:border-[var(--color-border-strong)] text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
                 disabled={isSubmitting || isGoogleSubmitting || isYandexSubmitting}
@@ -299,7 +299,7 @@ const Login: React.FC = () => {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="group relative w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-lg shadow-emerald-200 transition-all active:scale-[0.98] disabled:opacity-60 disabled:hover:bg-emerald-600 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-[var(--color-primary)] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-primary)] shadow-lg shadow-emerald-200 dark:shadow-none transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {isSubmitting ? (isLogin ? 'Входим...' : 'Создаем аккаунт...') : (isLogin ? 'Войти' : 'Зарегистрироваться')}
@@ -308,7 +308,7 @@ const Login: React.FC = () => {
         </form>
 
         <div className="text-center mt-4">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-[var(--color-text-muted)] transition-colors">
                 {isLogin ? 'Еще нет аккаунта?' : 'Уже есть аккаунт?'}
                 <button 
                     onClick={() => {
@@ -319,7 +319,7 @@ const Login: React.FC = () => {
                         clearAuthNotice();
                     }}
                     disabled={isSubmitting}
-                    className="ml-2 font-medium text-emerald-600 hover:text-emerald-500 transition-colors"
+                    className="ml-2 font-medium text-[var(--color-primary)] hover:opacity-80 transition-colors"
                 >
                     {isLogin ? 'Создать' : 'Войти'}
                 </button>

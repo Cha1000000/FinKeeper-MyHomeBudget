@@ -52,33 +52,33 @@ const SortableGroup: React.FC<SortableGroupProps> = ({ group, isExpanded, toggle
     const isMulti = group.items.length > 1;
 
     return (
-        <div ref={setNodeRef} style={style} className="bg-white group/dnd">
+        <div ref={setNodeRef} style={style} className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] group/dnd transition-colors">
             {/* Group Header */}
             <div
-                className={`flex items-center justify-between p-4 bg-slate-50/40 hover:bg-slate-50/80 transition-colors ${isMulti ? 'cursor-pointer' : ''}`}
+                className={`flex items-center justify-between p-4 bg-slate-50/40 dark:bg-[var(--color-surface-soft)]/40 hover:bg-slate-50/80 dark:hover:bg-[#1a222d]/80 transition-colors ${isMulti ? 'cursor-pointer' : ''}`}
                 onClick={() => isMulti && toggleCategory(group.id)}
             >
                 <div className="flex items-center gap-3">
                     {isMulti && (
-                        <div className={`p-1.5 rounded-xl bg-white shadow-sm border border-slate-100 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
-                            <ChevronDown className="w-4 h-4 text-slate-500" />
+                        <div className={`p-1.5 rounded-xl bg-[var(--color-surface)] dark:bg-[var(--color-surface)] shadow-sm border border-slate-100 dark:border-[var(--color-border-default)] transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                            <ChevronDown className="w-4 h-4 text-slate-500 dark:text-[var(--color-text-muted)]" />
                         </div>
                     )}
                     <div className="flex flex-col">
-                        <span className="font-bold text-slate-800 tracking-tight">{group.name}</span>
+                        <span className="font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight">{group.name}</span>
                         {group.isOverLimit && (
-                            <span className="text-xs text-rose-600 font-medium">
+                            <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">
                                 Превышен лимит! ({formatCurrency(group.limit)})
                             </span>
                         )}
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    <span className="text-xs text-slate-400 bg-white px-2.5 py-1 rounded-lg border border-slate-200 font-medium">
+                    <span className="text-xs text-slate-400 dark:text-slate-500 bg-[var(--color-surface)] dark:bg-[var(--color-surface)] px-2.5 py-1 rounded-lg border border-slate-200 dark:border-[var(--color-border-default)] font-medium transition-colors">
                         {group.items.length} {group.items.length === 1 ? 'запись' : 'записей'}
                     </span>
-                    <span className={`font-bold tabular-nums tracking-tight ${group.isOverLimit ? 'text-rose-600' : 'text-slate-800'}`}>{formatCurrency(group.total)}</span>
-                    <div {...attributes} {...listeners} className="cursor-grab text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 hover:shadow-sm" onClick={e => e.stopPropagation()}>
+                    <span className={`font-bold tabular-nums tracking-tight ${group.isOverLimit ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-[var(--color-text-main)]'}`}>{formatCurrency(group.total)}</span>
+                    <div {...attributes} {...listeners} className="cursor-grab text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-[#e8f5ec] p-1.5 rounded-lg hover:bg-[var(--color-surface)] dark:hover:bg-[#111820] border border-transparent hover:border-slate-200 dark:hover:border-[#2a3441] hover:shadow-sm transition-colors" onClick={e => e.stopPropagation()}>
                         <GripVertical className="w-5 h-5" />
                     </div>
                 </div>
@@ -87,7 +87,7 @@ const SortableGroup: React.FC<SortableGroupProps> = ({ group, isExpanded, toggle
             {/* Items List */}
             <div className={`transition-opacity duration-300 ease-in-out ${isMulti && !isExpanded ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-none opacity-100 overflow-visible'}`}>
                 <table className="w-full text-left">
-                    <tbody className="divide-y divide-slate-100/60">
+                    <tbody className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60">
                         {itemsContent}
                     </tbody>
                 </table>
@@ -519,40 +519,40 @@ const MonthView: React.FC = () => {
             )}
 
             {/* Header / Month Selector */}
-            <div className="flex items-center justify-between bg-white/90 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
-                <button onClick={handlePrevMonth} aria-label="Предыдущий месяц" title="Предыдущий месяц" className="p-2.5 hover:bg-slate-100 rounded-2xl transition-colors">
-                    <ChevronLeft className="w-6 h-6 text-slate-600" />
+            <div className="flex items-center justify-between bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] transition-colors">
+                <button onClick={handlePrevMonth} aria-label="Предыдущий месяц" title="Предыдущий месяц" className="p-2.5 hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d] rounded-2xl transition-colors">
+                    <ChevronLeft className="w-6 h-6 text-slate-600 dark:text-[var(--color-text-muted)]" />
                 </button>
-                <h2 className="text-xl font-bold text-slate-800 capitalize tracking-tight">
+                <h2 className="text-xl font-bold text-slate-800 dark:text-[var(--color-text-main)] capitalize tracking-tight">
                     {format(currentDate, 'LLLL yyyy', { locale: ru })}
                 </h2>
-                <button onClick={handleNextMonth} aria-label="Следующий месяц" title="Следующий месяц" className="p-2.5 hover:bg-slate-100 rounded-2xl transition-colors">
-                    <ChevronRight className="w-6 h-6 text-slate-600" />
+                <button onClick={handleNextMonth} aria-label="Следующий месяц" title="Следующий месяц" className="p-2.5 hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d] rounded-2xl transition-colors">
+                    <ChevronRight className="w-6 h-6 text-slate-600 dark:text-[var(--color-text-muted)]" />
                 </button>
             </div>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/50 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(16,185,129,0.06)] border border-emerald-200/50">
-                    <p className="text-sm text-emerald-600 font-medium mb-1">Доходы</p>
-                    <p className="text-3xl font-bold text-emerald-700 tracking-tight">{formatCurrency(totalIncome)}</p>
+                <div className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(16,185,129,0.06)] border border-emerald-200/50 dark:border-emerald-800/50 transition-colors">
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mb-1">Доходы</p>
+                    <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300 tracking-tight">{formatCurrency(totalIncome)}</p>
                 </div>
-                <div className="bg-gradient-to-br from-rose-50/90 to-rose-100/50 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(244,63,94,0.06)] border border-rose-200/50">
-                    <p className="text-sm text-rose-600 font-medium mb-1">Расходы</p>
-                    <p className="text-3xl font-bold text-rose-700 tracking-tight">{formatCurrency(totalExpense)}</p>
+                <div className="bg-gradient-to-br from-rose-50/90 to-rose-100/50 dark:from-rose-950/40 dark:to-rose-900/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(244,63,94,0.06)] border border-rose-200/50 dark:border-rose-800/50 transition-colors">
+                    <p className="text-sm text-rose-600 dark:text-rose-400 font-medium mb-1">Расходы</p>
+                    <p className="text-3xl font-bold text-rose-700 dark:text-rose-300 tracking-tight">{formatCurrency(totalExpense)}</p>
                 </div>
-                <div className="bg-gradient-to-br from-blue-50/90 to-indigo-50/50 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(59,130,246,0.06)] border border-blue-200/50 cursor-pointer hover:shadow-[0_8px_30px_rgba(59,130,246,0.12)] transition-all" onClick={() => setIsBudgetModalOpen(true)}>
+                <div className="bg-gradient-to-br from-blue-50/90 to-indigo-50/50 dark:from-blue-950/40 dark:to-indigo-950/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(59,130,246,0.06)] border border-blue-200/50 dark:border-blue-800/50 cursor-pointer hover:shadow-[0_8px_30px_rgba(59,130,246,0.12)] transition-all" onClick={() => setIsBudgetModalOpen(true)}>
                     <div className="flex justify-between items-center mb-1">
-                        <p className="text-sm text-blue-600 font-medium">Лимит трат на месяц</p>
-                        <span className="text-xs text-blue-500 font-bold bg-blue-100/80 px-2 py-0.5 rounded-lg border border-blue-200/50">
+                        <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Лимит трат на месяц</p>
+                        <span className="text-xs text-blue-500 dark:text-blue-300 font-bold bg-blue-100/80 dark:bg-blue-900/60 px-2 py-0.5 rounded-lg border border-blue-200/50 dark:border-blue-700/50 transition-colors">
                             {Math.min((totalExpense / (totalLimit || 1)) * 100, 100).toFixed(0)}%
                         </span>
                     </div>
-                    <p className="text-3xl font-bold text-blue-700 tracking-tight">{formatCurrency(totalLimit)}</p>
-                    <div className="w-full bg-blue-200/50 rounded-full h-1.5 mt-3 mb-2 overflow-hidden relative">
-                        <div className="bg-blue-500 h-1.5 rounded-full absolute left-0 top-0 transition-all duration-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${Math.min((totalExpense / (totalLimit || 1)) * 100, 100)}%` }}></div>
+                    <p className="text-3xl font-bold text-blue-700 dark:text-blue-300 tracking-tight">{formatCurrency(totalLimit)}</p>
+                    <div className="w-full bg-blue-200/50 dark:bg-blue-900/30 rounded-full h-1.5 mt-3 mb-2 overflow-hidden relative">
+                        <div className="bg-blue-500 dark:bg-blue-400 h-1.5 rounded-full absolute left-0 top-0 transition-all duration-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${Math.min((totalExpense / (totalLimit || 1)) * 100, 100)}%` }}></div>
                     </div>
-                    <p className="text-xs text-blue-600/80 font-medium">Остаток: {formatCurrency(Math.max(0, totalLimit - totalExpense))}</p>
+                    <p className="text-xs text-blue-600/80 dark:text-blue-400/80 font-medium">Остаток: {formatCurrency(Math.max(0, totalLimit - totalExpense))}</p>
                 </div>
             </div>
 
@@ -561,13 +561,13 @@ const MonthView: React.FC = () => {
                 <div className="flex gap-2">
                     <button
                         onClick={() => setActiveTab('expense')}
-                        className={`px-5 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'expense' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                        className={`px-5 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'expense' ? 'bg-[var(--color-surface)] dark:bg-[var(--color-surface)] text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/60 dark:border-[var(--color-border-strong)]' : 'text-slate-500 dark:text-[var(--color-text-muted)] hover:text-slate-700 dark:hover:text-[#e8f5ec] hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d]'}`}
                     >
                         Расходы
                     </button>
                     <button
                         onClick={() => setActiveTab('income')}
-                        className={`px-5 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'income' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                        className={`px-5 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'income' ? 'bg-[var(--color-surface)] dark:bg-[var(--color-surface)] text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/60 dark:border-[var(--color-border-strong)]' : 'text-slate-500 dark:text-[var(--color-text-muted)] hover:text-slate-700 dark:hover:text-[#e8f5ec] hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d]'}`}
                     >
                         Доходы
                     </button>
@@ -576,7 +576,7 @@ const MonthView: React.FC = () => {
                 {/* Action Bar */}
                 <button
                     onClick={() => openAddModal(activeTab)}
-                    className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl hover:bg-blue-600 transition-all shadow-sm hover:shadow-md font-medium w-full sm:w-auto justify-center"
+                    className="flex items-center gap-2 bg-[var(--color-primary)] text-white px-5 py-2.5 rounded-xl hover:opacity-90 transition-all shadow-sm hover:shadow-md font-medium w-full sm:w-auto justify-center"
                 >
                     <Plus className="w-5 h-5" />
                     Добавить {activeTab === 'income' ? 'Доход' : 'Расход'}
@@ -584,9 +584,9 @@ const MonthView: React.FC = () => {
             </div>
 
             {/* Tables */}
-            <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+            <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
                 {activeTab === 'expense' ? (
-                    <div className="divide-y divide-slate-100/60">
+                    <div className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60">
                         {expenses.length === 0 && (
                             <div className="p-6">
                                 <PageState
@@ -618,9 +618,9 @@ const MonthView: React.FC = () => {
                                             isExpanded={isExpanded}
                                             toggleCategory={toggleCategory}
                                             itemsContent={group.items.map(item => (
-                                                <tr key={item.id} className="hover:bg-slate-50/50 group/row transition-colors">
-                                                    <td className="p-4 pl-12 text-sm text-slate-500 w-32 whitespace-nowrap">{formatDate(item.date)}</td>
-                                                    <td className="p-4 text-sm text-slate-600">{item.comment}</td>
+                                                <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-[#1a222d] group/row transition-colors">
+                                                    <td className="p-4 pl-12 text-sm text-slate-500 dark:text-[var(--color-text-muted)] w-32 whitespace-nowrap">{formatDate(item.date)}</td>
+                                                    <td className="p-4 text-sm text-slate-600 dark:text-slate-300">{item.comment}</td>
                                                     <td className="p-4 text-sm font-medium text-right w-32">
                                                         {editingId === item.id && activeTab === 'expense' ? (
                                                             <input
@@ -629,27 +629,27 @@ const MonthView: React.FC = () => {
                                                                 onChange={(e) => setEditingAmount(e.target.value)}
                                                                 onBlur={() => handleBlur(item.id, 'expense')}
                                                                 onKeyDown={(e) => handleKeyDown(e, item.id, 'expense')}
-                                                                className="w-full p-1.5 border border-blue-200 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                                className="w-full p-1.5 border border-blue-200 dark:border-blue-800 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-[var(--color-surface)] dark:text-[var(--color-text-main)]"
                                                                 autoFocus
                                                                 aria-label="Сумма расхода"
                                                                 onClick={(e) => e.stopPropagation()}
                                                             />
                                                         ) : (
-                                                            <span className="text-slate-700">{formatCurrency(item.amount)}</span>
+                                                            <span className="text-slate-700 dark:text-[var(--color-text-main)]">{formatCurrency(item.amount)}</span>
                                                         )}
                                                     </td>
                                                     <td className="p-4 w-24 text-right">
                                                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleEditClick(item); }}
-                                                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                                                                 title="Редактировать"
                                                             >
                                                                 <Pencil className="w-4 h-4" />
                                                             </button>
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleDelete(item.id, 'expense'); }}
-                                                                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                                                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors"
                                                                 title="Удалить"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
@@ -659,10 +659,10 @@ const MonthView: React.FC = () => {
                                                 </tr>
                                             ))}
                                             contextAddButton={isMulti && (
-                                                <div className="p-3 pl-12 border-t border-slate-100/50 bg-slate-50/30 flex justify-end">
+                                                <div className="p-3 pl-12 border-t border-slate-100/50 dark:border-[var(--color-border-default)]/50 bg-slate-50/30 dark:bg-[var(--color-surface-soft)]/30 flex justify-end transition-colors">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); openAddModal('expense', group.id); }}
-                                                        className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-4 py-2 rounded-xl hover:bg-blue-50 transition-colors"
+                                                        className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium px-4 py-2 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                                                     >
                                                         <Plus className="w-4 h-4" />
                                                         Добавить расход в "{group.name}"
@@ -677,15 +677,15 @@ const MonthView: React.FC = () => {
                     </div>
                 ) : (
                     <table className="w-full text-left">
-                        <thead className="bg-slate-50/50 border-b border-slate-100/60">
+                        <thead className="bg-slate-50/50 dark:bg-[var(--color-surface-soft)]/50 border-b border-slate-100/60 dark:border-[var(--color-border-default)]/60 transition-colors">
                             <tr>
-                                <th className="p-4 font-semibold text-xs text-slate-400 uppercase tracking-wider">Дата</th>
-                                <th className="p-4 font-semibold text-xs text-slate-400 uppercase tracking-wider">Источник</th>
-                                <th className="p-4 font-semibold text-xs text-slate-400 uppercase tracking-wider text-right">Сумма</th>
+                                <th className="p-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider">Дата</th>
+                                <th className="p-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider">Источник</th>
+                                <th className="p-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider text-right">Сумма</th>
                                 <th className="p-4 w-10"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100/60">
+                        <tbody className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60">
                             {incomes.length === 0 && (
                                 <tr>
                                     <td colSpan={4} className="p-6">
@@ -700,10 +700,10 @@ const MonthView: React.FC = () => {
                                 </tr>
                             )}
                             {incomes.map(item => (
-                                <tr key={item.id} className="hover:bg-slate-50/50 group/row transition-colors">
-                                    <td className="p-4 text-sm text-slate-500">{formatDate(item.date)}</td>
-                                    <td className="p-4 font-medium text-slate-700">{item.source}</td>
-                                    <td className="p-4 font-medium text-right text-emerald-600">
+                                <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-[#1a222d] group/row transition-colors">
+                                    <td className="p-4 text-sm text-slate-500 dark:text-[var(--color-text-muted)]">{formatDate(item.date)}</td>
+                                    <td className="p-4 font-medium text-slate-700 dark:text-[var(--color-text-main)]">{item.source}</td>
+                                    <td className="p-4 font-medium text-right text-emerald-600 dark:text-emerald-400">
                                         {editingId === item.id && activeTab === 'income' ? (
                                             <input
                                                 type="number"
@@ -711,7 +711,7 @@ const MonthView: React.FC = () => {
                                                 onChange={(e) => setEditingAmount(e.target.value)}
                                                 onBlur={() => handleBlur(item.id, 'income')}
                                                 onKeyDown={(e) => handleKeyDown(e, item.id, 'income')}
-                                                className="w-24 p-1.5 border border-blue-200 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                className="w-24 p-1.5 border border-blue-200 dark:border-blue-800 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-[var(--color-surface)] dark:text-emerald-400"
                                                 autoFocus
                                                 aria-label="Сумма дохода"
                                             />
@@ -723,14 +723,14 @@ const MonthView: React.FC = () => {
                                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => handleEditClick(item)}
-                                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                                                 title="Редактировать"
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </button>
                                             <button 
                                                 onClick={() => handleDelete(item.id, 'income')} 
-                                                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors"
                                                 title="Удалить"
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -752,26 +752,26 @@ const MonthView: React.FC = () => {
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Сумма</label>
+                        <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Сумма</label>
                         <input
                             type="number"
                             required
                             value={formData.amount}
                             onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
                             placeholder="0.00"
                         />
                     </div>
 
                     {activeTab === 'income' ? (
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Источник</label>
+                            <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Источник</label>
                             <input
                                 list="income-sources-list"
                                 required
                                 value={formData.source}
                                 onChange={e => setFormData({ ...formData, source: e.target.value })}
-                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
                                 placeholder="Например: Зарплата"
                             />
                             <datalist id="income-sources-list">
@@ -783,14 +783,14 @@ const MonthView: React.FC = () => {
                     ) : (
                         <>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Категория</label>
+                                <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Категория</label>
                                 <select
                                     required
                                     value={formData.categoryId}
                                     onChange={e => setFormData({ ...formData, categoryId: e.target.value })}
                                     aria-label="Категория расхода"
                                     title="Категория расхода"
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
                                 >
                                     <option value="">Выберите категорию</option>
                                     {categories.map(cat => (
@@ -799,12 +799,12 @@ const MonthView: React.FC = () => {
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Комментарий</label>
+                                <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Комментарий</label>
                                 <input
                                     type="text"
                                     value={formData.comment}
                                     onChange={e => setFormData({ ...formData, comment: e.target.value })}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
                                     placeholder="Опционально"
                                 />
                             </div>
@@ -813,7 +813,7 @@ const MonthView: React.FC = () => {
 
                     <button
                         type="submit"
-                        className="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors mt-4"
+                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-colors mt-4"
                     >
                         Сохранить
                     </button>
@@ -827,16 +827,16 @@ const MonthView: React.FC = () => {
                 title="Настройка бюджета (лимитов)"
             >
                 <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-3 -mr-3">
-                    <div className="bg-gradient-to-r from-blue-100/60 to-indigo-100/40 backdrop-blur-md p-2 rounded-2xl mb-6 shadow-sm border border-blue-200/50 text-center">
-                        <p className="text-s font-medium text-blue-800/80 mb-1">Общий лимит на месяц</p>
-                        <p className="text-xl font-bold tracking-tight text-blue-900">{formatCurrency(totalLimit)}</p>
+                    <div className="bg-gradient-to-r from-blue-100/60 to-indigo-100/40 dark:from-blue-900/40 dark:to-indigo-900/20 backdrop-blur-md p-2 rounded-2xl mb-6 shadow-sm border border-blue-200/50 dark:border-blue-800/50 text-center transition-colors">
+                        <p className="text-sm font-medium text-blue-800/80 dark:text-blue-300/80 mb-1">Общий лимит на месяц</p>
+                        <p className="text-xl font-bold tracking-tight text-blue-900 dark:text-blue-100">{formatCurrency(totalLimit)}</p>
                     </div>
                     {categories.map(cat => {
                         const budget = budgets.find(b => b.category_id === cat.id);
                         const limit = budget ? budget.limit_amount : 0;
                         return (
                             <div key={cat.id} className="flex items-center justify-between gap-4">
-                                <label className="text-sm font-medium text-gray-700 flex-1">{cat.name}</label>
+                                <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-main)] flex-1">{cat.name}</label>
                                 <div className="relative w-32">
                                     <input
                                         type="number"
@@ -844,18 +844,18 @@ const MonthView: React.FC = () => {
                                         onChange={e => handleBudgetChange(cat.id, parseFloat(e.target.value) || 0)}
                                         aria-label={`Лимит для категории ${cat.name}`}
                                         title={`Лимит для категории ${cat.name}`}
-                                        className="w-full p-2 pr-6 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-right"
+                                        className="w-full p-2 pr-6 border border-gray-300 dark:border-[var(--color-border-strong)] rounded focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none text-right bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
                                     />
-                                    <span className="absolute right-2 top-2 text-gray-400 text-xs">₽</span>
+                                    <span className="absolute right-2 top-2 text-gray-400 dark:text-[var(--color-text-muted)] text-xs">₽</span>
                                 </div>
                             </div>
                         );
                     })}
                 </div>
-                <div className="mt-6 pt-5 border-t border-emerald-100/30">
+                <div className="mt-6 pt-5 border-t border-emerald-100/30 dark:border-[var(--color-border-default)]">
                     <button
                         onClick={() => setIsBudgetModalOpen(false)}
-                        className="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-blue-600"
+                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-colors"
                     >
                         Готово
                     </button>
@@ -871,8 +871,8 @@ const MonthView: React.FC = () => {
                 title="Подтверждение"
             >
                 <div className="space-y-4">
-                    <p className="text-gray-600">Сохранить изменения суммы?</p>
-                    <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                    <p className="text-gray-600 dark:text-[var(--color-text-muted)]">Сохранить изменения суммы?</p>
+                    <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/30 px-4 py-3 text-sm text-blue-700 dark:text-blue-300 transition-colors">
                         Новое значение сразу повлияет на баланс и расчёты выбранного месяца.
                     </div>
                     <div className="flex gap-3">
@@ -883,7 +883,7 @@ const MonthView: React.FC = () => {
                                 }
                                 setPendingSave(null);
                             }}
-                            className="flex-1 bg-primary text-white py-3 rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-sm"
+                            className="flex-1 bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-colors shadow-sm"
                         >
                             Сохранить
                         </button>
@@ -892,7 +892,7 @@ const MonthView: React.FC = () => {
                                 setPendingSave(null);
                                 setEditingId(null);
                             }}
-                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                            className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                         >
                             Отмена
                         </button>
@@ -909,8 +909,8 @@ const MonthView: React.FC = () => {
                 title="Подтверждение удаления"
             >
                 <div className="space-y-4">
-                    <p className="text-gray-600">Вы уверены, что хотите удалить эту запись?</p>
-                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    <p className="text-gray-600 dark:text-[var(--color-text-muted)]">Вы уверены, что хотите удалить эту запись?</p>
+                    <div className="rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300 transition-colors">
                         Запись будет удалена из месяца без возможности восстановить её из интерфейса.
                     </div>
                     <div className="flex gap-3">
@@ -924,7 +924,7 @@ const MonthView: React.FC = () => {
                             onClick={() => {
                                 setPendingDelete(null);
                             }}
-                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                            className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                         >
                             Отмена
                         </button>
@@ -942,20 +942,20 @@ const MonthView: React.FC = () => {
                 title="Новый источник дохода"
             >
                 <div className="space-y-4">
-                    <p className="text-gray-600">Добавить новый источник <span className="font-medium">'{newSourceName}'</span> в список?</p>
-                    <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                    <p className="text-gray-600 dark:text-[var(--color-text-muted)]">Добавить новый источник <span className="font-medium text-slate-900 dark:text-[var(--color-text-main)]">'{newSourceName}'</span> в список?</p>
+                    <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/30 px-4 py-3 text-sm text-blue-700 dark:text-blue-300 transition-colors">
                         Если подтвердить добавление, источник станет доступен и в следующих месяцах.
                     </div>
                     <div className="flex gap-3">
                         <button
                             onClick={() => confirmAddNewSource(true)}
-                            className="flex-1 bg-primary text-white py-3 rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-sm"
+                            className="flex-1 bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-colors shadow-sm"
                         >
                             Да, добавить
                         </button>
                         <button
                             onClick={() => confirmAddNewSource(false)}
-                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                            className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                         >
                             Нет, только сохранить
                         </button>

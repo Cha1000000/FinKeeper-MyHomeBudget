@@ -83,7 +83,7 @@ const Layout: React.FC = () => {
 
         const handleScroll = () => {
             mainEl.classList.add('scrolling');
-            
+
             if (scrollTimeout.current) {
                 clearTimeout(scrollTimeout.current);
             }
@@ -109,24 +109,24 @@ const Layout: React.FC = () => {
 
     useEffect(() => {
         void refreshSidebarSummary();
-        
+
         // Обновлять каждые 30 секунд
         const interval = setInterval(() => {
             void refreshSidebarSummary();
         }, 30000);
-        
+
         // Listen for savings updates
         const handleSavingsUpdate = () => {
             void refreshSidebarSummary();
         };
         window.addEventListener('savingsUpdated', handleSavingsUpdate);
-        
+
         // Listen for dashboard month changes
         const handleDashboardMonthChange = () => {
             void refreshSidebarSummary();
         };
         window.addEventListener('dashboardMonthChanged', handleDashboardMonthChange);
-        
+
         return () => {
             clearInterval(interval);
             window.removeEventListener('savingsUpdated', handleSavingsUpdate);
@@ -187,10 +187,11 @@ const Layout: React.FC = () => {
         <div className="flex h-screen overflow-hidden">
             {/* Sidebar Desktop - Glassmorphism Style */}
             <aside className={classNames(
-            "bg-gradient-to-b from-emerald-900/85 via-emerald-600/85 to-teal-900/85 text-white backdrop-blur-2xl border-r border-white/20 shadow-[10px_0_20px_-10px_rgba(0,0,0,0.5)] flex-shrink-0 hidden md:flex flex-col relative z-20 transition-all duration-300",
+            "bg-gradient-to-b from-emerald-900/85 via-emerald-600/85 to-teal-900/85 dark:from-emerald-950/95 dark:via-emerald-900/95 dark:to-teal-950/95 text-white backdrop-blur-2xl border-r border-white/20 dark:border-emerald-800/30 shadow-[10px_0_20px_-10px_rgba(0,0,0,0.5)] flex-shrink-0 hidden md:flex flex-col relative z-20 transition-all duration-300",
             isCollapsed ? "w-16" : "w-58"
         )}>
-                <div className={classNames("flex items-center border-b border-white/10", isCollapsed ? "justify-center p-4" : "p-6 gap-3")}>
+                <div className={classNames("flex items-center border-b border-white/10 dark:border-white/5", isCollapsed ? "justify-center p-4" : "p-6 gap-3")}>
+
                     <button 
                         onClick={() => setIsCollapsed(!isCollapsed)}
                         className={classNames(
@@ -217,8 +218,8 @@ const Layout: React.FC = () => {
                                     'flex items-center rounded-lg transition-all duration-200 group font-medium text-sm',
                                     isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3',
                                     isActive
-                                        ? 'bg-white/20 text-white shadow-lg shadow-emerald-900/20 backdrop-blur-md border border-white/10'
-                                        : 'text-emerald-100 hover:bg-white/10 hover:text-white'
+                                        ? 'bg-white/20 text-white shadow-lg shadow-emerald-900/20 dark:shadow-black/20 backdrop-blur-md border border-white/10'
+                                        : 'text-emerald-100 dark:text-emerald-100 hover:bg-white/10 hover:text-white'
                                 )
                             }
                         >
@@ -230,20 +231,20 @@ const Layout: React.FC = () => {
 
                 {/* Финансовая сводка и юзер */}
                 {!isCollapsed && (
-                <div className="p-4 border-t border-white/10 space-y-3 bg-gradient-to-t from-black/20 to-transparent">
+                <div className="p-4 border-t border-white/10 dark:border-white/5 space-y-3 bg-gradient-to-t from-black/20 to-transparent">
                      <div className="flex justify-between items-center px-2">
-                        <span className="text-sm font-medium text-emerald-50 truncate max-w-[120px] shadow-black/10 drop-shadow-sm">{user?.username}</span>
+                        <span className="text-sm font-medium text-emerald-50 dark:text-emerald-50 truncate max-w-[120px] shadow-black/10 drop-shadow-sm">{user?.username}</span>
                         <div className="flex gap-1">
-                            <NavLink to="/settings" className="text-emerald-200 hover:text-white transition-colors p-1.5 rounded-md hover:bg-white/10" title="Настройки">
+                            <NavLink to="/settings" className="text-emerald-200 dark:text-emerald-200 hover:text-white transition-colors p-1.5 rounded-md hover:bg-white/10" title="Настройки">
                                 <Settings className="w-4 h-4" />
                             </NavLink>
-                            <button onClick={logout} className="text-emerald-200 hover:text-white transition-colors p-1.5 rounded-md hover:bg-white/10" title="Выйти">
+                            <button onClick={logout} className="text-emerald-200 dark:text-emerald-200 hover:text-white transition-colors p-1.5 rounded-md hover:bg-white/10" title="Выйти">
                                 <LogOut className="w-4 h-4" />
                             </button>
                         </div>
                     </div>
 
-                    <p className="text-[10px] text-emerald-200/70 uppercase tracking-widest px-2 pt-2 border-t border-white/10">{currentMonth}</p>
+                    <p className="text-[10px] text-emerald-200/70 dark:text-emerald-200/70 uppercase tracking-widest px-2 pt-2 border-t border-white/10 dark:border-white/5">{currentMonth}</p>
 
                     {sidebarRefreshError ? (
                         <div className="mx-2 rounded-xl border border-amber-200/40 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-50/90">
@@ -258,35 +259,35 @@ const Layout: React.FC = () => {
                             </button>
                         </div>
                     ) : null}
-                    
+
                     <div className="bg-white/10 backdrop-blur-sm border border-white/5 rounded-xl p-3 space-y-2 shadow-inner">
                         <div className="flex justify-between items-center">
-                            <span className="text-xs text-emerald-100/80">Всего активов</span>
+                            <span className="text-xs text-emerald-100/80 dark:text-emerald-100/80">Всего активов</span>
                             <span className="text-sm font-bold text-white tracking-wide">{formatCurrency(totalAssets)}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs text-emerald-100/80">Ресурс</span>
-                            <span className="text-sm font-semibold text-emerald-200">
+                            <span className="text-xs text-emerald-100/80 dark:text-emerald-100/80">Ресурс</span>
+                            <span className="text-sm font-semibold text-emerald-200 dark:text-emerald-200">
                                 {formatCurrency(resourceBalance)}
                             </span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs text-emerald-100/80">Доступно</span>
-                            <span className={classNames("text-sm font-semibold", availableBalance >= 0 ? "text-emerald-200" : "text-red-300")}>
+                            <span className="text-xs text-emerald-100/80 dark:text-emerald-100/80">Доступно</span>
+                            <span className={classNames("text-sm font-semibold", availableBalance >= 0 ? "text-emerald-200 dark:text-emerald-200" : "text-red-300 dark:text-red-400")}>
                                 {formatCurrency(availableBalance)}
                             </span>
                         </div>
                     </div>
-                    
-                    <p className="text-[10px] text-emerald-300/50 text-center pt-1">Домашняя бухгалтерия v{APP_VERSION}</p>
+
+                    <p className="text-[10px] text-emerald-300/50 dark:text-emerald-300/50 text-center pt-1">Домашняя бухгалтерия v{APP_VERSION}</p>
                 </div>
                 )}
                 {isCollapsed && (
-                    <div className="p-4 border-t border-white/10 flex flex-col items-center gap-3 bg-gradient-to-t from-black/20 to-transparent">
-                        <NavLink to="/settings" className="text-emerald-200 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10" title="Настройки">
+                    <div className="p-4 border-t border-white/10 dark:border-white/5 flex flex-col items-center gap-3 bg-gradient-to-t from-black/20 to-transparent">
+                        <NavLink to="/settings" className="text-emerald-200 dark:text-emerald-200 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10" title="Настройки">
                             <Settings className="w-5 h-5" />
                         </NavLink>
-                        <button onClick={logout} className="text-emerald-200 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10" title="Выйти">
+                        <button onClick={logout} className="text-emerald-200 dark:text-emerald-200 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10" title="Выйти">
                             <LogOut className="w-5 h-5" />
                         </button>
                     </div>
@@ -294,7 +295,7 @@ const Layout: React.FC = () => {
             </aside>
 
             {/* Mobile Nav (Bottom) */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-emerald-900/90 via-emerald-700/90 to-teal-900/90 backdrop-blur-2xl border-t border-white/20 flex overflow-x-auto no-scrollbar p-3 z-50 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.3)]">
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-emerald-900/90 via-emerald-700/90 to-teal-900/90 dark:from-emerald-950/95 dark:via-emerald-900/95 dark:to-teal-950/95 backdrop-blur-2xl border-t border-white/20 dark:border-emerald-800/30 flex overflow-x-auto no-scrollbar p-3 z-50 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.3)]">
                 <div className="flex justify-around min-w-full gap-2">
                     {navItems.map((item) => (
                         <NavLink
@@ -305,7 +306,7 @@ const Layout: React.FC = () => {
                                     'flex flex-col items-center justify-center p-2 rounded-xl transition-all min-w-[70px]',
                                     isActive 
                                         ? 'bg-white/20 text-white shadow-lg backdrop-blur-md border border-white/10' 
-                                        : 'text-emerald-100/70 hover:text-white'
+                                        : 'text-emerald-100/70 dark:text-emerald-100/70 hover:text-white'
                                 )
                             }
                         >
@@ -320,7 +321,7 @@ const Layout: React.FC = () => {
                                 'flex flex-col items-center justify-center p-2 rounded-xl transition-all min-w-[70px]',
                                 isActive 
                                     ? 'bg-white/20 text-white shadow-lg backdrop-blur-md border border-white/10' 
-                                    : 'text-emerald-100/70 hover:text-white'
+                                    : 'text-emerald-100/70 dark:text-emerald-100/70 hover:text-white'
                             )
                         }
                     >
@@ -329,7 +330,7 @@ const Layout: React.FC = () => {
                     </NavLink>
                     <button
                         onClick={logout}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl transition-all min-w-[70px] text-emerald-100/70 hover:text-white hover:bg-white/10"
+                        className="flex flex-col items-center justify-center p-2 rounded-xl transition-all min-w-[70px] text-emerald-100/70 dark:text-emerald-100/70 hover:text-white hover:bg-white/10"
                     >
                         <LogOut className="w-6 h-6" />
                         <span className="text-[10px] mt-1 font-medium">Выход</span>
@@ -341,7 +342,7 @@ const Layout: React.FC = () => {
             {/* Main Content with Gradient and Inner Glow */}
             <main 
                     ref={mainRef}
-                    className="smart-scrollbar min-w-0 flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-green-50/20 via-emerald-50 to-teal-100 shadow-[inset_0_0_80px_rgba(16,185,129,0.3)]"
+                    className="smart-scrollbar min-w-0 flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8 bg-gradient-to-br from-green-50/20 via-emerald-50 to-teal-100 dark:from-[#061811] dark:via-[#030a07] dark:to-[#040d0a] dark:shadow-[inset_0_0_80px_rgba(0,0,0,0.5)] shadow-[inset_0_0_80px_rgba(16,185,129,0.3)] transition-colors duration-300"
                     onClick={() => {
                         if (uiSettings?.autoCollapseSidebar && !isCollapsed) {
                             setIsCollapsed(true);

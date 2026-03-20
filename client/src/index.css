@@ -1,65 +1,91 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
-/* stylelint-disable at-rule-no-unknown */
-@theme {
-  /* ============================================
-     ЦВЕТОВАЯ ПАЛИТРА ПРИЛОЖЕНИЯ
-     Файл: client/src/index.css
-     ============================================ */
+@custom-variant dark (&:is(.dark *));
 
-  /* --- Основные цвета --- */
-
-  /* Цвет боковой панели (сайдбара) */
+:root {
+  /* --- Light Theme (Default) --- */
   --color-primary: #1b905bff;
-
-  /* Акцентный цвет (кнопки, активные элементы навигации) */
   --color-brand: #6b8e23;
-
-  /* Светлый акцент (для ховеров, второстепенных элементов) */
   --color-brand-light: #8fbc8f;
-
-  /* --- Статусные цвета --- */
-
-  /* Успех/Доходы (зелёный) */
   --color-success: #558b2f;
-
-  /* Ошибка/Расходы (красный) */
   --color-danger: #c62828;
-
-  /* Предупреждение/Накопления (золотистый) */
   --color-warning: #d4a017;
-
-  /* --- Фоновые цвета --- */
-
-  /* Основной фон страниц (оливковый) */
+  
   --color-background: #d5ddd0;
-
-  /* Фон карточек и блоков (белый) */
+  --color-background-gradient-start: #f5f7fa;
+  --color-background-gradient-end: #e4e8ec;
+  
   --color-surface: #ffffff;
-
-  /* --- Цвета текста --- */
-
-  /* Основной текст */
+  --color-surface-soft: #f8faf8;
   --color-text-main: #2c352d;
-
-  /* Второстепенный текст (подписи, метки) */
   --color-text-muted: #6e7a70;
+  --color-text-inverted: #ffffff;
+  
+  --color-border-default: #e2e8e0;
+  --color-border-strong: #c8d4c8;
 
-  /* --- Шрифт --- */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-
-  /* --- Тени для карточек --- */
   --shadow-card: 0 1px 3px 0 rgb(47 62 48 / 0.1), 0 1px 2px -1px rgb(47 62 48 / 0.1);
   --shadow-card-hover: 0 10px 15px -3px rgb(47 62 48 / 0.1), 0 4px 6px -4px rgb(47 62 48 / 0.1);
+  
+  --sidebar-gradient: linear-gradient(to bottom, rgba(16, 64, 40, 0.85), rgba(16, 64, 40, 0.85), rgba(13, 51, 38, 0.85));
+}
+
+[data-theme="dark"] {
+  /* --- Dark Theme --- */
+  --color-primary: #10b981; /* Bright emerald */
+  --color-brand: #22c55e;
+  --color-brand-light: #4ade80;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #fbbf24;
+
+  /* Deep green-black background for consistency */
+  --color-background: #03120d;
+  --color-background-gradient-start: #102b22;
+  --color-background-gradient-end: #020b08;
+
+  /* Cards background: green-tinted dark gray */
+  --color-surface: #091a14;
+  --color-surface-soft: #102a22;
+  --color-text-main: #e8f5ec;
+  --color-text-muted: #8ba398;
+  --color-text-inverted: #020b08;
+
+  /* Borders */
+  --color-border-default: #17362a;
+  --color-border-strong: #214f3e;
+
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+
+  --sidebar-gradient: linear-gradient(to bottom, rgba(2, 44, 34, 0.95), rgba(2, 44, 34, 0.95), rgba(4, 47, 46, 0.95));
+}
+
+/* stylelint-disable at-rule-no-unknown */
+@theme {
+  --color-primary: var(--color-primary);
+  --color-brand: var(--color-brand);
+  --color-brand-light: var(--color-brand-light);
+  --color-success: var(--color-success);
+  --color-danger: var(--color-danger);
+  --color-warning: var(--color-warning);
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-text-main: var(--color-text-main);
+  --color-text-muted: var(--color-text-muted);
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
 }
 
 body {
-  /* Мягкий градиентный фон */
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  background: linear-gradient(135deg, var(--color-background-gradient-start) 0%, var(--color-background-gradient-end) 100%);
   color: var(--color-text-main);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
 /* Кастомный скроллбар в оливковых тонах */

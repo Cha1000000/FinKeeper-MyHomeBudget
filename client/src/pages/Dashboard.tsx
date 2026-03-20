@@ -10,6 +10,7 @@ import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useDataChanged } from '../hooks/useWebSocket';
+import { useTheme } from '../context/ThemeContext';
 import PageState from '../components/PageState';
 import StatusBanner from '../components/StatusBanner';
 
@@ -56,6 +57,7 @@ const Dashboard: React.FC = () => {
     const [totalLimit, setTotalLimit] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { resolvedTheme } = useTheme();
 
     const saveMonth = (date: Date) => {
         localStorage.setItem(DASHBOARD_MONTH_KEY, JSON.stringify({
@@ -181,8 +183,8 @@ const Dashboard: React.FC = () => {
     return (
         <div className="mx-auto w-full min-w-0 max-w-5xl space-y-8">
             <header>
-                <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Обзор финансов</h2>
-                <p className="text-gray-500 text-sm mt-1">Сводка за выбранный месяц и аналитика</p>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-[var(--color-text-main)] tracking-tight">Обзор финансов</h2>
+                <p className="text-slate-500 dark:text-[var(--color-text-muted)] text-sm mt-1">Сводка за выбранный месяц и аналитика</p>
             </header>
 
             {error && (
@@ -193,7 +195,7 @@ const Dashboard: React.FC = () => {
                             onClick={() => {
                                 void fetchData();
                             }}
-                            className="rounded-xl bg-rose-600 px-4 py-2 text-white transition-colors hover:bg-rose-700"
+                            className="rounded-xl bg-rose-600 px-4 py-2 text-white transition-colors hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
                         >
                             Повторить
                         </button>
@@ -202,30 +204,30 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* Month Navigation */}
-            <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+            <div className="bg-[var(--color-surface)] p-3 rounded-2xl shadow-sm border border-[var(--color-border-default)] flex items-center justify-between transition-colors">
                 <button
                     onClick={prevMonth}
                     aria-label="Предыдущий месяц"
                     title="Предыдущий месяц"
-                    className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                    className="p-2 hover:bg-[var(--color-surface-soft)] rounded-full transition-colors"
                 >
-                    <ChevronLeft className="w-5 h-5 text-slate-600" />
+                    <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-[var(--color-text-muted)]" />
                 </button>
-                <span className="text-lg font-semibold text-slate-800 capitalize">
+                <span className="text-lg font-semibold text-slate-800 dark:text-[var(--color-text-main)] capitalize">
                     {format(currentDate, 'LLLL yyyy', { locale: ru })}
                 </span>
                 <button
                     onClick={nextMonth}
                     aria-label="Следующий месяц"
                     title="Следующий месяц"
-                    className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                    className="p-2 hover:bg-[var(--color-surface-soft)] rounded-full transition-colors"
                 >
-                    <ChevronRight className="w-5 h-5 text-slate-600" />
+                    <ChevronRight className="w-5 h-5 text-slate-600 dark:text-[var(--color-text-muted)]" />
                 </button>
             </div>
 
             {/* Total Assets Top Card */}
-            <div className="bg-primary/95 p-3 rounded-3xl shadow-[0_10px_40px_-10px_rgba(27,144,91,0.4)] border border-white/20 backdrop-blur-xl transition-shadow overflow-hidden relative flex items-center justify-between">
+            <div className="bg-[var(--color-primary)]/95 p-3 rounded-3xl shadow-[0_10px_40px_-10px_rgba(27,144,91,0.4)] dark:shadow-[0_10px_40px_-10px_rgba(16,185,129,0.3)] border border-white/20 backdrop-blur-xl transition-shadow overflow-hidden relative flex items-center justify-between">
                 <div className="relative z-10 flex items-center gap-4">
                     <div className="p-3 bg-white/10 backdrop-blur-md shadow-sm border border-white/10 rounded-2xl text-white">
                         <Wallet className="w-6 h-6" />
@@ -243,70 +245,70 @@ const Dashboard: React.FC = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-5">
-                <div className="bg-gradient-to-br from-emerald-50/95 to-emerald-100/60 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(16,185,129,0.08)] border border-emerald-200/60 hover:shadow-[0_12px_40px_rgba(16,185,129,0.15)] transition-all">
+                <div className="bg-gradient-to-br from-emerald-50/95 to-emerald-100/60 dark:from-emerald-950/40 dark:to-emerald-900/40 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(16,185,129,0.08)] border border-emerald-200/60 dark:border-emerald-800/50 hover:shadow-[0_12px_40px_rgba(16,185,129,0.15)] transition-all">
                     <div className="flex gap-4 items-center mb-4">
-                        <div className="p-3 bg-emerald-100/80 rounded-2xl text-emerald-600 shadow-sm border border-emerald-200/50">
+                        <div className="p-3 bg-emerald-100/80 dark:bg-emerald-900/60 rounded-2xl text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-200/50 dark:border-emerald-800/50">
                             <TrendingUp className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-emerald-800/80">Доходы</p>
-                            <p className="text-2xl font-bold text-emerald-950 tracking-tight mt-0.5">{formatCurrency(currentSummary?.income || 0)}</p>
+                            <p className="text-sm font-medium text-emerald-800/80 dark:text-emerald-300/80">Доходы</p>
+                            <p className="text-2xl font-bold text-emerald-950 dark:text-emerald-100 tracking-tight mt-0.5">{formatCurrency(currentSummary?.income || 0)}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-rose-50/95 to-rose-100/60 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(244,63,94,0.08)] border border-rose-200/60 hover:shadow-[0_12px_40px_rgba(244,63,94,0.15)] transition-all">
+                <div className="bg-gradient-to-br from-rose-50/95 to-rose-100/60 dark:from-rose-950/40 dark:to-rose-900/40 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(244,63,94,0.08)] border border-rose-200/60 dark:border-rose-800/50 hover:shadow-[0_12px_40px_rgba(244,63,94,0.15)] transition-all">
                     <div className="flex gap-4 items-center mb-4">
-                        <div className="p-3 bg-rose-100/80 rounded-2xl text-rose-600 shadow-sm border border-rose-200/50">
+                        <div className="p-3 bg-rose-100/80 dark:bg-rose-900/60 rounded-2xl text-rose-600 dark:text-rose-400 shadow-sm border border-rose-200/50 dark:border-rose-800/50">
                             <TrendingDown className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-rose-800/80">Расходы</p>
-                            <p className="text-2xl font-bold text-rose-950 tracking-tight mt-0.5">{formatCurrency(currentSummary?.expenses || 0)}</p>
+                            <p className="text-sm font-medium text-rose-800/80 dark:text-rose-300/80">Расходы</p>
+                            <p className="text-2xl font-bold text-rose-950 dark:text-rose-100 tracking-tight mt-0.5">{formatCurrency(currentSummary?.expenses || 0)}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-cyan-50/95 to-cyan-100/60 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(6,182,212,0.08)] border border-cyan-200/60 hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)] transition-all">
+                <div className="bg-gradient-to-br from-cyan-50/95 to-cyan-100/60 dark:from-cyan-950/40 dark:to-cyan-900/40 backdrop-blur-md p-4 rounded-3xl shadow-[0_8px_30px_rgba(6,182,212,0.08)] border border-cyan-200/60 dark:border-cyan-800/50 hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)] transition-all">
                     <div className="flex gap-4 items-center mb-4">
-                        <div className="p-3 bg-cyan-100/80 rounded-2xl text-cyan-600 shadow-sm border border-cyan-200/50">
+                        <div className="p-3 bg-cyan-100/80 dark:bg-cyan-900/60 rounded-2xl text-cyan-600 dark:text-cyan-400 shadow-sm border border-cyan-200/50 dark:border-cyan-800/50">
                             <PiggyBank className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-cyan-800/80">Накопления</p>
-                            <p className="text-2xl font-bold text-cyan-950 tracking-tight mt-0.5">{formatCurrency(totalSavings)}</p>
+                            <p className="text-sm font-medium text-cyan-800/80 dark:text-cyan-300/80">Накопления</p>
+                            <p className="text-2xl font-bold text-cyan-950 dark:text-cyan-100 tracking-tight mt-0.5">{formatCurrency(totalSavings)}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-blue-50/95 to-indigo-50/60 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(59,130,246,0.08)] border border-blue-200/60 hover:shadow-[0_12px_40px_rgba(59,130,246,0.15)] transition-all">
+                <div className="bg-gradient-to-br from-blue-50/95 to-indigo-50/60 dark:from-blue-950/40 dark:to-indigo-950/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(59,130,246,0.08)] border border-blue-200/60 dark:border-blue-800/50 hover:shadow-[0_12px_40px_rgba(59,130,246,0.15)] transition-all">
                     <div className="flex flex-col justify-center h-full">
-                        <p className="text-sm font-medium text-blue-800/80 mb-1">% в копилку</p>
+                        <p className="text-sm font-medium text-blue-800/80 dark:text-blue-300/80 mb-1">% в копилку</p>
                         <div className="flex items-baseline gap-2">
-                            <p className="text-2xl font-bold text-indigo-950 tracking-tight">
+                            <p className="text-2xl font-bold text-indigo-950 dark:text-indigo-100 tracking-tight">
                                 {currentSummary?.income ? ((currentSummary.savings / currentSummary.income) * 100).toFixed(1) : '0.0'}%
                             </p>
-                            <span className="text-xs text-blue-500/80">от дохода</span>
+                            <span className="text-xs text-blue-500/80 dark:text-blue-400/80">от дохода</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-amber-50/95 to-yellow-100/60 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(245,158,11,0.08)] border border-amber-200/60 hover:shadow-[0_12px_40px_rgba(245,158,11,0.15)] transition-all relative overflow-hidden">
+                <div className="bg-gradient-to-br from-amber-50/95 to-yellow-100/60 dark:from-amber-950/40 dark:to-yellow-950/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(245,158,11,0.08)] border border-amber-200/60 dark:border-amber-800/50 hover:shadow-[0_12px_40px_rgba(245,158,11,0.15)] transition-all relative overflow-hidden">
                     {(Math.max(0, totalLimit - (currentSummary?.expenses || 0))) < 0 && (
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200 rounded-bl-full blur-2xl opacity-40"></div>
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200 dark:bg-rose-900/50 rounded-bl-full blur-2xl opacity-40"></div>
                     )}
                     <div className="flex flex-col justify-center h-full relative z-10">
-                        <p className="text-sm font-medium text-amber-800/80 mb-1">Доступно</p>
-                        <p className={`text-2xl font-bold tracking-tight ${Math.max(0, totalLimit - (currentSummary?.expenses || 0)) >= 0 ? 'text-amber-950' : 'text-rose-600'}`}>
+                        <p className="text-sm font-medium text-amber-800/80 dark:text-amber-300/80 mb-1">Доступно</p>
+                        <p className={`text-2xl font-bold tracking-tight ${Math.max(0, totalLimit - (currentSummary?.expenses || 0)) >= 0 ? 'text-amber-950 dark:text-amber-100' : 'text-rose-600 dark:text-rose-400'}`}>
                             {formatCurrency(Math.max(0, totalLimit - (currentSummary?.expenses || 0)))}
                         </p>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-orange-50/95 to-orange-100/60 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(249,115,22,0.08)] border border-orange-200/60 hover:shadow-[0_12px_40px_rgba(249,115,22,0.15)] transition-all">
+                <div className="bg-gradient-to-br from-orange-50/95 to-orange-100/60 dark:from-orange-950/40 dark:to-orange-900/40 backdrop-blur-md p-5 rounded-3xl shadow-[0_8px_30px_rgba(249,115,22,0.08)] border border-orange-200/60 dark:border-orange-800/50 hover:shadow-[0_12px_40px_rgba(249,115,22,0.15)] transition-all">
                     <div className="flex flex-col justify-center h-full">
-                        <p className="text-sm font-medium text-orange-800/80 mb-1">В наличии без накоплений</p>
-                        <p className="text-2xl font-bold text-orange-950 tracking-tight">
+                        <p className="text-sm font-medium text-orange-800/80 dark:text-orange-300/80 mb-1">В наличии без накоплений</p>
+                        <p className="text-2xl font-bold text-orange-950 dark:text-orange-100 tracking-tight">
                             {formatCurrency((cumulativeBalance + totalSavings) - totalSavings)}
                         </p>
                     </div>
@@ -317,29 +319,31 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Trend Chart */}
-                <div className="min-w-0 overflow-hidden bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] transition-colors">
                     <div className="flex items-center justify-between mb-8">
-                        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Динамика финансов</h3>
-                        <span className="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">6 месяцев</span>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight">Динамика финансов</h3>
+                        <span className="text-xs font-medium text-slate-500 dark:text-[var(--color-text-muted)] bg-slate-100 dark:bg-[var(--color-surface-soft)] px-3 py-1.5 rounded-full transition-colors">6 месяцев</span>
                     </div>
                     <div className="h-80 w-full min-w-0">
                         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={320}>
                             <BarChart data={trendData} barGap={4}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={resolvedTheme === 'dark' ? '#2a3441' : '#f8fafc'} />
                                 <XAxis
                                     dataKey="month"
-                                    tick={{ fontSize: 12, fill: '#94a3b8' }}
+                                    tick={{ fontSize: 12, fill: resolvedTheme === 'dark' ? '#8b9a8e' : '#94a3b8' }}
                                     axisLine={false}
                                     tickLine={false}
                                     dy={10}
                                 />
                                 <YAxis hide />
                                 <Tooltip
-                                    cursor={{ fill: '#f8fafc' }}
+                                    cursor={{ fill: resolvedTheme === 'dark' ? '#1a222d' : '#f8fafc' }}
                                     formatter={(value: number | undefined) => formatCurrency(value ?? 0)}
                                     contentStyle={{
                                         borderRadius: '16px',
-                                        border: '1px solid #f1f5f9',
+                                        border: resolvedTheme === 'dark' ? '1px solid #2a3441' : '1px solid #f1f5f9',
+                                        backgroundColor: resolvedTheme === 'dark' ? '#111820' : '#ffffff',
+                                        color: resolvedTheme === 'dark' ? '#e8f5ec' : '#1e293b',
                                         boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.1)',
                                         padding: '12px'
                                     }}
@@ -354,9 +358,8 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Breakdown Chart & Table */}
-                {/* Breakdown Chart & Table */}
-                <div className="min-w-0 overflow-hidden bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col">
-                    <h3 className="text-lg font-bold text-slate-800 tracking-tight mb-8">Структура расходов</h3>
+                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] flex flex-col transition-colors">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight mb-8">Структура расходов</h3>
                     
                     <div className="flex flex-col xl:flex-row items-center gap-8 h-full">
                         {/* Chart */}
@@ -383,7 +386,9 @@ const Dashboard: React.FC = () => {
                                             formatter={(value: number | undefined) => formatCurrency(value ?? 0)}
                                             contentStyle={{
                                                 borderRadius: '16px',
-                                                border: '1px solid #f1f5f9',
+                                                border: resolvedTheme === 'dark' ? '1px solid #2a3441' : '1px solid #f1f5f9',
+                                                backgroundColor: resolvedTheme === 'dark' ? '#111820' : '#ffffff',
+                                                color: resolvedTheme === 'dark' ? '#e8f5ec' : '#1e293b',
                                                 boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.1)',
                                                 padding: '12px'
                                             }}
@@ -392,17 +397,17 @@ const Dashboard: React.FC = () => {
                                 </ResponsiveContainer>
                             ) : (
                                 <div className="text-center h-full flex flex-col justify-center">
-                                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3 text-slate-300">
+                                    <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-3 text-slate-300 dark:text-slate-500">
                                         <Wallet className="w-8 h-8" />
                                     </div>
-                                    <p className="text-slate-400 text-sm font-medium">Нет расходов</p>
+                                    <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Нет расходов</p>
                                 </div>
                             )}
                             {/* Center Text overlay */}
                             {expenseStructure.length > 0 && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                    <span className="text-xs font-medium text-slate-400 mb-1">Всего</span>
-                                    <span className="text-xl font-bold text-slate-800 tracking-tight">
+                                    <span className="text-xs font-medium text-slate-400 dark:text-[var(--color-text-muted)] mb-1">Всего</span>
+                                    <span className="text-xl font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight">
                                         {formatCurrency(currentSummary?.expenses || 0)}
                                     </span>
                                 </div>
@@ -414,28 +419,28 @@ const Dashboard: React.FC = () => {
                             <table className="w-full text-sm relative border-separate border-spacing-0 table-fixed">
                                 <thead>
                                     <tr>
-                                        <th className="text-left pb-4 font-semibold text-xs text-slate-400 uppercase tracking-wider w-[55%]">Категория</th>
-                                        <th className="text-right pb-4 font-semibold text-xs text-slate-400 uppercase tracking-wider w-[30%]">Сумма</th>
-                                        <th className="text-right pb-4 font-semibold text-xs text-slate-400 uppercase tracking-wider pr-4 w-[15%]">%</th>
+                                        <th className="text-left pb-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider w-[55%]">Категория</th>
+                                        <th className="text-right pb-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider w-[30%]">Сумма</th>
+                                        <th className="text-right pb-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider pr-4 w-[15%]">%</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-slate-100 dark:divide-[var(--color-border-default)]">
                                     {expenseStructure.map((entry, idx) => {
                                         const totalExp = currentSummary?.expenses || 1; 
                                         const share = (entry.value / totalExp) * 100;
                                         
                                         return (
-                                            <tr key={idx} className="group hover:bg-slate-50 transition-colors">
+                                            <tr key={idx} className="group hover:bg-[var(--color-surface-soft)] transition-colors">
                                                 <td className="py-3 pr-2 truncate max-w-0">
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT_COLOR_CLASSES[idx % DOT_COLOR_CLASSES.length]}`}></div>
-                                                        <span className="text-slate-700 truncate font-medium">{entry.name}</span>
+                                                        <span className="text-slate-700 dark:text-[var(--color-text-main)] truncate font-medium">{entry.name}</span>
                                                     </div>
                                                 </td>
-                                                <td className="py-3 px-2 text-right text-slate-600 font-medium tabular-nums whitespace-nowrap">
+                                                <td className="py-3 px-2 text-right text-slate-600 dark:text-[var(--color-text-muted)] font-medium tabular-nums whitespace-nowrap">
                                                     {formatCurrency(entry.value)}
                                                 </td>
-                                                <td className="py-3 pl-2 pr-4 text-right text-slate-400 tabular-nums">
+                                                <td className="py-3 pl-2 pr-4 text-right text-slate-400 dark:text-[var(--color-text-muted)] tabular-nums">
                                                     {share.toFixed(1)}%
                                                 </td>
                                             </tr>

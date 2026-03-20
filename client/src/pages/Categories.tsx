@@ -177,12 +177,12 @@ const Categories: React.FC = () => {
 
             <div className="flex items-center justify-between mb-2">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Категории и источники</h2>
-                    <p className="text-sm text-slate-500 mt-0.5">Настройка статей доходов и расходов</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-[var(--color-text-main)] tracking-tight">Категории и источники</h2>
+                    <p className="text-sm text-slate-500 dark:text-[var(--color-text-muted)] mt-0.5">Настройка статей доходов и расходов</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl hover:bg-blue-600 transition-all shadow-sm hover:shadow-md font-medium"
+                    className="flex items-center gap-2 bg-[var(--color-primary)] text-white px-5 py-2.5 rounded-xl hover:opacity-90 transition-all shadow-sm hover:shadow-md font-medium"
                 >
                     <Plus className="w-5 h-5" />
                     {buttonTitle}
@@ -195,8 +195,8 @@ const Categories: React.FC = () => {
                     onClick={() => setActiveTab('expenses')}
                     className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
                         activeTab === 'expenses'
-                            ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                            ? 'bg-[var(--color-surface)] dark:bg-[var(--color-surface)] text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/60 dark:border-[var(--color-border-strong)]'
+                            : 'text-slate-500 dark:text-[var(--color-text-muted)] hover:text-slate-700 dark:hover:text-[#e8f5ec] hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d]'
                     }`}
                 >
                     Категории расходов
@@ -205,16 +205,16 @@ const Categories: React.FC = () => {
                     onClick={() => setActiveTab('income')}
                     className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
                         activeTab === 'income'
-                            ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                            ? 'bg-[var(--color-surface)] dark:bg-[var(--color-surface)] text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/60 dark:border-[var(--color-border-strong)]'
+                            : 'text-slate-500 dark:text-[var(--color-text-muted)] hover:text-slate-700 dark:hover:text-[#e8f5ec] hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d]'
                     }`}
                 >
                     Источники дохода
                 </button>
             </div>
 
-            <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
-                <ul className="divide-y divide-slate-100/60">
+            <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
+                <ul className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60">
                     {currentList.length === 0 && (
                         <li className="p-6">
                             <PageState
@@ -228,7 +228,7 @@ const Categories: React.FC = () => {
                         </li>
                     )}
                     {currentList.map((item) => (
-                        <li key={item.id} className="p-4 px-6 hover:bg-slate-50/50 flex items-center justify-between group transition-colors">
+                        <li key={item.id} className="p-4 px-6 hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d] flex items-center justify-between group transition-colors">
                             {editingId === item.id ? (
                                 <div className="flex items-center gap-3 w-full">
                                     <input
@@ -236,25 +236,25 @@ const Categories: React.FC = () => {
                                         value={editName}
                                         onChange={(e) => setEditName(e.target.value)}
                                         aria-label={activeTab === 'expenses' ? 'Редактировать название категории' : 'Редактировать название источника дохода'}
-                                        className="flex-1 p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                        className="flex-1 p-2.5 border border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
                                         placeholder={activeTab === 'expenses' ? 'Название категории' : 'Название источника'}
                                         autoFocus
                                     />
-                                    <button onClick={saveEdit} aria-label="Сохранить изменения" title="Сохранить изменения" className="p-2.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors">
+                                    <button onClick={saveEdit} aria-label="Сохранить изменения" title="Сохранить изменения" className="p-2.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-xl transition-colors">
                                         <Check className="w-5 h-5" />
                                     </button>
-                                    <button onClick={cancelEdit} aria-label="Отменить редактирование" title="Отменить редактирование" className="p-2.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+                                    <button onClick={cancelEdit} aria-label="Отменить редактирование" title="Отменить редактирование" className="p-2.5 text-slate-500 dark:text-[var(--color-text-muted)] bg-slate-100 dark:bg-[#2a3441] hover:bg-slate-200 dark:hover:bg-[#3d4a5c] rounded-xl transition-colors">
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
                             ) : (
                                 <>
-                                    <span className="font-medium text-slate-700">{item.name}</span>
+                                    <span className="font-medium text-slate-700 dark:text-[var(--color-text-main)]">{item.name}</span>
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => startEdit(item)} aria-label="Редактировать" title="Редактировать" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                        <button onClick={() => startEdit(item)} aria-label="Редактировать" title="Редактировать" className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
                                             <Edit2 className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => handleDelete(item.id)} aria-label="Удалить" title="Удалить" className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                        <button onClick={() => handleDelete(item.id)} aria-label="Удалить" title="Удалить" className="p-2 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -272,19 +272,19 @@ const Categories: React.FC = () => {
             >
                 <form onSubmit={handleAdd} className="space-y-4">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Название</label>
+                        <label className="text-sm font-medium text-slate-700 dark:text-[var(--color-text-muted)]">Название</label>
                         <input
                             type="text"
                             required
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
-                            className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
+                            className="w-full p-3 border border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors shadow-sm"
                             placeholder="Введите название..."
                         />
                     </div>
                     <button
                         type="submit"
-                        className="w-full bg-primary text-white py-3 rounded-xl font-medium hover:bg-blue-600 transition-all shadow-sm hover:shadow-md mt-4"
+                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-all shadow-sm hover:shadow-md mt-4"
                     >
                         Создать
                     </button>
@@ -297,8 +297,8 @@ const Categories: React.FC = () => {
                 title="Подтверждение удаления"
             >
                 <div className="space-y-4">
-                    <p className="text-gray-600">Уверены, что хотите удалить {itemName}?</p>
-                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    <p className="text-gray-600 dark:text-[var(--color-text-muted)]">Уверены, что хотите удалить {itemName}?</p>
+                    <div className="rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300 transition-colors">
                         Элемент будет скрыт из активного списка и перестанет быть доступен для новых операций.
                     </div>
                     <div className="flex gap-3">
@@ -310,7 +310,7 @@ const Categories: React.FC = () => {
                         </button>
                         <button
                             onClick={() => setPendingDelete(null)}
-                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                            className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                         >
                             Отмена
                         </button>

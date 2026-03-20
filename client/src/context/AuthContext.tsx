@@ -15,6 +15,7 @@ import {
 
 interface UiSettings {
   autoCollapseSidebar: boolean;
+  theme: 'light' | 'dark' | 'system';
 }
 
 interface AuthContextType {
@@ -36,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [uiSettings, setUiSettings] = useState<UiSettings>(() => {
       const saved = localStorage.getItem('uiSettings');
-      return saved ? JSON.parse(saved) : { autoCollapseSidebar: false };
+      return saved ? JSON.parse(saved) : { autoCollapseSidebar: false, theme: 'light' };
   });
 
   useEffect(() => {

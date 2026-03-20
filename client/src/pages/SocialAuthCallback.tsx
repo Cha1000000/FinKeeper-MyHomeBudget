@@ -66,10 +66,10 @@ const SocialAuthCallback: React.FC = () => {
   }, [code, completeSocialLogin, error, navigate, providerDisplayName]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 px-4 py-12">
-      <div className="w-full max-w-md rounded-3xl border border-white/60 bg-white/95 p-8 shadow-2xl shadow-emerald-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 dark:from-[#061811] dark:via-[#030a07] dark:to-[#040d0a] px-4 py-12 transition-colors duration-300">
+      <div className="w-full max-w-md rounded-3xl border border-white/60 dark:border-[var(--color-border-default)] bg-[var(--color-surface)]/95 dark:bg-[var(--color-surface)]/95 p-8 shadow-2xl shadow-emerald-100 dark:shadow-none transition-colors">
         <div className="mb-6 flex items-center gap-3">
-          <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 shadow-inner">
+          <div className="rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 p-3 text-emerald-700 dark:text-emerald-400 shadow-inner transition-colors">
             {status === 'loading' ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : status === 'success' ? (
@@ -78,7 +78,7 @@ const SocialAuthCallback: React.FC = () => {
               <ShieldAlert className="h-5 w-5" />
             )}
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">{`Вход через ${providerDisplayName}`}</h1>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-[var(--color-text-main)] transition-colors">{`Вход через ${providerDisplayName}`}</h1>
         </div>
 
         <StatusBanner
@@ -91,7 +91,7 @@ const SocialAuthCallback: React.FC = () => {
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
             to="/login"
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-[var(--color-border-strong)] px-4 py-3 font-medium text-slate-700 dark:text-[var(--color-text-main)] transition-colors hover:bg-slate-50 dark:hover:bg-[#1a222d]"
           >
             <ArrowLeft className="h-4 w-4" />
             Вернуться ко входу
@@ -99,7 +99,7 @@ const SocialAuthCallback: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/', { replace: true })}
-            className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700"
+            className="flex-1 rounded-2xl bg-[var(--color-primary)] px-4 py-3 font-semibold text-white shadow-lg shadow-emerald-200 dark:shadow-none transition-all hover:opacity-90"
           >
             Открыть приложение
           </button>
