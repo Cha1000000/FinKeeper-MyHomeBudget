@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { AUTH_LOGOUT_REQUIRED_EVENT, clearToken, getToken, setAuthNotice, setToken, shouldRememberSession } from '../auth/tokenStorage';
+import { AUTH_LOGOUT_REQUIRED_EVENT, clearToken, getToken, setAuthNotice, setToken } from '../auth/tokenStorage';
 
 const api = axios.create({
     baseURL: '/api',
@@ -49,7 +49,7 @@ function isAuthEndpoint(url: string): boolean {
 }
 
 function shouldAttemptRefresh(error: AxiosError, requestUrl: string, alreadyRetried: boolean): boolean {
-    if (isAuthEndpoint(requestUrl) || alreadyRetried || !shouldRememberSession()) {
+    if (isAuthEndpoint(requestUrl) || alreadyRetried) {
         return false;
     }
 
@@ -257,7 +257,7 @@ export const getSocialProviders = () => api.get<{ providers: SocialProvider[] }>
         Pragma: 'no-cache',
     },
 });
-export const exchangeSocialAuthCode = (code: string) => api.post<AuthResponse>('/auth/oauth/exchange', { code });
+export const exchangeSocialAuthCode = (code: string, rememberMe: boolean = false) => api.post<AuthResponse>('/auth/oauth/exchange', { code, rememberMe });
 export const requestPasswordRecovery = (email: string) => api.post<PasswordRecoveryRequestResponse>('/auth/password-recovery/request', { email });
 export const confirmPasswordRecovery = (token: string, newPassword: string) => api.post<PasswordRecoveryConfirmResponse>('/auth/password-recovery/confirm', { token, newPassword });
 export const confirmEmailVerification = (token: string) => api.post<EmailVerificationResponse>('/auth/email-verification/confirm', { token });

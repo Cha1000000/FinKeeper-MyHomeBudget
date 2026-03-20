@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const { db, nowIso } = require('../db/connection');
 const { 
     issueAuthSession, 
+    refreshAuthSession,
     validateAuthPayload,
     createUserWithDefaults,
     getRefreshTokenFromRequest,
@@ -82,7 +83,7 @@ const nativeSocialAuthPollIntervalMs = process.env.NATIVE_SOCIAL_AUTH_POLL_INTER
     : 1500;
 
 router.post('/register', authRateLimiter, (req, res) => {
-    const { username, password, details } = validateAuthPayload(req.body, { requirePasswordMinLength: true });
+    const { username, password, rememberMe, details } = validateAuthPayload(req.body, { requirePasswordMinLength: true });
     if (details.length > 0) return sendValidationError(res, details);
 
     try {
@@ -96,7 +97,7 @@ router.post('/register', authRateLimiter, (req, res) => {
         // Create initial backup
         createBackup(user.id);
 
-        const authResponse = issueAuthSession(req, res, user);
+        const authResponse = issueAuthSession(req, res, user, rememberMe);
         res.json(authResponse);
     } catch (err) {
         if (err.message.includes('UNIQUE constraint failed')) {
@@ -112,7 +113,7 @@ router.post('/register', authRateLimiter, (req, res) => {
 });
 
 router.post('/login', authRateLimiter, (req, res) => {
-    const { username, password, details } = validateAuthPayload(req.body);
+    const { username, password, rememberMe, details } = validateAuthPayload(req.body);
     if (details.length > 0) return sendValidationError(res, details);
 
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
@@ -127,7 +128,7 @@ router.post('/login', authRateLimiter, (req, res) => {
     // Create backup on login
     createBackup(user.id);
 
-    const authResponse = issueAuthSession(req, res, user);
+    const authResponse = issueAuthSession(req, res, user, rememberMe);
     res.json(authResponse);
 });
 
@@ -152,9 +153,9 @@ router.post('/refresh', (req, res) => {
         return sendError(res, 401, 'Invalid refresh token', 'invalid_refresh_token');
     }
 
+    // Prolong session instead of revoking to prevent concurrency race conditions from logging user out
     touchRefreshSession(session.id);
-    revokeRefreshSessionById(session.id);
-    const authResponse = issueAuthSession(req, res, user);
+    const authResponse = refreshAuthSession(req, res, user, session);
     res.json(authResponse);
 });
 
@@ -490,7 +491,7 @@ router.get('/oauth/:provider/callback', async (req, res) => {
 });
 
 router.post('/oauth/exchange', authRateLimiter, (req, res) => {
-    const { code, details } = validateSocialAuthExchangePayload(req.body);
+    const { code, rememberMe, details } = validateSocialAuthExchangePayload(req.body);
     if (details.length > 0) return sendValidationError(res, details);
 
     const exchangeCode = getValidSocialAuthExchangeCode(code);
@@ -512,7 +513,7 @@ router.post('/oauth/exchange', authRateLimiter, (req, res) => {
     markNativeSocialLoginAttemptConsumedByExchangeCode(code);
     createBackup(user.id);
 
-    const authResponse = issueAuthSession(req, res, user);
+    const authResponse = issueAuthSession(req, res, user, rememberMe);
     return res.json({
         ...authResponse,
         authMethod: 'social',

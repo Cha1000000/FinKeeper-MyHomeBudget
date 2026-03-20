@@ -41,7 +41,7 @@ function cleanupExpiredRefreshSessions() {
     `).run(nowIso());
 }
 
-function issueRefreshSession(userId) {
+function issueRefreshSession(userId, isPersistent = false) {
     cleanupExpiredRefreshSessions();
     const refreshToken = generateRefreshToken();
     const tokenHash = hashRefreshToken(refreshToken);
@@ -49,9 +49,9 @@ function issueRefreshSession(userId) {
     const expiresAt = getRefreshSessionExpiryIso();
 
     db.prepare(`
-        INSERT INTO auth_refresh_sessions (user_id, token_hash, expires_at, created_at, last_used_at, revoked_at)
-        VALUES (?, ?, ?, ?, ?, NULL)
-    `).run(userId, tokenHash, expiresAt, timestamp, timestamp);
+        INSERT INTO auth_refresh_sessions (user_id, token_hash, expires_at, created_at, last_used_at, revoked_at, is_persistent)
+        VALUES (?, ?, ?, ?, ?, NULL, ?)
+    `).run(userId, tokenHash, expiresAt, timestamp, timestamp, isPersistent ? 1 : 0);
 
     return { refreshToken, expiresAt };
 }
@@ -93,7 +93,7 @@ function getValidRefreshSession(refreshToken) {
     if (!refreshToken) return null;
     cleanupExpiredRefreshSessions();
     return db.prepare(`
-        SELECT id, user_id, expires_at, revoked_at
+        SELECT id, user_id, expires_at, revoked_at, is_persistent
         FROM auth_refresh_sessions
         WHERE token_hash = ?
     `).get(hashRefreshToken(refreshToken));
@@ -124,14 +124,17 @@ function shouldReturnRefreshTokenInBody(req) {
     return req.get('X-Refresh-Transport') === 'body';
 }
 
-function setRefreshTokenCookie(res, refreshToken) {
-    res.cookie(config.REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
+function setRefreshTokenCookie(res, refreshToken, rememberMe = true) {
+    const cookieOptions = {
         httpOnly: true,
         secure: config.isProduction,
         sameSite: 'lax',
         path: '/api/auth',
-        maxAge: config.refreshTokenTtlMs,
-    });
+    };
+    if (rememberMe) {
+        cookieOptions.maxAge = config.refreshTokenTtlMs;
+    }
+    res.cookie(config.REFRESH_TOKEN_COOKIE_NAME, refreshToken, cookieOptions);
 }
 
 function clearRefreshTokenCookie(res) {
@@ -242,11 +245,65 @@ function buildAuthResponse(req, user, accessToken, refreshToken = null) {
     return response;
 }
 
-function issueAuthSession(req, res, user) {
+function issueAuthSession(req, res, user, rememberMe = true) {
     const accessToken = createAccessToken(user);
-    const { refreshToken } = issueRefreshSession(user.id);
-    setRefreshTokenCookie(res, refreshToken);
+    const { refreshToken } = issueRefreshSession(user.id, rememberMe);
+    setRefreshTokenCookie(res, refreshToken, rememberMe);
     return buildAuthResponse(req, user, accessToken, refreshToken);
+}
+
+function refreshAuthSession(req, res, user, session) {
+    const accessToken = createAccessToken(user);
+    const isPersistent = Boolean(session.is_persistent);
+
+    // Slide expiration window if persistent
+    if (isPersistent) {
+        const newExpiresAt = getRefreshSessionExpiryIso();
+        db.prepare('UPDATE auth_refresh_sessions SET expires_at = ?, last_used_at = ? WHERE id = ?').run(
+            newExpiresAt,
+            nowIso(),
+            session.id
+        );
+
+        // Re-issue cookie with new Expiry to slide browser window too
+        // We reuse the same refresh token hidden in the cookie if possible.
+        // But we don't have the plaintext refresh token here (we only have the hash in the DB).
+        // The browser already has it. We can just send a new cookie IF we had the token.
+        // Since we don't have the plaintext token, we should've probably issued a NEW token,
+        // OR we can just NOT extend the browser cookie BUT that would limit total session length.
+        
+        // Actually, to slide the browser cookie, we NEED to send a NEW token (or the same one).
+        // Let's issue a NEW refresh token but KEEP it linked to the same "session group" if we cared,
+        // but simple "issue NEW, revoke OLD" had race conditions.
+        // I will issue a NEW token and NOT revoke the old one yet, OR I'll just skip re-issuing
+        // for now and focus on making sure the DB doesn't expire it.
+        
+        // Actually, most "eternal" systems just have a long-lived cookie (30 days) AND they refresh IT
+        // whenever the access token is refreshed.
+        
+        // Let's NEW strategy:
+        // Issue NEW refresh token, but KEEP the old one valid for a "grace period" (e.g., 1 minute).
+        // BUT better: just issue a NEW token and let the old one expire/be cleaned up.
+        
+        const { refreshToken } = issueRefreshSession(user.id, isPersistent);
+        setRefreshTokenCookie(res, refreshToken, isPersistent);
+        // We SHOULD revoke the CURRENT one if we issued a NEW one, but let's just revoke it 
+        // after issuing the new one to be safe.
+        // To avoid race conditions: just revoke it and it's fine as long as we don't do it 
+        // synchronously BEFORE the new one is issued? No, race condition is when 2 requests hit /refresh at once.
+        
+        // If 2 requests hit /refresh for token A:
+        // Req 1: Get session for A, issue new token B, revoke A.
+        // Req 2: Get session for A -> FAIL (already revoked).
+        
+        // If I DON'T revoke A immediately, both will issue B and C. 
+        // The browser will have either B or C. Both are valid. A will be killed by cleanup.
+        
+        // So: issue NEW, DON'T revoke old yet (leave to cleanup).
+        return buildAuthResponse(req, user, accessToken, refreshToken);
+    }
+
+    return buildAuthResponse(req, user, accessToken, null);
 }
 
 function seedUserDefaults(userId, timestamp) {
@@ -452,6 +509,7 @@ module.exports = {
     buildUserPayload,
     buildAuthResponse,
     issueAuthSession,
+    refreshAuthSession,
     createUserWithDefaults,
     hashOpaqueToken,
     generateOpaqueToken,

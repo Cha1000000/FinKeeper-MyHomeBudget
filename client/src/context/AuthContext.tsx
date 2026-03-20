@@ -48,26 +48,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(data);
         } catch (error) {
           console.error("Auth check failed", error);
-          if (shouldRememberSession()) {
-            try {
-              const data = await refreshRememberedSession();
-              if (data?.user) {
-                setUser(data.user);
-              } else {
-                const me = await getMe();
-                setUser(me.data);
-              }
-            } catch (refreshError) {
-              console.error("Auth refresh after auth check failed", refreshError);
-              clearToken();
-              setUser(null);
+          try {
+            const data = await refreshRememberedSession();
+            if (data?.user) {
+              setUser(data.user);
+            } else {
+              const me = await getMe();
+              setUser(me.data);
             }
-          } else {
+          } catch (refreshError) {
+            console.error("Auth refresh after auth check failed", refreshError);
             clearToken();
             setUser(null);
           }
         }
-      } else if (shouldRememberSession()) {
+      } else {
         try {
           const data = await refreshRememberedSession();
           if (data?.user) {
@@ -114,8 +109,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const completeSocialLogin = async (code: string) => {
-    const { data } = await exchangeSocialAuthCode(code);
-    setToken(data.token, shouldRememberSession());
+    const rememberMe = shouldRememberSession();
+    const { data } = await exchangeSocialAuthCode(code, rememberMe);
+    setToken(data.token, rememberMe);
     setUser(data.user);
   };
 

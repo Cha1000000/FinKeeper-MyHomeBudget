@@ -160,6 +160,7 @@ function ensureSchemaUpToDate() {
     addColumnIfMissing('users', 'email', 'TEXT');
     addColumnIfMissing('users', 'email_confirmed_at', 'TEXT');
     addColumnIfMissing('users', 'auth_password_enabled', 'INTEGER NOT NULL DEFAULT 1');
+    addColumnIfMissing('auth_refresh_sessions', 'is_persistent', 'INTEGER NOT NULL DEFAULT 0');
     addColumnIfMissing('auth_social_login_attempts', 'exchange_code', 'TEXT');
     db.exec(`
         CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique
@@ -218,6 +219,9 @@ function ensureSchemaUpToDate() {
 
     logger.info('schema_ensure_done', { dbPath });
 }
+
+// Run schema check on import
+ensureSchemaUpToDate();
 
 module.exports = {
     db,

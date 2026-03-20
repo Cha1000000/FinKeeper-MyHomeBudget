@@ -90,6 +90,7 @@ function createAuthValidation({
 
         return {
             code,
+            rememberMe: Boolean(body?.rememberMe),
             details,
         };
     }
@@ -173,6 +174,7 @@ function createAuthValidation({
         return {
             username,
             password,
+            rememberMe: Boolean(body?.rememberMe),
             details,
         };
     }

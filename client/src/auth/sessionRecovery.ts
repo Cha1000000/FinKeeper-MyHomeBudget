@@ -11,10 +11,6 @@ export interface RememberedSessionResponse {
 let rememberedSessionRefreshPromise: Promise<RememberedSessionResponse | null> | null = null;
 
 export function refreshRememberedSession() {
-    if (!shouldRememberSession()) {
-        return Promise.resolve(null);
-    }
-
     if (!rememberedSessionRefreshPromise) {
         rememberedSessionRefreshPromise = axios
             .post('/api/auth/refresh', {}, { withCredentials: true })
@@ -22,7 +18,7 @@ export function refreshRememberedSession() {
                 const data = response.data as RememberedSessionResponse;
                 const refreshedToken = data.accessToken || data.token;
                 if (refreshedToken) {
-                    setToken(refreshedToken, true);
+                    setToken(refreshedToken, shouldRememberSession());
                 }
                 return data;
             })
