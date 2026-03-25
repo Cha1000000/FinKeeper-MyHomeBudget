@@ -132,7 +132,7 @@ export default function App() {
               </motion.h1>
               
               <motion.p variants={fadeUpVariants} className="text-slate-text/90 text-lg sm:text-xl font-light leading-relaxed mb-12 max-w-2xl mx-auto">
-                Интеллектуальная экосистема учета для тех, кто ценит точность и эстетику. Анализируйте потоки, планируйте будущее и растите свой капитал на любой платформе.
+                Интеллектуальная экосистема учета для тех, кто ценит точность и эстетику. Анализируйте потоки, планируйте бюджет и растите свой капитал на любой платформе.
               </motion.p>
               
               <motion.div variants={fadeUpVariants} className="flex flex-wrap items-center justify-center gap-6">
@@ -180,10 +180,7 @@ export default function App() {
                 transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute -bottom-10 -left-10 md:left-0 w-[180px] md:w-[280px] aspect-[9/19] glass-panel border-white/30 shadow-[0_40px_80px_-20px_rgba(0,0,0,1)] z-40 rounded-[32px] md:rounded-[56px] p-2 md:p-3 overflow-hidden"
               >
-                <div className="w-full h-full rounded-[26px] md:rounded-[48px] overflow-hidden relative">
-                  <div className="absolute top-0 inset-x-0 h-6 md:h-8 bg-black z-30 flex justify-center items-end pb-1 md:pb-2">
-                    <div className="w-16 md:w-24 h-3 md:h-4 bg-white/10 rounded-full" />
-                  </div>
+                <div className="w-full h-full rounded-[24px] md:rounded-[36px] overflow-hidden relative bg-black border border-white/5">
                   <img src={ASSETS.mobileDashboard} alt="Mobile App" className="w-full h-full object-cover" />
                 </div>
               </motion.div>
@@ -197,7 +194,9 @@ export default function App() {
                 transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                 className="absolute top-20 -right-5 md:right-10 w-[140px] md:w-[220px] aspect-[9/19] glass-panel border-white/10 shadow-2xl z-20 rounded-[24px] md:rounded-[40px] p-2 overflow-hidden opacity-60 blur-[0.5px] group-hover:opacity-100 group-hover:blur-0 transition-all duration-700"
               >
-                <img src={ASSETS.mobileMonth} alt="Analytics" className="w-full h-full object-cover rounded-[20px] md:rounded-[34px]" />
+                <div className="w-full h-full rounded-[16px] md:rounded-[32px] overflow-hidden relative bg-black border border-white/5">
+                  <img src={ASSETS.mobileMonth} alt="Analytics" className="w-full h-full object-cover" />
+                </div>
               </motion.div>
 
               {/* Professional Widget: Performance */}
@@ -609,9 +608,9 @@ export default function App() {
                       y: downloadY3,
                       rotate: -5
                     }}
-                    className="absolute -bottom-10 -left-10 w-1/3 aspect-[9/19] glass-panel border-white/30 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)] rounded-[32px] md:rounded-[48px] overflow-hidden z-20 p-1.5"
+                    className="absolute -bottom-10 -left-10 w-1/3 aspect-[9/19] glass-panel border-white/30 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)] rounded-[24px] md:rounded-[40px] overflow-hidden z-20 p-2 md:p-3"
                   >
-                    <div className="w-full h-full rounded-[28px] md:rounded-[42px] overflow-hidden">
+                    <div className="w-full h-full rounded-[16px] md:rounded-[10px] overflow-hidden relative bg-black border border-white/5">
                       <img src={ASSETS.mobileDashboard} alt="Mobile App" className="w-full h-full object-cover" />
                     </div>
                   </motion.div>
@@ -620,9 +619,11 @@ export default function App() {
                   <motion.div
                     animate={{ y: [0, -30, 0] }}
                     transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute -top-16 right-0 w-1/4 aspect-[9/19] glass-panel border-white/10 shadow-xl rounded-2xl overflow-hidden z-30 opacity-80 blur-[0.5px] hover:blur-0 hover:opacity-100 transition-all"
+                    className="absolute -top-16 right-0 w-1/4 aspect-[9/19] glass-panel border-white/10 shadow-xl rounded-[24px] z-30 opacity-80 blur-[0.5px] hover:blur-0 hover:opacity-100 transition-all p-1.5"
                   >
-                    <img src={ASSETS.mobileMonth} alt="Mobile Month" className="w-full h-full object-cover" />
+                    <div className="w-full h-full rounded-[16px] overflow-hidden relative bg-black border border-white/5">
+                      <img src={ASSETS.mobileMonth} alt="Mobile Month" className="w-full h-full object-cover" />
+                    </div>
                   </motion.div>
                 </div>
               </motion.div>
