@@ -90,12 +90,32 @@ class AuthViewModel(
                     }
                 tokenStorage.userId = user.id.toLong()
                 _state.value = _state.value.copy(user = user, isLoading = false, isAuthenticated = true, error = null)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 val currentInfoMessage = _state.value.infoMessage
-                if (tokenStorage.accessToken != null || tokenStorage.refreshToken != null) {
-                    tokenStorage.clear()
+                
+                // Only clear token if it's explicitly an Auth error (401/403)
+                // If it's a network error or other issue, keep the token so we can try again
+                var shouldLogout = false
+                if (e is ApiException) {
+                    if (e.statusCode == 401 || e.statusCode == 403) {
+                        shouldLogout = true
+                    }
                 }
-                updateLoggedOutState(infoMessage = currentInfoMessage)
+                
+                if (shouldLogout) {
+                    if (tokenStorage.accessToken != null || tokenStorage.refreshToken != null) {
+                        tokenStorage.clear()
+                    }
+                    updateLoggedOutState(infoMessage = currentInfoMessage)
+                } else {
+                    // For network errors, we stay in "loading" or show error but don't logout
+                    // Use cached user if available (not available here usually, but we keep the session)
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        error = Strings.CONNECTION_ERROR, // Or specific error
+                        isAuthenticated = true // Assume authenticated if we have tokens, even if check failed
+                    )
+                }
             }
         }
     }

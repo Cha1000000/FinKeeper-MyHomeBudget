@@ -93,13 +93,24 @@ api.interceptors.response.use(
 
                 originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
                 return api(originalRequest);
-            } catch (refreshError) {
-                processQueue(refreshError, null);
-                setAuthNotice('session-expired');
-                clearToken();
-                if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new Event(AUTH_LOGOUT_REQUIRED_EVENT));
+            } catch (refreshError: unknown) {
+                const axiosError = refreshError as AxiosError;
+                const status = axiosError.response?.status;
+                
+                // Only force logout if the refresh token is invalid (401) or forbidden (403)
+                // Network errors or 5xx server errors should NOT log the user out
+                if (status === 401 || status === 403) {
+                    processQueue(refreshError, null);
+                    setAuthNotice('session-expired');
+                    clearToken();
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new Event(AUTH_LOGOUT_REQUIRED_EVENT));
+                    }
+                } else {
+                    // For other errors (network, 500), just fail the request but keep the session
+                    processQueue(refreshError, null);
                 }
+                
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;

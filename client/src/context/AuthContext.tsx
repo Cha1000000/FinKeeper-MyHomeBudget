@@ -57,10 +57,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const me = await getMe();
               setUser(me.data);
             }
-          } catch (refreshError) {
+          } catch (refreshError: any) {
             console.error("Auth refresh after auth check failed", refreshError);
-            clearToken();
-            setUser(null);
+            // Only clear token if it's an auth error (401/403)
+            // Network errors or server errors should keep the user "logged in" locally
+            // so they can retry later
+            const status = refreshError.response?.status;
+            if (status === 401 || status === 403) {
+                clearToken();
+                setUser(null);
+            }
+            // If it's a network error, we leave the token in place.
+            // The user will see a loading state or error state elsewhere, but won't be logged out.
           }
         }
       } else {
@@ -72,10 +80,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const me = await getMe();
             setUser(me.data);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Auth refresh bootstrap failed", error);
-          clearToken();
-          setUser(null);
+          // Only clear token if it's an auth error
+          const status = error.response?.status;
+          if (status === 401 || status === 403) {
+            clearToken();
+            setUser(null);
+          }
         }
       }
       setIsLoading(false);

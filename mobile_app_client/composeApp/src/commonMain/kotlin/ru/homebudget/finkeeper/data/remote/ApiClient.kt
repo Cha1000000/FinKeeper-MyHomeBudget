@@ -127,8 +127,14 @@ class ApiClient(
 
             try {
                 refreshAuth().accessToken
+            } catch (e: ApiException) {
+                // Only clear session on auth errors (401/403)
+                if (e.statusCode == 401 || e.statusCode == 403) {
+                    tokenStorage.clear(AuthSessionEvent.SessionExpired)
+                }
+                null
             } catch (_: Exception) {
-                tokenStorage.clear(AuthSessionEvent.SessionExpired)
+                // Do not clear session on network errors or other exceptions
                 null
             }
         }

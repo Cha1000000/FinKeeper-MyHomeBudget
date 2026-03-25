@@ -10,7 +10,11 @@ const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(() => shouldRememberSession());
+  const [rememberMe, setRememberMe] = useState(() => {
+    // Default to true if no preference is saved, otherwise use saved preference
+    const shouldRemember = shouldRememberSession();
+    return shouldRemember || localStorage.getItem('remember_me') === null;
+  });
   const [error, setError] = useState('');
   const [authNotice, setAuthNotice] = useState(() => {
     const notice = getAuthNotice();

@@ -278,7 +278,8 @@ data class TrendItem(
 @Serializable
 data class LoginRequest(
     val username: String,
-    val password: String
+    val password: String,
+    val rememberMe: Boolean = true,
 )
 
 @Serializable
