@@ -101,7 +101,7 @@ export default function App() {
             <div className="w-8 h-8 rounded-lg bg-emerald-base flex items-center justify-center">
               <Wallet className="text-main-bg" size={18} fill="currentColor" />
             </div>
-            <span className="font-display font-semibold text-xl tracking-tight">FinKeeper</span>
+            <span className="font-display font-semibold text-xl tracking-tight">FinKeeper: Моя домашняя бухгалтерия</span>
           </div>
           <a href="#download" className="hidden sm:inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/5 backdrop-blur-md transition-all font-display font-medium text-sm">
             Скачать приложение
@@ -140,7 +140,7 @@ export default function App() {
               
               <motion.div variants={fadeUpVariants} className="flex flex-wrap items-center justify-center gap-6">
                 <a href="http://217.114.8.82:3002/" target="_blank" rel="noopener noreferrer" className="px-10 py-5 rounded-2xl bg-emerald-base text-main-bg font-display font-bold hover:bg-emerald-400 transition-all shadow-[0_20px_40px_-10px_rgba(16,185,129,0.3)] hover:-translate-y-1 flex items-center gap-3">
-                  Начать бесплатный период <ArrowUpRight size={22} />
+                  Начать планирование бюджета <ArrowUpRight size={22} />
                 </a>
                 <a href="#download" className="px-10 py-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all font-display font-medium flex items-center gap-3 backdrop-blur-md">
                   Загрузить приложение <Download size={22} />
