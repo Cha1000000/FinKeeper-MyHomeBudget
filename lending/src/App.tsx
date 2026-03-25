@@ -1,18 +1,15 @@
-import React from 'react'
+import type { ReactNode } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import type { Variants } from 'framer-motion'
+import type { LucideIcon } from 'lucide-react'
 import { Wallet, PieChart, ShieldCheck, Download, Smartphone, Monitor, ChevronRight, Activity, ArrowUpRight, ArrowDownRight, Target, Globe, Lock, Zap } from 'lucide-react'
 
 // Mock Assets (User should place real screenshots in src/assets/)
 const ASSETS = {
   webDashboard: '/src/assets/web-dashboard-dark.png',
-  webDashboardLight: '/src/assets/web-dashboard.png',
   mobileDashboard: '/src/assets/mobile-dashboard-1.png',
-  mobileDashboard2: '/src/assets/mobile-dashboard-2.png',
-  mobileLogin: '/src/assets/mobile-login-light.png',
   desktopApp: '/src/assets/desktop-dashboard.png',
   mobileMonth: '/src/assets/mobile-mont-dark.png',
-  mobileMonth2: '/src/assets/mobile-mont-dark-2.png',
 };
 
 // Animations
@@ -29,7 +26,7 @@ const staggerContainer: Variants = {
   }
 }
 
-const BentoCard = ({ children, className = "", span = "col-span-1" }: { children: React.ReactNode, className?: string, span?: string }) => (
+const BentoCard = ({ children, className = "", span = "col-span-1" }: { children: ReactNode; className?: string; span?: string }) => (
   <motion.div 
     variants={fadeUpVariants}
     whileHover={{ y: -6, transition: { duration: 0.3, ease: 'easeOut' } }}
@@ -43,13 +40,13 @@ const BentoCard = ({ children, className = "", span = "col-span-1" }: { children
   </motion.div>
 );
 
-const FeatureIcon = ({ icon: Icon, color = "text-emerald-base" }: { icon: any, color?: string }) => (
+const FeatureIcon = ({ icon: Icon, color = "text-emerald-base" }: { icon: LucideIcon; color?: string }) => (
     <div className={`w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 ${color} shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3`}>
     <Icon size={24} strokeWidth={1.5} />
   </div>
 );
 
-const PlatformLink = ({ icon: Icon, title, desc, url, primary = false }: { icon: any, title: string, desc: string, url: string, primary?: boolean }) => (
+const PlatformLink = ({ icon: Icon, title, desc, url, primary = false }: { icon: LucideIcon; title: string; desc: string; url: string; primary?: boolean }) => (
   <motion.a 
     href={url}
     target="_blank"
@@ -90,7 +87,7 @@ export default function App() {
       {/* Background Orbs */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <motion.div style={{ y: y1 }} className="absolute -top-[20%] -left-[10%] w-[50vw] h-[50vw] rounded-full bg-emerald-glow/20 blur-[120px] mix-blend-screen opacity-50 animate-pulse-slow" />
-        <motion.div style={{ y: y2, animationDelay: '-4s' }} className="absolute top-[40%] -right-[20%] w-[60vw] h-[60vw] rounded-full bg-blue-900/20 blur-[150px] mix-blend-screen opacity-40 animate-pulse-slow" />
+        <motion.div style={{ y: y2 }} className="absolute top-[40%] -right-[20%] w-[60vw] h-[60vw] rounded-full bg-blue-900/20 blur-[150px] mix-blend-screen opacity-40 animate-pulse-slow" />
         <div className="absolute -bottom-[20%] left-[20%] w-[40vw] h-[40vw] rounded-full bg-emerald-base/10 blur-[100px] mix-blend-screen opacity-30" />
       </div>
 
@@ -635,7 +632,7 @@ export default function App() {
       </main>
 
       <footer className="py-10 px-6 mt-10 border-t border-white/10 text-center relative z-10">
-        <p className="text-slate-text/70 text-sm font-mono text-white">&copy; {new Date().getFullYear()} FinKeeper: Моя домашняя бухгалтерия. Все права защищены.</p>
+        <p className="text-slate-text/70 text-sm font-mono">&copy; {new Date().getFullYear()} FinKeeper: Моя домашняя бухгалтерия. Все права защищены.</p>
       </footer>
     </div>
   )

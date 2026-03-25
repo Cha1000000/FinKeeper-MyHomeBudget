@@ -80,10 +80,4 @@
     text-shadow: 0 0 30px rgba(16, 185, 129, 0.4), 0 0 10px rgba(16, 185, 129, 0.2);
   }
 
-  .bento-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: minmax(160px, auto);
-    gap: 1.5rem;
-  }
 }
