@@ -44,6 +44,25 @@ const isTokenUsable = (token: string | null): token is string => {
     }
 };
 
+export const getTokenExpiryMs = (): number | null => {
+    const token = getToken();
+    if (!token) return null;
+
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const payloadJson = decodeBase64Url(parts[1]);
+    if (!payloadJson) return null;
+
+    try {
+        const payload = JSON.parse(payloadJson) as { exp?: number };
+        if (typeof payload.exp !== 'number') return null;
+        return payload.exp * 1000 - Date.now();
+    } catch {
+        return null;
+    }
+};
+
 const getSessionStorage = (): Storage | null => {
     if (typeof window === 'undefined') {
         return null;

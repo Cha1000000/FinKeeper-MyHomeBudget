@@ -8,6 +8,7 @@ import {
   AUTH_LOGOUT_REQUIRED_EVENT,
   clearToken,
   getToken,
+  getTokenExpiryMs,
   setRememberSession,
   setToken,
   shouldRememberSession,
@@ -40,61 +41,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return saved ? JSON.parse(saved) : { autoCollapseSidebar: false, theme: 'light' };
   });
 
+  const scheduleProactiveRefresh = useCallback(() => {
+    const remainingMs = getTokenExpiryMs();
+    if (!remainingMs || remainingMs <= 0 || !shouldRememberSession()) return;
+    const refreshAt = Math.max(remainingMs * 0.8, remainingMs - 60 * 60 * 1000);
+    if (refreshAt <= 0) return;
+    const timerId = window.setTimeout(async () => {
+      try {
+        await refreshRememberedSession();
+        scheduleProactiveRefresh();
+      } catch (e) {
+        console.warn('Proactive token refresh failed, will retry in 5 min', e);
+        window.setTimeout(() => scheduleProactiveRefresh(), 5 * 60 * 1000);
+      }
+    }, refreshAt);
+    return timerId;
+  }, []);
+
   useEffect(() => {
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const tryRefreshSession = async (): Promise<boolean> => {
+      try {
+        const data = await refreshRememberedSession();
+        if (data?.user) {
+          setUser(data.user);
+        } else {
+          const me = await getMe();
+          setUser(me.data);
+        }
+        return true;
+      } catch (error: any) {
+        const status = error.response?.status;
+        if (status === 401 || status === 403) {
+          clearToken();
+          setUser(null);
+          return true;
+        }
+        return false;
+      }
+    };
+
     const checkAuth = async () => {
       const token = getToken();
       if (token) {
         try {
           const { data } = await getMe();
           setUser(data);
-        } catch (error) {
+          setIsLoading(false);
+          scheduleProactiveRefresh();
+          return;
+        } catch (error: any) {
           console.error("Auth check failed", error);
-          try {
-            const data = await refreshRememberedSession();
-            if (data?.user) {
-              setUser(data.user);
-            } else {
-              const me = await getMe();
-              setUser(me.data);
-            }
-          } catch (refreshError: any) {
-            console.error("Auth refresh after auth check failed", refreshError);
-            // Only clear token if it's an auth error (401/403)
-            // Network errors or server errors should keep the user "logged in" locally
-            // so they can retry later
-            const status = refreshError.response?.status;
-            if (status === 401 || status === 403) {
-                clearToken();
-                setUser(null);
-            }
-            // If it's a network error, we leave the token in place.
-            // The user will see a loading state or error state elsewhere, but won't be logged out.
+          const resolved = await tryRefreshSession();
+          if (resolved) {
+            setIsLoading(false);
+            scheduleProactiveRefresh();
+            return;
           }
+        }
+      } else if (shouldRememberSession()) {
+        const resolved = await tryRefreshSession();
+        if (resolved) {
+          setIsLoading(false);
+          scheduleProactiveRefresh();
+          return;
         }
       } else {
-        try {
-          const data = await refreshRememberedSession();
-          if (data?.user) {
-            setUser(data.user);
-          } else {
-            const me = await getMe();
-            setUser(me.data);
-          }
-        } catch (error: any) {
-          console.error("Auth refresh bootstrap failed", error);
-          // Only clear token if it's an auth error
-          const status = error.response?.status;
-          if (status === 401 || status === 403) {
-            clearToken();
-            setUser(null);
-          }
-        }
+        setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
+      console.warn('Auth check failed due to network error, retrying in 3s...');
+      retryTimer = setTimeout(() => checkAuth(), 3000);
     };
 
     checkAuth();
-  }, []);
+
+    return () => {
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [scheduleProactiveRefresh]);
 
   useEffect(() => {
     const handleLogoutRequired = () => {
