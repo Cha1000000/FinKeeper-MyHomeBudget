@@ -3,13 +3,16 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { Wallet, PieChart, ShieldCheck, Download, Smartphone, Monitor, ChevronRight, Activity, ArrowUpRight, ArrowDownRight, Target, Globe, Lock, Zap } from 'lucide-react'
+import imgWebDashboard from './assets/web-dashboard-dark.png'
+import imgMobileDashboard from './assets/mobile-dashboard-1.png'
+import imgDesktopApp from './assets/desktop-dashboard.png'
+import imgMobileMonth from './assets/mobile-mont-dark.png'
 
-// Mock Assets (User should place real screenshots in src/assets/)
 const ASSETS = {
-  webDashboard: '/src/assets/web-dashboard-dark.png',
-  mobileDashboard: '/src/assets/mobile-dashboard-1.png',
-  desktopApp: '/src/assets/desktop-dashboard.png',
-  mobileMonth: '/src/assets/mobile-mont-dark.png',
+  webDashboard: imgWebDashboard,
+  mobileDashboard: imgMobileDashboard,
+  desktopApp: imgDesktopApp,
+  mobileMonth: imgMobileMonth,
 };
 
 // Animations
