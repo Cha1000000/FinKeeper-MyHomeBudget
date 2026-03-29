@@ -48,8 +48,8 @@ nohup npm run dev -- --host 0.0.0.0 --port 5174 > frontend.log 2>&1 &
 
 echo ""
 echo "✅ Приложение запущено!"
-echo "   Frontend: http://217.114.8.82:5174"
-echo "   Backend:  http://217.114.8.82:3002"
+echo "   Frontend: http://157.22.172.217:5174"
+echo "   Backend:  http://157.22.172.217:3002"
 echo ""
 echo "⚠️ ВНИМАНИЕ: Это режим для разработки. Для реального использования соберите проект командой 'npm run start:prod'."
 echo ""
