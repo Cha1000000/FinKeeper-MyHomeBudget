@@ -101,7 +101,7 @@ export default function App() {
             <div className="w-8 h-8 rounded-lg bg-emerald-base flex items-center justify-center">
               <Wallet className="text-main-bg" size={18} fill="currentColor" />
             </div>
-            <span className="font-display font-semibold text-xl tracking-tight">FinKeeper: Моя домашняя бухгалтерия</span>
+            <span className="font-display font-semibold text-xl tracking-tight">FinKeeper24: Моя домашняя бухгалтерия</span>
           </div>
           <a href="#download" className="hidden sm:inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/5 backdrop-blur-md transition-all font-display font-medium text-sm">
             Скачать приложение
@@ -532,7 +532,7 @@ export default function App() {
                   <span className="text-emerald-base text-glow">на любом устройстве.</span>
                 </motion.h2>
                 <motion.p variants={fadeUpVariants} className="text-slate-text text-xl mb-12 font-light leading-relaxed text-center lg:text-left max-w-xl mx-auto lg:mx-0">
-                  Мы создали FinKeeper так, чтобы он был доступен везде. Ваша бухгалтерия синхронизируется мгновенно между всеми вашими устройствами.
+                  Мы создали FinKeeper24 так, чтобы он был доступен везде. Ваша бухгалтерия синхронизируется мгновенно между всеми вашими устройствами.
                 </motion.p>
                 
                 <motion.div variants={staggerContainer} className="space-y-4">
@@ -636,7 +636,7 @@ export default function App() {
       </main>
 
       <footer className="py-10 px-6 mt-10 border-t border-white/10 text-center relative z-10">
-        <p className="text-slate-text/70 text-sm font-mono">&copy; {new Date().getFullYear()} FinKeeper: Моя домашняя бухгалтерия. Все права защищены.</p>
+        <p className="text-slate-text/70 text-sm font-mono">&copy; {new Date().getFullYear()} FinKeeper24: Моя домашняя бухгалтерия. Все права защищены.</p>
       </footer>
     </div>
   )

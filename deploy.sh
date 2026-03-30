@@ -34,7 +34,7 @@ echo "==> Обновление зависимостей root"
 npm install
 
 echo "==> Обновление зависимостей client"
-npm install --prefix "$PROJECT_ROOT/client"
+npm install --include=dev --prefix "$PROJECT_ROOT/client"
 
 echo "==> Обновление зависимостей server"
 npm install --prefix "$PROJECT_ROOT/server"

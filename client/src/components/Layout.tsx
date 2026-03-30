@@ -205,7 +205,7 @@ const Layout: React.FC = () => {
                             <Wallet className="w-6 h-6 text-white" />
                         )}
                     </button>
-                    {!isCollapsed && <h1 className="text-xl font-bold tracking-tight text-white drop-shadow-sm">FinKeeper</h1>}
+                    {!isCollapsed && <h1 className="text-xl font-bold tracking-tight text-white drop-shadow-sm">FinKeeper24</h1>}
                 </div>
 
                 <nav className={classNames("flex-1 p-4 space-y-2 mt-2", isCollapsed ? "justify-center" : "")}>

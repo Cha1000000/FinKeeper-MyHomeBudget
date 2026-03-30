@@ -149,11 +149,11 @@ const Login: React.FC = () => {
         <div className="flex flex-col items-center">
             {/* Logo */}
             <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-full mb-4 shadow-inner transition-colors">
-                <img src="/purse.svg" alt="FinKeeper Logo" className="h-12 w-12" />
+                <img src="/purse.svg" alt="FinKeeper24 Logo" className="h-12 w-12" />
             </div>
             
             {/* App Name */}
-            <h1 className="text-3xl font-bold text-[var(--color-primary)] dark:text-emerald-400 tracking-tight transition-colors">FinKeeper</h1>
+            <h1 className="text-3xl font-bold text-[var(--color-primary)] dark:text-emerald-400 tracking-tight transition-colors">FinKeeper24</h1>
             
             <h2 className="mt-2 text-center text-lg font-medium text-gray-500 dark:text-[var(--color-text-muted)] transition-colors">
                 {isLogin ? 'Вход в систему' : 'Создание аккаунта'}

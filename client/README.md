@@ -1,6 +1,6 @@
-# FinKeeper Web Client
+# FinKeeper24 Web Client
 
-Веб-клиент FinKeeper для домашней бухгалтерии.
+Веб-клиент FinKeeper24 для домашней бухгалтерии.
 
 ## Стек
 
