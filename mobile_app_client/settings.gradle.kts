@@ -1,4 +1,4 @@
-rootProject.name = "FinKeeper"
+rootProject.name = "FinKeeper24"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {

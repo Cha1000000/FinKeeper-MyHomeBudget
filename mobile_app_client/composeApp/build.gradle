@@ -210,7 +210,7 @@ android {
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
             def outputFile = output.outputFileName
-            output.outputFileName = "FinKeeper-mobileApp-v${versionName}-${variant.name}.apk"
+            output.outputFileName = "FinKeeper24-mobileApp-v${versionName}-${variant.name}.apk"
         }
     }
 }
@@ -229,7 +229,7 @@ def buildConfigDefaultServerUrlProvider = providers
 def buildConfigShowServerSettingsProvider = providers
     .gradleProperty("SHOW_SERVER_SETTINGS")
     .orElse(providers.environmentVariable("SHOW_SERVER_SETTINGS"))
-def defaultServerUrlStr = buildConfigDefaultServerUrlProvider.getOrElse("http://217.114.8.82:3002").trim()
+def defaultServerUrlStr = buildConfigDefaultServerUrlProvider.getOrElse("https://app.finkeeper24.ru").trim()
 def showServerSettingsStr = buildConfigShowServerSettingsProvider.getOrElse((!isReleaseLikeBuild).toString())
 
 tasks.register('generateBuildConfig') {
@@ -295,23 +295,23 @@ compose.desktop {
 
             modules("java.instrument", "java.management", "java.prefs", "java.sql", "jdk.unsupported")
 
-            packageName = "FinKeeper"
+            packageName = "FinKeeper24"
             packageVersion = app_version
 
             macOS {
                 iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
                 bundleID = "ru.homebudget.finkeeper"
-                packageName = "FinKeeper"
-                dockName = "FinKeeper"
+                packageName = "FinKeeper24"
+                dockName = "FinKeeper24"
             }
 
             windows {
                 iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
-                packageName = "FinKeeper"
-                description = "FinKeeper - Personal Finance Manager"
+                packageName = "FinKeeper24"
+                description = "FinKeeper24 - Personal Finance Manager"
                 vendor = "HomeBudget"
                 shortcut = true
-                menuGroup = "FinKeeper"
+                menuGroup = "FinKeeper24"
                 upgradeUuid = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
             }
 

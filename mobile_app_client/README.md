@@ -1,6 +1,6 @@
-# FinKeeper — Mobile / Desktop Client
+# FinKeeper24 — Mobile / Desktop Client
 
-Kotlin Multiplatform клиент FinKeeper для Android, iOS и desktop-платформ.
+Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-платформ.
 
 ## Назначение
 

@@ -29,7 +29,7 @@ object Strings {
     const val NEW_SOURCE = "Новый источник"
 
     // === Экран входа (Login) ===
-    const val APP_TITLE = "FinKeeper"
+    const val APP_TITLE = "FinKeeper24"
     const val APP_SUBTITLE = "Домашняя бухгалтерия"
     const val LOGIN_TITLE = "Вход"
     const val REGISTER_TITLE = "Регистрация"

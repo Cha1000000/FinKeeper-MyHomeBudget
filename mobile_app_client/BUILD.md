@@ -1,4 +1,4 @@
-# FinKeeper KMP — Сборка и запуск
+# FinKeeper24 KMP — Сборка и запуск
 
 Kotlin Multiplatform проект с поддержкой Android, iOS, macOS, Windows и Linux.
 
@@ -88,19 +88,19 @@ adb shell am start -n ru.homebudget.finkeeper/.MainActivity
 ```bash
 ./gradlew :composeApp:createDistributable
 ```
-Результат: `composeApp/build/compose/binaries/main/app/FinKeeper.app`
+Результат: `composeApp/build/compose/binaries/main/app/FinKeeper24.app`
 
 ### Сборка DMG-образа
 ```bash
 ./gradlew :composeApp:packageDmg
 ```
-Результат: `composeApp/build/compose/binaries/main/dmg/FinKeeper-1.1.0.dmg`
+Результат: `composeApp/build/compose/binaries/main/dmg/FinKeeper24-1.1.0.dmg`
 
 ### Сборка PKG-установщика
 ```bash
 ./gradlew :composeApp:packagePkg
 ```
-Результат: `composeApp/build/compose/binaries/main/pkg/FinKeeper-1.1.0.pkg`
+Результат: `composeApp/build/compose/binaries/main/pkg/FinKeeper24-1.1.0.pkg`
 
 ---
 
@@ -115,13 +115,13 @@ adb shell am start -n ru.homebudget.finkeeper/.MainActivity
 ```bash
 ./gradlew :composeApp:createDistributable
 ```
-Результат: `composeApp/build/compose/binaries/main/app/FinKeeper/`
+Результат: `composeApp/build/compose/binaries/main/app/FinKeeper24/`
 
 ### Сборка MSI-установщика
 ```bash
 ./gradlew :composeApp:packageMsi
 ```
-Результат: `composeApp/build/compose/binaries/main/msi/FinKeeper-1.1.0.msi`
+Результат: `composeApp/build/compose/binaries/main/msi/FinKeeper24-1.1.0.msi`
 
 > **Примечание:** Для сборки MSI необходим [WiX Toolset](https://wixtoolset.org/).
 
@@ -129,7 +129,7 @@ adb shell am start -n ru.homebudget.finkeeper/.MainActivity
 ```bash
 ./gradlew :composeApp:packageExe
 ```
-Результат: `composeApp/build/compose/binaries/main/exe/FinKeeper-1.1.0.exe`
+Результат: `composeApp/build/compose/binaries/main/exe/FinKeeper24-1.1.0.exe`
 
 ---
 
@@ -144,13 +144,13 @@ adb shell am start -n ru.homebudget.finkeeper/.MainActivity
 ```bash
 ./gradlew :composeApp:createDistributable
 ```
-Результат: `composeApp/build/compose/binaries/main/app/FinKeeper/`
+Результат: `composeApp/build/compose/binaries/main/app/FinKeeper24/`
 
 ### Сборка DEB-пакета
 ```bash
 ./gradlew :composeApp:packageDeb
 ```
-Результат: `composeApp/build/compose/binaries/main/deb/finkeeper_1.1.0-1_amd64.deb`
+Результат: `composeApp/build/compose/binaries/main/deb/finkeeper24_1.1.0-1_amd64.deb`
 
 ### Сборка RPM-пакета
 ```bash

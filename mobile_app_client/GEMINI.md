@@ -1,6 +1,6 @@
-# FinKeeper Mobile Client (KMP)
+# FinKeeper24 Mobile Client (KMP)
 
-This directory contains the **FinKeeper** mobile application, built using **Kotlin Multiplatform (KMP)** and **Compose Multiplatform**. It serves as a mobile client for the FinKeeper backend (Express + SQLite).
+This directory contains the **FinKeeper24** mobile application, built using **Kotlin Multiplatform (KMP)** and **Compose Multiplatform**. It serves as a mobile client for the FinKeeper24 backend (Express + SQLite).
 
 ## Role Routing Rules
 
@@ -11,7 +11,7 @@ If the user explicitly asks for a role or names specific skills, that explicit i
 
 ## Project Overview
 
-FinKeeper is a personal finance management application that allows users to track incomes, expenses, budgets, and savings goals. The mobile client aims to replicate the full functionality of the web client in a native mobile environment.
+FinKeeper24 is a personal finance management application that allows users to track incomes, expenses, budgets, and savings goals. The mobile client aims to replicate the full functionality of the web client in a native mobile environment.
 
 ### Tech Stack
 - **Language:** Kotlin 2.3.0

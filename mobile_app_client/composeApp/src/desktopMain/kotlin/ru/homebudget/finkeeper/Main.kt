@@ -68,7 +68,7 @@ private fun saveWindowState(
 }
 
 /**
- * Desktop entry point for FinKeeper application
+ * Desktop entry point for FinKeeper24 application
  * Supports macOS, Windows, and Linux
  */
 fun main() {
@@ -101,7 +101,7 @@ fun main() {
         modules(appModule, desktopAppModule)
     }
 
-    // Start sync services (same as Android's FinKeeperApp)
+    // Start sync services (same as Android's FinKeeper24App)
     try {
         val syncService = GlobalContext.get().getOrNull<SyncService>()
         syncService?.start()
@@ -130,7 +130,7 @@ fun main() {
                 )
                 exitApplication()
             },
-            title = "FinKeeper",
+            title = "FinKeeper24",
             state = windowState,
             resizable = true,
             undecorated = true,

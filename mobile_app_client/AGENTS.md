@@ -1,6 +1,6 @@
-# AGENTS.md - FinKeeper Mobile Client (KMP)
+# AGENTS.md - FinKeeper24 Mobile Client (KMP)
 
-Instructions for AI agents working in the FinKeeper Kotlin Multiplatform codebase.
+Instructions for AI agents working in the FinKeeper24 Kotlin Multiplatform codebase.
 
 ## Role Routing
 

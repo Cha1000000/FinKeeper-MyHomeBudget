@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		B10E8942BCB26B9CAA78A436 /* FinKeeper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FinKeeper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10E8942BCB26B9CAA78A436 /* FinKeeper24.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FinKeeper24.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -59,7 +59,7 @@
 		B9F8BB3452E6F7A84B33F7E8 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B10E8942BCB26B9CAA78A436 /* FinKeeper.app */,
+				B10E8942BCB26B9CAA78A436 /* FinKeeper24.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,7 +87,7 @@
 			packageProductDependencies = (
 			);
 			productName = iosApp;
-			productReference = B10E8942BCB26B9CAA78A436 /* FinKeeper.app */;
+			productReference = B10E8942BCB26B9CAA78A436 /* FinKeeper24.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */

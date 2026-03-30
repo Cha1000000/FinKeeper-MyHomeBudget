@@ -4,7 +4,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -48,8 +47,8 @@ actual class NetworkMonitor {
 
     private fun checkNetworkState() {
         try {
-            // Use HTTP HEAD request to Google - more reliable than ICMP ping
-            val url = URL("http://217.114.8.82:3002/")
+            // Use HTTP HEAD request - more reliable than ICMP ping
+            val url = java.net.URI("https://app.finkeeper24.ru").toURL()
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "HEAD"
             connection.connectTimeout = 3000

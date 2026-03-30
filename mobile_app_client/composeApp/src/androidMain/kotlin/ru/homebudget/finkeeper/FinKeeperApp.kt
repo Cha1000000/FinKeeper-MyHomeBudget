@@ -11,13 +11,13 @@ import ru.homebudget.finkeeper.data.repository.WebSocketService
 import ru.homebudget.finkeeper.di.androidAppModule
 import ru.homebudget.finkeeper.di.appModule
 
-class FinKeeperApp : Application() {
+class FinKeeper24App : Application() {
     override fun onCreate() {
         super.onCreate()
 
         startKoin {
             androidLogger(Level.ERROR)
-            androidContext(this@FinKeeperApp)
+            androidContext(this@FinKeeper24App)
             modules(androidAppModule, appModule)
         }
 
@@ -30,7 +30,7 @@ class FinKeeperApp : Application() {
                 webSocketService?.start()
             } catch (e: Exception) {
                 // Игнорируем ошибки синхронизации - приложение всё равно работает
-                android.util.Log.e("FinKeeperApp", "Failed to start sync service: ${e.message}")
+                android.util.Log.e("FinKeeper24App", "Failed to start sync service: ${e.message}")
             }
         }, 500)
     }
@@ -43,7 +43,7 @@ class FinKeeperApp : Application() {
             val webSocketService = GlobalContext.get().getOrNull<WebSocketService>()
             webSocketService?.stop()
         } catch (e: Exception) {
-            android.util.Log.e("FinKeeperApp", "Failed to stop sync service: ${e.message}")
+            android.util.Log.e("FinKeeper24App", "Failed to stop sync service: ${e.message}")
         }
     }
 }

@@ -13,7 +13,7 @@ actual val isDesktop: Boolean = true
 actual fun AppLogoIcon(modifier: Modifier) {
     Image(
         painter = painterResource("icon.png"),
-        contentDescription = "FinKeeper",
+        contentDescription = "FinKeeper24",
         modifier = modifier.size(28.dp),
     )
 }
