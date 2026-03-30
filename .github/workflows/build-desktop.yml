@@ -28,17 +28,6 @@ jobs:
       working-directory: ./mobile_app_client
       run: ./gradlew :composeApp:packageMsi
     
-    - name: Build Windows EXE
-      working-directory: ./mobile_app_client
-      run: ./gradlew :composeApp:packageExe
-    
-    - name: Upload Windows EXE
-      uses: actions/upload-artifact@v4
-      with:
-        name: FinKeeper-Setup-EXE
-        path: mobile_app_client/composeApp/build/compose/binaries/main/exe/*.exe
-        retention-days: 3
-    
     - name: Upload Windows MSI
       uses: actions/upload-artifact@v4
       with:
