@@ -95,7 +95,7 @@ jobs:
     
     - name: Build Linux App
       working-directory: ./mobile_app_client
-      run: ./gradlew :composeApp:packageDistributionForCurrentOS
+      run: ./gradlew :composeApp:createDistributable
     
     - name: Build Linux DEB
       working-directory: ./mobile_app_client
