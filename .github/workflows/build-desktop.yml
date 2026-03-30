@@ -70,3 +70,55 @@ jobs:
       with:
         name: FinKeeper-macOS
         path: mobile_app_client/composeApp/build/compose/binaries/main/app/FinKeeper.app
+
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'jetbrains'
+    
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: 8.14.3
+    
+    - name: Install Linux packaging tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y rpm fakeroot
+    
+    - name: Build Linux App
+      working-directory: ./mobile_app_client
+      run: ./gradlew :composeApp:packageDistributionForCurrentOS
+    
+    - name: Build Linux DEB
+      working-directory: ./mobile_app_client
+      run: ./gradlew :composeApp:packageDeb
+    
+    - name: Build Linux RPM
+      working-directory: ./mobile_app_client
+      run: ./gradlew :composeApp:packageRpm
+    
+    - name: Upload Linux App
+      uses: actions/upload-artifact@v4
+      with:
+        name: FinKeeper-Linux-App
+        path: mobile_app_client/composeApp/build/compose/binaries/main/app/**
+    
+    - name: Upload Linux DEB
+      uses: actions/upload-artifact@v4
+      with:
+        name: FinKeeper-Linux-DEB
+        path: mobile_app_client/composeApp/build/compose/binaries/main/deb/*.deb
+    
+    - name: Upload Linux RPM
+      uses: actions/upload-artifact@v4
+      with:
+        name: FinKeeper-Linux-RPM
+        path: mobile_app_client/composeApp/build/compose/binaries/main/rpm/*.rpm

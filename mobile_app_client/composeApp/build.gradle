@@ -317,7 +317,7 @@ compose.desktop {
 
             linux {
                 iconFile.set(project.file("src/desktopMain/resources/icon.png"))
-                packageName = "finkeeper"
+                packageName = "FinKeeper24"
                 debMaintainer = "finkeeper@homebudget.ru"
                 appCategory = "Office"
             }
