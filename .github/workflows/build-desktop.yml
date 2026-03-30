@@ -37,12 +37,14 @@ jobs:
       with:
         name: FinKeeper-Setup-EXE
         path: mobile_app_client/composeApp/build/compose/binaries/main/exe/*.exe
+        retention-days: 3
     
     - name: Upload Windows MSI
       uses: actions/upload-artifact@v4
       with:
         name: FinKeeper-Setup-MSI
         path: mobile_app_client/composeApp/build/compose/binaries/main/msi/*.msi
+        retention-days: 3
 
   build-macos:
     runs-on: macos-latest
@@ -70,6 +72,7 @@ jobs:
       with:
         name: FinKeeper-macOS
         path: mobile_app_client/composeApp/build/compose/binaries/main/app/FinKeeper.app
+        retention-days: 3
 
   build-linux:
     runs-on: ubuntu-latest
@@ -105,20 +108,16 @@ jobs:
       working-directory: ./mobile_app_client
       run: ./gradlew :composeApp:packageRpm
     
-    - name: Upload Linux App
-      uses: actions/upload-artifact@v4
-      with:
-        name: FinKeeper-Linux-App
-        path: mobile_app_client/composeApp/build/compose/binaries/main/app/**
-    
     - name: Upload Linux DEB
       uses: actions/upload-artifact@v4
       with:
         name: FinKeeper-Linux-DEB
         path: mobile_app_client/composeApp/build/compose/binaries/main/deb/*.deb
-    
+        retention-days: 3
+
     - name: Upload Linux RPM
       uses: actions/upload-artifact@v4
       with:
         name: FinKeeper-Linux-RPM
         path: mobile_app_client/composeApp/build/compose/binaries/main/rpm/*.rpm
+        retention-days: 3
