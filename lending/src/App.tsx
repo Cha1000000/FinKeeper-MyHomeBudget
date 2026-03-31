@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
-import { Wallet, PieChart, ShieldCheck, Download, Smartphone, Monitor, ChevronRight, Activity, ArrowUpRight, ArrowDownRight, Target, Globe, Lock, Zap } from 'lucide-react'
+import { Wallet, PieChart, Activity, ArrowUpRight, ArrowDownRight, Target, Globe, Zap, Monitor, Smartphone, Download, ChevronRight, ShieldCheck, Lock } from 'lucide-react'
 import imgWebDashboard from './assets/web-dashboard-dark.png'
 import imgMobileDashboard from './assets/mobile-dashboard-1.png'
 import imgDesktopApp from './assets/desktop-dashboard.png'
@@ -54,22 +54,26 @@ const PlatformLink = ({ icon: Icon, title, desc, url, primary = false }: { icon:
     href={url}
     target="_blank"
     rel="noopener noreferrer"
-    whileHover={{ scale: 1.02 }}
+    whileHover={{ scale: 1.02, y: -4 }}
     whileTap={{ scale: 0.98 }}
-    className={`flex items-center gap-5 p-4 sm:p-5 rounded-2xl border transition-all duration-300 ${
+    className={`group flex items-center gap-5 p-4 sm:p-5 rounded-2xl border transition-all duration-500 h-full ${
       primary 
-        ? 'bg-emerald-base/10 border-emerald-base/40 hover:bg-emerald-base/20 hover:border-emerald-base/60' 
-        : 'bg-glass-bg border-glass-border hover:bg-white/10 hover:border-white/20'
+        ? 'bg-emerald-base/10 border-emerald-base/30 hover:bg-emerald-base/15 hover:border-emerald-base/50 shadow-[0_20px_40px_-15px_rgba(16,185,129,0.1)] hover:shadow-[0_30px_60px_-15px_rgba(16,185,129,0.25)]' 
+        : 'bg-glass-bg border-glass-border hover:bg-white/5 hover:border-white/20 shadow-2xl shadow-black/20 hover:shadow-emerald-base/5'
     }`}
   >
-    <div className={`p-3 rounded-xl flex-shrink-0 ${primary ? 'bg-emerald-base text-main-bg' : 'bg-white/10 text-white'}`}>
-      <Icon size={24} />
+    <div className={`p-3.5 rounded-xl flex-shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${
+      primary 
+        ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-main-bg shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
+        : 'bg-white/5 text-white border border-white/10 group-hover:border-emerald-base/30 group-hover:text-emerald-base'
+    }`}>
+      <Icon size={24} strokeWidth={primary ? 2.5 : 1.5} />
     </div>
-    <div className="flex-1">
-      <h4 className="font-display font-medium text-lg leading-tight mb-1">{title}</h4>
-      <p className="text-slate-text text-sm">{desc}</p>
+    <div className="flex-1 min-w-0">
+      <h4 className="font-display font-bold text-lg leading-tight mb-1 text-white group-hover:text-emerald-base transition-colors duration-300">{title}</h4>
+      <p className="text-slate-text/70 text-[13px] leading-snug group-hover:text-slate-text transition-colors duration-300">{desc}</p>
     </div>
-    <ChevronRight className={primary ? 'text-emerald-base' : 'text-slate-text'} size={20} />
+    <ChevronRight className={`transition-all duration-300 group-hover:translate-x-1 ${primary ? 'text-emerald-base' : 'text-slate-text/40 group-hover:text-emerald-base'}`} size={20} />
   </motion.a>
 );
 
@@ -111,7 +115,7 @@ export default function App() {
 
       <main className="relative z-10">
         {/* Hero Section */}
-        <section className="pt-32 pb-20 md:pt-40 md:pb-32 px-6 min-h-screen flex flex-col justify-center overflow-hidden relative">
+        <section className="pt-8 pb-6 md:pt-12 md:pb-8 lg:pt-14 lg:pb-10 px-6 min-h-[85vh] lg:min-h-screen flex flex-col justify-center overflow-hidden relative">
           <div className="max-w-7xl mx-auto w-full relative z-30 flex flex-col items-center text-center">
             <motion.div 
               initial="hidden"
@@ -127,15 +131,15 @@ export default function App() {
                 v2.0.0 • PRO SYSTEM
               </div>
               
-              <motion.h1 variants={fadeUpVariants} className="font-display text-5xl sm:text-7xl md:text-[90px] font-black leading-[0.9] mb-10 tracking-[-0.04em] text-white">
-                Ваши финансы. <br />
+              <motion.h1 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-[64px] font-black leading-[1.05] mb-5 md:mb-6 tracking-[-0.04em] text-white">
+                Ваши финансы <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-emerald-base to-emerald-500 text-glow">
-                  В идеальном балансе.
+                  В идеальном балансе
                 </span>
               </motion.h1>
               
-              <motion.p variants={fadeUpVariants} className="text-slate-text/90 text-lg sm:text-xl font-light leading-relaxed mb-12 max-w-2xl mx-auto">
-                Интеллектуальная экосистема учета для тех, кто ценит точность и эстетику. Анализируйте потоки, планируйте бюджет и растите свой капитал на любой платформе.
+              <motion.p variants={fadeUpVariants} className="text-slate-text/90 text-base sm:text-lg font-light leading-relaxed mb-10 max-w-2xl mx-auto">
+                Ваш надежный компаньон в мире личных финансов. Отслеживайте расходы, управляйте бюджетами и достигайте целей в стильном интерфейсе. Доступно на всех ваших устройствах с мгновенной синхронизацией.
               </motion.p>
               
               <motion.div variants={fadeUpVariants} className="flex flex-wrap items-center justify-center gap-6">
@@ -153,12 +157,12 @@ export default function App() {
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1], delay: 0.5 }}
-              className="mt-24 relative w-full max-w-6xl aspect-[16/9] perspective-2000"
+              className="mt-2 md:mt-4 lg:mt-6 relative w-full max-w-4xl lg:max-w-[950px] aspect-[16/14] md:aspect-[16/16] perspective-2000"
             >
               {/* Web Dashboard Mockup */}
               <motion.div 
                 style={{ rotateX: 10, y: useTransform(scrollY, [0, 1000], [0, 150]) }}
-                className="absolute inset-x-0 top-0 mx-auto w-[90%] aspect-video glass-panel border-white/20 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9)] overflow-hidden z-10 rounded-2xl md:rounded-3xl"
+                className="absolute inset-x-0 top-0 mx-auto w-[94%] aspect-[16/14] md:aspect-[16/16] glass-panel border-white/20 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9)] overflow-hidden z-10 rounded-2xl md:rounded-3xl"
               >
                 <div className="absolute inset-0 bg-emerald-base/5 z-0" />
                 <div className="relative z-10 p-2 md:p-4 h-full flex flex-col">
@@ -168,9 +172,8 @@ export default function App() {
                       <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-amber-500/40" />
                       <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-emerald-base/40" />
                     </div>
-                    <div className="px-3 md:px-4 py-1 rounded-full bg-white/5 border border-white/10 text-[8px] md:text-[10px] text-white/40 font-mono uppercase tracking-widest">finkeeper.app</div>
                   </div>
-                  <img src={ASSETS.webDashboard} alt="Web System" className="w-full h-full object-cover rounded-lg md:rounded-xl shadow-2xl" />
+                  <img src={ASSETS.webDashboard} alt="Web System" className="w-full h-full object-cover object-top rounded-lg md:rounded-xl shadow-2xl" />
                 </div>
               </motion.div>
 
@@ -206,18 +209,18 @@ export default function App() {
               <motion.div 
                 animate={{ y: [0, -30, 0] }}
                 transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute top-1/2 -right-10 md:-right-20 z-50 p-4 md:p-8 glass-panel border-emerald-base/40 shadow-[0_30px_60px_-15px_rgba(16,185,129,0.3)] backdrop-blur-3xl min-w-[200px] md:min-w-[280px]"
+                className="absolute top-1/2 -right-6 md:-right-12 z-50 p-4 md:p-6 glass-panel border-emerald-base/40 shadow-[0_30px_60px_-15px_rgba(16,185,129,0.3)] backdrop-blur-3xl min-w-[180px] md:min-w-[240px]"
               >
-                <div className="flex flex-col gap-4 md:gap-6">
+                <div className="flex flex-col gap-4 md:gap-5">
                   <div className="flex items-center justify-between">
-                    <div className="text-[8px] md:text-[10px] text-emerald-base uppercase tracking-[0.3em] font-mono font-black">Performance</div>
+                    <div className="text-[8px] md:text-[10px] text-emerald-base uppercase tracking-[0.3em] font-mono font-black">Эффективность</div>
                     <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-emerald-base/20 flex items-center justify-center text-emerald-base border border-emerald-base/20">
                       <Activity size={14} />
                     </div>
                   </div>
                   <div className="flex flex-col">
-                    <div className="text-2xl md:text-4xl font-display font-black text-white tracking-tighter">+12.4%</div>
-                    <div className="text-[8px] md:text-[10px] text-slate-text uppercase font-mono">Monthly Growth</div>
+                    <div className="text-2xl md:text-3xl font-display font-black text-white tracking-tighter">+12.4%</div>
+                    <div className="text-[8px] md:text-[10px] text-slate-text uppercase font-mono">Прирост за месяц</div>
                   </div>
                   <div className="flex gap-1 md:gap-2 h-4 md:h-6 items-end">
                     {[30, 60, 45, 90, 65, 80, 50, 40, 70, 55, 85, 45].map((h, i) => (
@@ -250,10 +253,10 @@ export default function App() {
               whileInView="visible"
               viewport={{ once: true, margin: "-100px" }}
               variants={staggerContainer}
-              className="text-left mb-20"
+              className="text-left mb-10"
             >
-              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-6xl font-bold mb-8 tracking-tight text-white">
-                Всё под <span className="text-emerald-base">контролем.</span>
+              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-[64px] font-bold mb-6 tracking-tight text-white">
+                Всё под <span className="text-emerald-base text-glow">контролем</span>
               </motion.h2>
               <motion.p variants={fadeUpVariants} className="text-slate-text text-xl max-w-2xl font-light">
                 Инструменты для тех, кто ценит точность и удобство. Профессиональная аналитика в интуитивном формате.
@@ -481,22 +484,10 @@ export default function App() {
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-6">
-                    <motion.div 
-                      whileHover={{ scale: 1.02 }}
-                      className="flex gap-4 p-6 glass-panel border-white/10 bg-white/5 backdrop-blur-2xl shadow-2xl"
-                    >
-                      <div className="p-4 rounded-xl bg-emerald-base/10 text-emerald-base border border-emerald-base/20">
-                        <ShieldCheck size={40} strokeWidth={1} />
-                      </div>
-                      <div className="text-left flex flex-col justify-center">
-                        <div className="font-display text-lg mb-1 text-white">Encrypted</div>
-                        <div className="text-slate-text text-xs font-mono tracking-tighter opacity-60">RSA-4096 / SHA-256</div>
-                      </div>
-                    </motion.div>
-                    <div className="hidden lg:block relative w-56 h-36 overflow-hidden rounded-2xl border border-white/10 group-hover:border-emerald-base/20 transition-colors shadow-2xl">
-                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-base/20 to-transparent z-10" />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                         <Lock className="text-emerald-base" size={48} strokeWidth={1.5} />
+                    <div className="hidden lg:block relative w-56 h-36 rounded-2xl border border-white/10 group-hover:border-emerald-base/20 transition-all duration-500 shadow-2xl overflow-hidden bg-black/40 backdrop-blur-md isolate">
+                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-base/20 to-transparent z-10 pointer-events-none" />
+                      <div className="absolute inset-0 flex items-center justify-center z-0">
+                         <ShieldCheck className="text-emerald-base" size={48} strokeWidth={1.5} />
                       </div>
                       <div className="absolute bottom-4 left-4 right-4 h-1.5 bg-white/5 rounded-full overflow-hidden">
                         <motion.div 
@@ -514,7 +505,7 @@ export default function App() {
         </section>
 
         {/* Download & Platforms Section */}
-        <section id="download" className="py-40 px-6 relative z-10 overflow-hidden">
+        <section id="download" className="py-24 md:py-32 lg:py-40 px-6 relative z-10 overflow-hidden">
           {/* Background Highlight */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-indigo-600/5 blur-[120px] rounded-full -z-10" />
           
@@ -527,12 +518,12 @@ export default function App() {
                 viewport={{ once: true }}
                 variants={staggerContainer}
               >
-                <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-6xl font-bold mb-8 leading-tight text-center lg:text-left text-white">
-                  Ваши финансы — <br />
-                  <span className="text-emerald-base text-glow">на любом устройстве.</span>
+                <motion.h2 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-[64px] font-bold mb-6 md:mb-8 leading-[1.05] text-center lg:text-left text-white tracking-tight">
+                  Ваши финансы <br />
+                  <span className="text-emerald-base text-glow">на любом устройстве</span>
                 </motion.h2>
                 <motion.p variants={fadeUpVariants} className="text-slate-text text-xl mb-12 font-light leading-relaxed text-center lg:text-left max-w-xl mx-auto lg:mx-0">
-                  Мы создали FinKeeper24 так, чтобы он был доступен везде. Ваша бухгалтерия синхронизируется мгновенно между всеми вашими устройствами.
+                  Мы создали FinKeeper24 так, чтобы он был доступен везде. Ваша бухгалтерия мгновенно синхронизируется между смартфоном, планшетом и компьютером.
                 </motion.p>
                 
                 <motion.div variants={staggerContainer} className="space-y-4">
@@ -543,29 +534,17 @@ export default function App() {
                     desc="Мгновенный доступ через любой современный браузер" 
                     url="https://app.finkeeper24.ru" 
                   />
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-2 gap-4 items-stretch">
                     <PlatformLink 
                       icon={Smartphone} 
                       title="Android" 
-                      desc="RuStore / APK" 
+                      desc="RuStore • APK • Play Store" 
                       url="#" 
                     />
                     <PlatformLink 
                       icon={Monitor} 
-                      title="macOS" 
-                      desc="Apple Silicon / Intel" 
-                      url="#" 
-                    />
-                    <PlatformLink 
-                      icon={Monitor} 
-                      title="Windows" 
-                      desc="Desktop App" 
-                      url="#" 
-                    />
-                    <PlatformLink 
-                      icon={Monitor} 
-                      title="Linux" 
-                      desc="AppImage / Flatpak" 
+                      title="Desktop" 
+                      desc="Windows • macOS • Linux" 
                       url="#" 
                     />
                   </div>
@@ -586,10 +565,10 @@ export default function App() {
                   {/* Desktop App (Back Layer) */}
                   <motion.div
                     style={{ y: downloadY1 }}
-                    className="absolute inset-0 glass-panel border-white/10 shadow-2xl overflow-hidden rounded-2xl z-0"
+                    className="absolute inset-0 glass-panel border-white/10 shadow-[0_80px_160px_-40px_rgba(0,0,0,0.9)] overflow-hidden rounded-3xl z-0"
                   >
                     <img src={ASSETS.desktopApp} alt="Desktop App" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                   </motion.div>
 
                   {/* Web Dashboard (Middle Layer) */}
@@ -598,10 +577,10 @@ export default function App() {
                       x: downloadX2,
                       y: downloadY2
                     }}
-                    className="absolute top-1/4 -right-10 w-full aspect-video glass-panel border-white/20 shadow-2xl overflow-hidden rounded-xl z-10"
+                    className="absolute top-[15%] -right-12 w-[110%] aspect-video glass-panel border-white/20 shadow-[0_100px_200px_-50px_rgba(0,0,0,0.95)] overflow-hidden rounded-2xl z-10"
                   >
                     <img src={ASSETS.webDashboard} alt="Web App" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-emerald-base/5" />
+                    <div className="absolute inset-0 bg-emerald-base/5 backdrop-brightness-110" />
                   </motion.div>
 
                   {/* Mobile App (Front Layer) */}
