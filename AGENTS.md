@@ -7,6 +7,15 @@ This file provides guidance to AI agents when working with code in this reposito
 For automatic role selection (Architect/Orchestrator/Coder/Analyst/Designer/Layout/Reviewer/QA) and matching skill selection, use:
 `/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/roles/Roles.md`
 
+Project-local custom skills live in:
+`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/skills`
+
+Current custom UI skills:
+- `stitch-design` — Stitch-driven design generation/editing and design-system synthesis
+- `enhance-prompt` — improve vague UI ideas into stronger Stitch-ready prompts
+- `react-components` — convert Stitch-oriented outputs into modular React/Vite components
+- `shadcn-ui` — implement or adapt UI using shadcn/ui patterns
+
 Priority order:
 1. Explicit user role/skills in prompt.
 2. Role auto-routing rules from `Roles.md`.

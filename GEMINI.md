@@ -7,6 +7,15 @@ When handling tasks, apply role routing and skill mapping from:
 
 If the user explicitly asks for a role or names specific skills, that explicit instruction overrides automatic routing.
 
+Project-local custom skills live in:
+`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/skills`
+
+Current custom UI skills:
+- `stitch-design` — Stitch-driven design generation/editing and design-system synthesis
+- `enhance-prompt` — improve vague UI ideas into stronger Stitch-ready prompts
+- `react-components` — convert Stitch-oriented outputs into modular React/Vite components
+- `shadcn-ui` — implement or adapt UI using shadcn/ui patterns
+
 A full-stack web application for personal finance management, replacing Excel spreadsheets with a modern SPA interface. It handles income, expenses, savings goals, and monthly budgeting.
 
 ## Project Structure

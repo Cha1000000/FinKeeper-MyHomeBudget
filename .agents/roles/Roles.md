@@ -10,6 +10,17 @@ Purpose: provide automatic role routing for AI agents in this project, independe
 4. If confidence is medium (0.45-0.74), apply routing but state assumed role in the first line.
 5. If confidence is low (< 0.45), ask a clarifying question or use `fullstack-guardian` as fallback.
 
+## Project Custom Skills
+
+Project-local custom skills live in:
+`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/skills`
+
+Available custom skills currently adopted in this repository:
+- `stitch-design` — use for Stitch-driven screen generation/editing and design-system synthesis
+- `enhance-prompt` — use to turn vague UI ideas into strong Stitch-ready prompts
+- `react-components` — use when converting Stitch output into modular React/Vite components
+- `shadcn-ui` — use when implementing or adapting UI with shadcn/ui patterns
+
 ## Role Catalog
 
 ### 1) Architect
@@ -63,6 +74,8 @@ Secondary:
 - `design-system-patterns`
 - `web-design-guidelines`
 - `canvas-design`
+- `stitch-design`
+- `enhance-prompt`
 
 ### 6) Layout Engineer (Frontend UI Implementer)
 Use for: responsive layout, component structure, CSS/tokens, production UI implementation.
@@ -74,6 +87,8 @@ Secondary:
 - `vercel-composition-patterns`
 - `vercel-react-best-practices`
 - `vite`
+- `react-components`
+- `shadcn-ui`
 
 ### 7) Reviewer (Quality + Security)
 Use for: PR review, regression risk, correctness checks, defensive hardening.
@@ -105,6 +120,19 @@ Secondary:
 - "build page/component", "responsive", "layout", "styling" -> Layout Engineer
 - "review this", "audit this PR", "security check" -> Reviewer
 - "write tests", "E2E", "playwright", "flaky tests" -> QA / Tester
+
+## UI / Stitch Support Routing
+
+Add these custom skills when the task matches:
+- UI concept, visual exploration, or Stitch editing/generation -> `stitch-design`
+- weak/vague UI prompt that needs refinement -> `enhance-prompt`
+- converting Stitch output into React/Vite code -> `react-components`
+- choosing/building/adapting shadcn/ui components -> `shadcn-ui`
+
+Preferred pairings:
+- Designer -> `frontend-design` + `stitch-design` + `enhance-prompt`
+- Layout Engineer -> `web-component-design` + `react-components` + `shadcn-ui`
+- Coder (frontend-heavy task) -> `react-expert` + `react-components` + `shadcn-ui`
 
 ## Multi-Role Pipeline
 

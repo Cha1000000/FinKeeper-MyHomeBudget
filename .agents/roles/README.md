@@ -1,7 +1,19 @@
 # Roles Quick Start
 
 This folder enables role routing via:
+
 - `Roles.md` (routing policy and role-to-skill mapping)
+
+Project-local custom skills are stored in:
+
+- `/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/skills`
+
+Current custom UI skills:
+
+- `stitch-design`
+- `enhance-prompt`
+- `react-components`
+- `shadcn-ui`
 
 Use these prompt patterns in Windsurf/Kilo/Qwen/Qoder/CLI agents.
 
@@ -28,10 +40,18 @@ Example:
 `Role: Analyst. Skills: debugging-wizard, debugging-strategies, sql-optimization-patterns. Find root cause of <issue>. Output evidence, hypothesis, fix options.`
 
 ### Designer
-`Role: Designer. Skills: frontend-design, visual-design-foundations, interaction-design. Redesign <screen>. Output UI concept + tokens + interaction notes.`
+`Role: Designer. Skills: frontend-design, stitch-design, enhance-prompt. Redesign <screen>. Output UI concept + tokens + interaction notes.`
 
 ### Layout Engineer
-`Role: Layout Engineer. Skills: web-component-design, responsive-design, tailwind-design-system. Implement responsive layout for <screen>.`
+`Role: Layout Engineer. Skills: web-component-design, react-components, shadcn-ui. Implement responsive layout for <screen>.`
+
+## Custom UI Skill Patterns
+
+### Stitch-driven design generation or editing
+`Role: Designer. Skills: stitch-design, enhance-prompt. Task: generate or refine a Stitch-ready UI concept for <screen>. Output: enhanced prompt + design direction.`
+
+### Convert Stitch output into code
+`Role: Layout Engineer. Skills: react-components, shadcn-ui. Task: convert Stitch output into modular React/Vite components for <screen>. Output: component structure + implementation plan.`
 
 ### Reviewer
 `Role: Reviewer. Skills: code-review-excellence, code-reviewer, security-reviewer. Review this diff for regressions, security, and test gaps.`
