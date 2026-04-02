@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(serptop.ru)",
+      "WebFetch(lpmotor.ru)",
+      "WebFetch(www.insales.ru)",
+      "WebFetch(www.agima.ru)"
+    ]
+  },
+  "$version": 3
+}
