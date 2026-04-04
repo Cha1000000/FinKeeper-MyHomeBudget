@@ -2,7 +2,7 @@ import React, { type ReactNode } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
-import { Wallet, PieChart, Activity, ArrowUpRight, ArrowDownRight, Target, Globe, Zap, Monitor, Smartphone, Download, ChevronRight, ShieldCheck, CheckCircle2, HelpCircle, Star, Lock } from 'lucide-react'
+import { Wallet, PieChart, Activity, ArrowUpRight, ArrowDownRight, Target, Globe, Zap, Monitor, Smartphone, Download, ChevronRight, ShieldCheck, CheckCircle2, Star, Lock } from 'lucide-react'
 import imgWebDashboard from './assets/web-dashboard-dark.png'
 import imgMobileDashboard from './assets/mobile-dashboard-1.png'
 import imgMobileDashboard2 from './assets/mobile-dashboard-2.png'
@@ -50,6 +50,35 @@ const FeatureIcon = ({ icon: Icon, color = "text-emerald-base" }: { icon: Lucide
     <Icon size={24} strokeWidth={1.5} />
   </div>
 );
+
+const PlatformLogo = ({ name }: { name: string }) => {
+  const getSvgPath = (name: string) => {
+    switch (name) {
+      case 'android':
+        return (
+          <>
+            <path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/>
+          </>
+        );
+      case 'windows':
+        return <path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/>;
+      case 'apple':
+        return <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/>;
+      case 'linux':
+        return <path d="M220.8 123.3c1 .5 1.8 1.7 3 1.7 1.1 0 2.8-.4 2.9-1.5.2-1.4-1.9-2.3-3.2-2.9-1.7-.7-3.9-1-5.5-.1-.4.2-.8.7-.6 1.1.3 1.3 2.3 1.1 3.4 1.7zm-21.9 1.7c1.2 0 2-1.2 3-1.7 1.1-.6 3.1-.4 3.5-1.6.2-.4-.2-.9-.6-1.1-1.6-.9-3.8-.6-5.5.1-1.3.6-3.4 1.5-3.2 2.9.1 1 1.8 1.5 2.8 1.4zM420 403.8c-3.6-4-5.3-11.6-7.2-19.7-1.8-8.1-3.9-16.8-10.5-22.4-1.3-1.1-2.6-2.1-4-2.9-1.3-.8-2.7-1.5-4.1-2 9.2-27.3 5.6-54.5-3.7-79.1-11.4-30.1-31.3-56.4-46.5-74.4-17.1-21.5-33.7-41.9-33.4-72C311.1 85.4 315.7.1 234.8 0 132.4-.2 158 103.4 156.9 135.2c-1.7 23.4-6.4 41.8-22.5 64.7-18.9 22.5-45.5 58.8-58.1 96.7-6 17.9-8.8 36.1-6.2 53.3-6.5 5.8-11.4 14.7-16.6 20.2-4.2 4.3-10.3 5.9-17 8.3s-14 6-18.5 14.5c-2.1 3.9-2.8 8.1-2.8 12.4 0 3.9.6 7.9 1.2 11.8 1.2 8.1 2.5 15.7.8 20.8-5.2 14.4-5.9 24.4-2.2 31.7 3.8 7.3 11.4 10.5 20.1 12.3 17.3 3.6 40.8 2.7 59.3 12.5 19.8 10.4 39.9 14.1 55.9 10.4 11.6-2.6 21.1-9.6 25.9-20.2 12.5-.1 26.3-5.4 48.3-6.6 14.9-1.2 33.6 5.3 55.1 4.1.6 2.3 1.4 4.6 2.5 6.7v.1c8.3 16.7 23.8 24.3 40.3 23 16.6-1.3 34.1-11 48.3-27.9 13.6-16.4 36-23.2 50.9-32.2 7.4-4.5 13.4-10.1 13.9-18.3.4-8.2-4.4-17.3-15.5-29.7zM223.7 87.3c9.8-22.2 34.2-21.8 44-.4 6.5 14.2 3.6 30.9-4.3 40.4-1.6-.8-5.9-2.6-12.6-4.9 1.1-1.2 3.1-2.7 3.9-4.6 4.8-11.8-.2-27-9.1-27.3-7.3-.5-13.9 10.8-11.8 23-4.1-2-9.4-3.5-13-4.4-1-6.9-.3-14.6 2.9-21.8zM183 75.8c10.1 0 20.8 14.2 19.1 33.5-3.5 1-7.1 2.5-10.2 4.6 1.2-8.9-3.3-20.1-9.6-19.6-8.4.7-9.8 21.2-1.8 28.1 1 .8 1.9-.2-5.9 5.5-15.6-14.6-10.5-52.1 8.4-52.1zm-13.6 60.7c6.2-4.6 13.6-10 14.1-10.5 4.7-4.4 13.5-14.2 27.9-14.2 7.1 0 15.6 2.3 25.9 8.9 6.3 4.1 11.3 4.4 22.6 9.3 8.4 3.5 13.7 9.7 10.5 18.2-2.6 7.1-11 14.4-22.7 18.1-11.1 3.6-19.8 16-38.2 14.9-3.9-.2-7-1-9.6-2.1-8-3.5-12.2-10.4-20-15-8.6-4.8-13.2-10.4-14.7-15.3-1.4-4.9 0-9 4.2-12.3zm3.3 334c-2.7 35.1-43.9 34.4-75.3 18-29.9-15.8-68.6-6.5-76.5-21.9-2.4-4.7-2.4-12.7 2.6-26.4v-.2c2.4-7.6.6-16-.6-23.9-1.2-7.8-1.8-15 .9-20 3.5-6.7 8.5-9.1 14.8-11.3 10.3-3.7 11.8-3.4 19.6-9.9 5.5-5.7 9.5-12.9 14.3-18 5.1-5.5 10-8.1 17.7-6.9 8.1 1.2 15.1 6.8 21.9 16l19.6 35.6c9.5 19.9 43.1 48.4 41 68.9zm-1.4-25.9c-4.1-6.6-9.6-13.6-14.4-19.6 7.1 0 14.2-2.2 16.7-8.9 2.3-6.2 0-14.9-7.4-24.9-13.5-18.2-38.3-32.5-38.3-32.5-13.5-8.4-21.1-18.7-24.6-29.9s-3-23.3-.3-35.2c5.2-22.9 18.6-45.2 27.2-59.2 2.3-1.7.8 3.2-8.7 20.8-8.5 16.1-24.4 53.3-2.6 82.4.6-20.7 5.5-41.8 13.8-61.5 12-27.4 37.3-74.9 39.3-112.7 1.1.8 4.6 3.2 6.2 4.1 4.6 2.7 8.1 6.7 12.6 10.3 12.4 10 28.5 9.2 42.4 1.2 6.2-3.5 11.2-7.5 15.9-9 9.9-3.1 17.8-8.6 22.3-15 7.7 30.4 25.7 74.3 37.2 95.7 6.1 11.4 18.3 35.5 23.6 64.6 3.3-.1 7 .4 10.9 1.4 13.8-35.7-11.7-74.2-23.3-84.9-4.7-4.6-4.9-6.6-2.6-6.5 12.6 11.2 29.2 33.7 35.2 59 2.8 11.6 3.3 23.7.4 35.7 16.4 6.8 35.9 17.9 30.7 34.8-2.2-.1-3.2 0-4.2 0 3.2-10.1-3.9-17.6-22.8-26.1-19.6-8.6-36-8.6-38.3 12.5-12.1 4.2-18.3 14.7-21.4 27.3-2.8 11.2-3.6 24.7-4.4 39.9-.5 7.7-3.6 18-6.8 29-32.1 22.9-76.7 32.9-114.3 7.2zm257.4-11.5c-.9 16.8-41.2 19.9-63.2 46.5-13.2 15.7-29.4 24.4-43.6 25.5s-26.5-4.8-33.7-19.3c-4.7-11.1-2.4-23.1 1.1-36.3 3.7-14.2 9.2-28.8 9.9-40.6.8-15.2 1.7-28.5 4.2-38.7 2.6-10.3 6.6-17.2 13.7-21.1.3-.2.7-.3 1-.5.8 13.2 7.3 26.6 18.8 29.5 12.6 3.3 30.7-7.5 38.4-16.3 9-.3 15.7-.9 22.6 5.1 9.9 8.5 7.1 30.3 17.1 41.6 10.6 11.6 14 19.5 13.7 24.6zM173.3 148.7c2 1.9 4.7 4.5 8 7.1 6.6 5.2 15.8 10.6 27.3 10.6 11.6 0 22.5-5.9 31.8-10.8 4.9-2.6 10.9-7 14.8-10.4s5.9-6.3 3.1-6.6-2.6 2.6-6 5.1c-4.4 3.2-9.7 7.4-13.9 9.8-7.4 4.2-19.5 10.2-29.9 10.2s-18.7-4.8-24.9-9.7c-3.1-2.5-5.7-5-7.7-6.9-1.5-1.4-1.9-4.6-4.3-4.9-1.4-.1-1.8 3.7 1.7 6.5z" transform="scale(0.045) translate(40, 20)"/>;
+      case 'googlechrome':
+        return <path d="M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z"/>;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" className="text-slate-text/35 group-hover:text-emerald-base transition-colors duration-300" fill="currentColor">
+      {getSvgPath(name)}
+    </svg>
+  );
+};
 
 const PlatformLink = ({ icon: Icon, title, desc, url, primary = false, badge }: { icon: LucideIcon; title: string; desc: string; url: string; primary?: boolean; badge?: string }) => (
   <motion.a 
@@ -552,6 +581,57 @@ export default function App() {
           </div>
         </section>
 
+        {/* Problem/Pain Section */}
+        <section className="py-24 md:py-32 px-6 relative z-10 overflow-hidden">
+          {/* Background */}
+          <div className="absolute inset-0 bg-gradient-to-b from-main-bg via-rose-900/5 to-main-bg -z-10" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-rose-500/5 blur-[150px] rounded-full -z-10" />
+          
+          <div className="max-w-6xl mx-auto">
+            <motion.div 
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-100px" }}
+              variants={staggerContainer}
+              className="text-center"
+            >
+
+              {/* Main text */}
+              <motion.p variants={fadeUpVariants} className="font-display text-2xl md:text-3xl lg:text-4xl font-light leading-relaxed text-white/80 max-w-3xl mx-auto mb-6">
+                Знакомо это чувство, когда <span className="text-white font-semibold">к концу месяца вы уже не помните</span>, куда ушли деньги?
+              </motion.p>
+              
+              <motion.p variants={fadeUpVariants} className="font-display text-xl md:text-2xl font-light leading-relaxed text-slate-text/70 max-w-2xl mx-auto mb-10">
+                Заначка исчезает незаметно, а мечты о путешествии или новом ноутбуке снова откладываются.
+              </motion.p>
+
+              {/* Pain points */}
+              <motion.div variants={fadeUpVariants} className="flex flex-wrap items-center justify-center gap-3 md:gap-4 mb-12">
+                {[
+                  { icon: '📉', text: 'Траты без контроля' },
+                  { icon: '💸', text: 'Деньги улетают' },
+                  { icon: '🎯', text: 'Цели откладываются' },
+                ].map((item, i) => (
+                  <div key={i} className="px-5 py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
+                    <span className="text-sm font-light text-slate-text/80">{item.icon} {item.text}</span>
+                  </div>
+                ))}
+              </motion.div>
+
+              {/* CTA */}
+              <motion.a 
+                variants={fadeUpVariants}
+                href="https://app.finkeeper24.ru"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 px-10 py-6 rounded-2xl bg-emerald-base text-main-bg font-display font-bold text-lg hover:bg-emerald-400 transition-all shadow-[0_20px_40px_-10px_rgba(16,185,129,0.3)] hover:-translate-y-1"
+              >
+                Пора взять свои финансы под контроль! <ArrowUpRight size={20} />
+              </motion.a>
+            </motion.div>
+          </div>
+        </section>
+
         {/* Bento Features Section */}
         <section className="py-32 px-6 relative z-10">
           <div className="max-w-7xl mx-auto">
@@ -975,6 +1055,69 @@ export default function App() {
                     <span className="text-base font-display font-bold text-white">Без рекламы</span>
                     <span className="text-xs text-slate-text/70 mt-1 font-light">Ничего лишнего</span>
                   </div>
+
+                  {/* Platform Logos */}
+                  <div className="col-span-3 flex flex-col items-center mt-2 pt-4 border-t border-white/5">
+                    <motion.span 
+                      initial={{ opacity: 0 }}
+                      whileInView={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-[10px] uppercase tracking-[0.2em] text-slate-text/40 mb-4"
+                    >
+                      Доступно на
+                    </motion.span>
+                    <div className="flex items-center justify-center gap-5 md:gap-8">
+                      {/* Android */}
+                      <motion.a 
+                        href="#"
+                        whileHover={{ scale: 1.15 }}
+                        className="group"
+                        aria-label="Android"
+                      >
+                        <PlatformLogo name="android" />
+                      </motion.a>
+
+                      {/* Windows */}
+                      <motion.a 
+                        href="#"
+                        whileHover={{ scale: 1.15 }}
+                        className="group"
+                        aria-label="Windows"
+                      >
+                        <PlatformLogo name="windows" />
+                      </motion.a>
+
+                      {/* Apple/macOS */}
+                      <motion.a 
+                        href="#"
+                        whileHover={{ scale: 1.15 }}
+                        className="group"
+                        aria-label="macOS"
+                      >
+                        <PlatformLogo name="apple" />
+                      </motion.a>
+
+                      {/* Linux */}
+                      <motion.a 
+                        href="#"
+                        whileHover={{ scale: 1.15 }}
+                        className="group"
+                        aria-label="Linux"
+                      >
+                        <PlatformLogo name="linux" />
+                      </motion.a>
+
+                      {/* Google Chrome (Web) */}
+                      <motion.a 
+                        href="#"
+                        whileHover={{ scale: 1.15 }}
+                        className="group"
+                        aria-label="Web"
+                      >
+                        <PlatformLogo name="googlechrome" />
+                      </motion.a>
+                    </div>
+                  </div>
                 </motion.div>
               </motion.div>
 
@@ -1140,9 +1283,6 @@ export default function App() {
                 <a href="https://app.finkeeper24.ru" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-12 py-6 rounded-2xl bg-emerald-base text-main-bg font-display font-bold text-lg hover:bg-emerald-400 transition-all shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] hover:-translate-y-1 flex items-center justify-center gap-3">
                   Начать использование <ArrowUpRight size={24} />
                 </a>
-                <a href="#download" className="w-full sm:w-auto px-12 py-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all font-display font-medium text-lg flex items-center justify-center gap-3 backdrop-blur-md">
-                  Узнать больше <HelpCircle size={24} />
-                </a>
               </div>
             </motion.div>
           </div>
@@ -1151,7 +1291,14 @@ export default function App() {
       </main>
 
       <footer className="py-10 px-6 border-t border-white/10 text-center relative z-10">
-        <p className="text-slate-text/70 text-sm font-mono">&copy; {new Date().getFullYear()} FinKeeper24: Моя домашняя бухгалтерия. Все права защищены.</p>
+        <div className="max-w-4xl mx-auto">
+          <p className="text-slate-text/70 text-sm font-mono mb-4">&copy; {new Date().getFullYear()} FinKeeper24: Моя домашняя бухгалтерия. Все права защищены.</p>
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-text/50">
+            <a href="/privacy.html" className="hover:text-emerald-base transition-colors duration-300">Политика конфиденциальности</a>
+            <span className="hidden sm:inline text-slate-text/30">•</span>
+            <a href="/terms.html" className="hover:text-emerald-base transition-colors duration-300">Пользовательское соглашение</a>
+          </div>
+        </div>
       </footer>
     </div>
   )
