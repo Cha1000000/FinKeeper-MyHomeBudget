@@ -291,13 +291,13 @@ function createDisabledPasswordHash() {
 }
 
 function buildUsernameCandidate(value) {
-    const normalized = String(value || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^\\p{L}\\p{N}._-]/gu, '').replace(/^[._-]+|[._-]+$/g, '');
+    const normalized = String(value || '').toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}._-]/gu, '').replace(/^[._-]+|[._-]+$/g, '');
     const fallback = normalized || 'user';
     return fallback.slice(0, 48) || 'user';
 }
 
 function buildSocialDisplayUsernameCandidate(value) {
-    const normalized = authService.normalizeInputString(value).replace(/\\s+/g, ' ').replace(/[^\\p{L}\\p{N} ._'’-]/gu, '').trim();
+    const normalized = authService.normalizeInputString(value).replace(/\s+/g, ' ').replace(/[^\p{L}\p{N} ._''-]/gu, '').trim();
     if (normalized) return normalized.slice(0, 64);
     const fallback = buildUsernameCandidate(value);
     return fallback.slice(0, 64) || 'user';
@@ -370,7 +370,9 @@ async function fetchGoogleUserInfo(accessToken) {
 function isGeneratedSocialUsername(username) {
     const normalizedUsername = authService.normalizeInputString(username).toLowerCase();
     if (!normalizedUsername) return true;
-    return normalizedUsername === 'user' || /^user(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/.test(normalizedUsername);
+    return normalizedUsername === 'user'
+        || /^user(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$/.test(normalizedUsername)
+        || /^user \d+$/.test(normalizedUsername);
 }
 
 function shouldRefreshSocialUsername(user, profileName) {

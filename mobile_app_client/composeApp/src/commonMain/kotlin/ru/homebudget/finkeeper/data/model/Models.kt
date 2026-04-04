@@ -66,6 +66,7 @@ data class NativeSocialAuthStatusResponse(
 @Serializable
 data class SocialAuthExchangeRequest(
     val code: String,
+    @SerialName("rememberMe") val rememberMe: Boolean = true,
 )
 
 @Serializable

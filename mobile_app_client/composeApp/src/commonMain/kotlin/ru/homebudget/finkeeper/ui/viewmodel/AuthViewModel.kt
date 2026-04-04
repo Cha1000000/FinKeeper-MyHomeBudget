@@ -177,7 +177,6 @@ class AuthViewModel(
                         throw ApiException(400, Strings.SOCIAL_LOGIN_TIMEOUT)
                     }
                     val authData = apiClient.exchangeSocialAuthCode(code)
-                    persistAuthData(authData)
                     _state.value =
                         _state.value.copy(
                             user = authData.user,
