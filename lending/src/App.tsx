@@ -295,9 +295,16 @@ const ReviewsCarousel = () => {
           rating={5}
         />
         <ReviewCard
+          name="Павел Г."
+          role="Менеджер, Новосибирск"
+          text="Хорошее приложение, пользуюсь уже полгода. Не хватает экспорта данных в Excel — иногда нужно добыть отчёт. Но в целом всё работает чётко, интерфейс удобный."
+          avatar="ПГ"
+          rating={4}
+        />
+        <ReviewCard
           name="Ольга С."
           role="Бухгалтер, Екатеринбург"
-          text="Работаю бухгалтером, поэтому порядок в финансах для меня важен. А FinKeeper24 теперь помогает мне вести мой личный бюджеты. Копилки — гениальная функция!"
+          text="Работаю бухгалтером, поэтому порядок в финансах для меня важен. А FinKeeper24 теперь помогает мне вести мои личные бюджеты. Копилки — гениальная функция!"
           avatar="ОС"
           rating={5}
         />
@@ -314,6 +321,13 @@ const ReviewsCarousel = () => {
           text="Вдвоём ведём бюджет семьи на общем аккаунте. Очень удобно, что оба видим все операции в реальном времени, каждый на своём телефоне. Спасибо разработчикам!"
           avatar="АИ"
           rating={5}
+        />
+        <ReviewCard
+          name="Ирина В."
+          role="Маркетолог, Самара"
+          text="В целом приложение нравится: быстрое, красивое. Жаль нет пуш-уведомлений о плановых тратах, если выхожу за лимиты. Хотелось бы увидеть такую функцию."
+          avatar="ИВ"
+          rating={4}
         />
         <ReviewCard
           name="Наталья Р."
@@ -365,6 +379,14 @@ export default function App() {
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 1000], [0, 200]);
   const y2 = useTransform(scrollY, [0, 1000], [0, -150]);
+  const y3 = useTransform(scrollY, [0, 1000], [0, 150]);
+
+  const [scrolled, setScrolled] = React.useState(false);
+  React.useEffect(() => {
+    const handler = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handler, { passive: true });
+    return () => window.removeEventListener('scroll', handler);
+  }, []);
 
   return (
     <div className="min-h-screen relative font-body bg-main-bg text-white overflow-x-hidden">
@@ -376,12 +398,10 @@ export default function App() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 inset-x-0 z-50 px-6 py-4">
+      <nav className={`fixed top-0 inset-x-0 z-50 px-6 py-4 transition-all duration-500 ${scrolled ? 'bg-[#0A0F1E]/80 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/30' : ''}`}>
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-base flex items-center justify-center">
-              <Wallet className="text-main-bg" size={18} fill="currentColor" />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <img src="/purse.svg" alt="FinKeeper24" className="w-9 h-9 object-contain" />
             <span className="font-display font-semibold text-xl tracking-tight">FinKeeper24: Моя домашняя бухгалтерия</span>
           </div>
           <a href="#download" className="hidden sm:inline-flex items-center justify-center px-5 py-2.5 min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 border border-white/5 backdrop-blur-md transition-all font-display font-medium text-sm">
@@ -438,7 +458,7 @@ export default function App() {
             >
               {/* Web Dashboard Mockup */}
               <motion.div 
-                style={{ rotateX: 10, y: useTransform(scrollY, [0, 1000], [0, 150]) }}
+                style={{ rotateX: 10, y: y3 }}
                 className="absolute inset-x-0 top-0 mx-auto w-[94%] aspect-[16/14] md:aspect-[16/16] glass-panel border-white/20 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9)] overflow-hidden z-10 rounded-2xl md:rounded-3xl"
               >
                 <div className="absolute inset-0 bg-emerald-base/5 z-0" />
@@ -861,7 +881,7 @@ export default function App() {
                 number="01"
                 icon={Download}
                 title="Установка"
-                desc="Скачайте приложение на любое устройство. Или воспользуйтей Web-версией. Регистрация займет меньше минуты — мы ценим ваше время."
+                desc="Скачайте приложение на любое устройство. Или воспользуйтесь Web-версией. Регистрация займет меньше минуты — мы ценим ваше время."
                 variants={fadeUpVariants}
               />
               <StepCard 
@@ -1136,7 +1156,7 @@ export default function App() {
         </section>
 
         {/* Reviews Section */}
-        <section className="py-4 md:py-6 px-6 relative z-10 overflow-hidden">
+        <section className="py-20 md:py-28 px-6 relative z-10 overflow-hidden">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-emerald-base/5 blur-[150px] rounded-full -z-10" />
           
           <div className="max-w-7xl mx-auto">
@@ -1234,16 +1254,59 @@ export default function App() {
 
       </main>
 
-      <footer className="py-10 px-6 border-t border-white/10 text-center relative z-10">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-slate-text/70 text-sm font-mono mb-4">&copy; {new Date().getFullYear()} FinKeeper24: Моя домашняя бухгалтерия. Все права защищены.</p>
-          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-text/50 mb-6">
-            <a href="/privacy.html" className="hover:text-emerald-base transition-colors duration-300">Политика конфиденциальности</a>
-            <span className="hidden sm:inline text-slate-text/30">•</span>
-            <a href="/terms.html" className="hover:text-emerald-base transition-colors duration-300">Пользовательское соглашение</a>
+      <footer className="pt-16 pb-10 px-6 border-t border-white/10 relative z-10">
+        <div className="max-w-5xl mx-auto">
+          {/* Top row: logo + nav + contact */}
+          <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-10 mb-12">
+            {/* Brand */}
+            <div className="flex flex-col items-center md:items-start gap-3">
+              <div className="flex items-center gap-2.5">
+                <img src="/purse.svg" alt="FinKeeper24" className="w-9 h-9 object-contain" />
+                <span className="font-display font-semibold text-lg tracking-tight text-white">FinKeeper24</span>
+              </div>
+              <p className="text-slate-text/50 text-sm font-light max-w-[220px] text-center md:text-left">Домашняя бухгалтерия для всех ваших устройств</p>
+            </div>
+
+            {/* Nav links */}
+            <div className="flex flex-col items-center md:items-start gap-3">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-slate-text/40 font-mono">Навигация</span>
+              <div className="flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-slate-text/60">
+                <a href="#" className="hover:text-emerald-base transition-colors duration-300">Возможности</a>
+                <a href="#download" className="hover:text-emerald-base transition-colors duration-300">Скачать</a>
+                <a href="https://app.finkeeper24.ru" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-base transition-colors duration-300">Войти</a>
+              </div>
+            </div>
+
+            {/* Contact */}
+            <div className="flex flex-col items-center md:items-start gap-3">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-slate-text/40 font-mono">Обратная связь</span>
+              <a
+                href="mailto:finkeeper24@yandex.ru"
+                className="flex items-center gap-2 text-sm text-slate-text/60 hover:text-emerald-base transition-colors duration-300 group"
+              >
+                <div className="w-7 h-7 rounded-lg bg-emerald-base/10 border border-emerald-base/20 flex items-center justify-center group-hover:bg-emerald-base/20 transition-colors duration-300">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-base">
+                    <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                  </svg>
+                </div>
+                finkeeper24@yandex.ru
+              </a>
+            </div>
           </div>
-          <div className="text-[10px] leading-relaxed text-slate-text/30 font-light max-w-2xl mx-auto text-justify sm:text-center">
-            FinKeeper24 — это удобное кроссплатформенное приложение (онлайн сервис) для ведения домашней бухгалтерии, учета личных финансов и семейного бюджета. Контролируйте свои доходы и расходы, создавайте копилки на мечту, планируйте бюджет по категориям и следите за своей финансовой статистикой онлайн на любых устройствах: web, Android, Windows, macOS, Linux. Современная альтернатива таблицам Excel. Учет финансов еще никогда не был таким простым и безопасным.
+
+          {/* Divider */}
+          <div className="border-t border-white/5 pt-8">
+            {/* Legal links */}
+            <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-text/40 mb-6">
+              <p className="font-mono">&copy; {new Date().getFullYear()} FinKeeper24. Все права защищены.</p>
+              <span className="hidden sm:inline text-slate-text/20">•</span>
+              <a href="/privacy.html" className="hover:text-emerald-base transition-colors duration-300">Политика конфиденциальности</a>
+              <span className="hidden sm:inline text-slate-text/20">•</span>
+              <a href="/terms.html" className="hover:text-emerald-base transition-colors duration-300">Пользовательское соглашение</a>
+            </div>
+            <div className="text-[10px] leading-relaxed text-slate-text/25 font-light max-w-2xl mx-auto text-center">
+              FinKeeper24 — это удобное кроссплатформенное приложение (онлайн сервис) для ведения домашней бухгалтерии, учета личных финансов и семейного бюджета. Контролируйте свои доходы и расходы, создавайте копилки на мечту, планируйте бюджет по категориям и следите за своей финансовой статистикой онлайн на любых устройствах: web, Android, Windows, macOS, Linux. Современная альтернатива таблицам Excel. Учет финансов еще никогда не был таким простым и безопасным.
+            </div>
           </div>
         </div>
       </footer>
