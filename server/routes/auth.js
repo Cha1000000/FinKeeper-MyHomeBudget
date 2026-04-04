@@ -26,28 +26,26 @@ const {
     buildUserPayload,
     issueEmailVerificationToken,
     validateRequiredEmail,
-    findRecoverableUsersByEmail
+    findRecoverableUsersByEmail,
+    setOAuthStateCookie,
+    clearOAuthStateCookie,
 } = require('../services/authService');
 
 const {
     getSocialProviderConfig,
     getEnabledSocialProviders,
     isSocialProviderAvailable,
-    validateNativeSocialAuthStartPayload,
     buildApiOAuthCallbackUrl,
     issueNativeSocialLoginAttempt,
     createOAuthStatePayload,
     encodeOAuthStatePayload,
+    decodeOAuthStatePayload,
     buildGoogleAuthorizeUrl,
     buildYandexAuthorizeUrl,
     completeNativeSocialLoginAttemptError,
     getNativeSocialLoginAttempt,
-    validateNativeSocialAuthAttemptToken,
     buildWebSocialCallbackUrl,
-    setOAuthStateCookie,
-    decodeOAuthStatePayload,
     readOAuthStatePayloadFromRequest,
-    clearOAuthStateCookie,
     sendNativeSocialAuthCompletionPage,
     redirectSocialAuthResult,
     exchangeGoogleAuthorizationCode,
@@ -58,7 +56,6 @@ const {
     resolveOrCreateYandexAuthUser,
     issueSocialAuthExchangeCode,
     completeNativeSocialLoginAttemptSuccess,
-    validateSocialAuthExchangePayload,
     getValidSocialAuthExchangeCode,
     markSocialAuthExchangeCodeUsed,
     markNativeSocialLoginAttemptConsumedByExchangeCode
@@ -74,7 +71,12 @@ const {
 const { authenticateToken, sendError, sendValidationError } = require('../middleware/authenticate');
 const { createBackup } = require('../db/helpers');
 const { sendPasswordRecoveryEmail, sendEmailVerificationEmail } = require('../mailer');
-const { normalizeInputString } = require('../validation/authValidation');
+const {
+    normalizeInputString,
+    validateNativeSocialAuthStartPayload,
+    validateNativeSocialAuthAttemptToken,
+    validateSocialAuthExchangePayload,
+} = require('../validation/authValidation');
 const logger = require('../logger');
 
 // Retrieve auth interval

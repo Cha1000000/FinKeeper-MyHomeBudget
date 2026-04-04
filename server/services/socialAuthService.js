@@ -572,7 +572,9 @@ function redirectSocialAuthResult(res, provider, query, fallbackStatusCode = 500
 module.exports = {
     getAppBaseUrl,
     getPublicApiBaseUrl,
+    buildWebSocialCallbackUrl,
     encodeOAuthStatePayload,
+    decodeOAuthStatePayload,
     createOAuthStatePayload,
     readOAuthStatePayloadFromRequest,
     buildApiOAuthCallbackUrl,
