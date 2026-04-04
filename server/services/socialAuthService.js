@@ -417,6 +417,11 @@ function syncExistingSocialAuthUser(userId, { profileName = '', providerEmail = 
     return db.prepare(`SELECT id, username, email, email_confirmed_at, created_at, auth_password_enabled FROM users WHERE id = ?`).get(user.id);
 }
 
+function findExistingUserByVerifiedEmail(email) {
+    if (!email) return null;
+    return db.prepare('SELECT id FROM users WHERE email = ? AND email_confirmed_at IS NOT NULL').get(email) || null;
+}
+
 function resolveGoogleEmailForNewUser(googleProfile) {
     const email = authService.normalizeEmail(googleProfile?.email);
     if (!email || !googleProfile?.email_verified) return { email: null, emailConfirmedAt: null };
@@ -442,6 +447,14 @@ function resolveOrCreateGoogleAuthUser(googleProfile) {
     if (identity) {
         touchAuthIdentity(identity.id, { providerEmail, providerEmailVerified });
         return syncExistingSocialAuthUser(identity.user_id, { profileName, providerEmail, providerEmailVerified });
+    }
+
+    if (providerEmail && providerEmailVerified) {
+        const existingUser = findExistingUserByVerifiedEmail(providerEmail);
+        if (existingUser) {
+            createAuthIdentity({ userId: existingUser.id, provider, providerUserId, providerEmail, providerEmailVerified });
+            return syncExistingSocialAuthUser(existingUser.id, { profileName, providerEmail, providerEmailVerified });
+        }
     }
 
     const username = generateUniqueSocialUsername(profileName);
@@ -522,6 +535,14 @@ function resolveOrCreateYandexAuthUser(yandexProfile) {
     if (identity) {
         touchAuthIdentity(identity.id, { providerEmail, providerEmailVerified });
         return syncExistingSocialAuthUser(identity.user_id, { profileName, providerEmail, providerEmailVerified });
+    }
+
+    if (providerEmail && providerEmailVerified) {
+        const existingUser = findExistingUserByVerifiedEmail(providerEmail);
+        if (existingUser) {
+            createAuthIdentity({ userId: existingUser.id, provider, providerUserId, providerEmail, providerEmailVerified });
+            return syncExistingSocialAuthUser(existingUser.id, { profileName, providerEmail, providerEmailVerified });
+        }
     }
 
     const username = generateUniqueSocialUsername(profileName);
