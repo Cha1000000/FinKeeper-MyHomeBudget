@@ -2,24 +2,14 @@ buildscript {
     ext {
         kotlin_version = '2.2.10'
         compose_version = '1.6.10'
-        ktor_version = '3.0.1'
+        ktor_version = '3.0.3'
         kotlinx_serialization_version = '1.7.1'
-        kotlinx_coroutines_version = '1.8.1'
-        kotlinx_datetime_version = '0.6.0'
-        multiplatform_settings_version = '1.1.1'
+        kotlinx_coroutines_version = '1.9.0'
+        kotlinx_datetime_version = '0.6.1'
+        multiplatform_settings_version = '1.2.0'
         koin_version = '3.5.6'
         sqldelight_version = '2.0.2'
         app_version = '2.0.0'
-    }
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-    dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "org.jetbrains.compose:compose-gradle-plugin:$compose_version"
-        classpath "app.cash.sqldelight:gradle-plugin:$sqldelight_version"
     }
 }
 
@@ -102,8 +92,8 @@ kotlin {
                 implementation "app.cash.sqldelight:primitive-adapters:$sqldelight_version"
 
                 // Lifecycle ViewModel for commonMain (multiplatform)
-                implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel:2.8.0"
-                implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0"
+                implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel:2.8.4"
+                implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4"
 
                 // Reorderable
                 implementation "sh.calvin.reorderable:reorderable:2.3.3"
@@ -111,23 +101,21 @@ kotlin {
         }
         androidMain {
             dependencies {
-                implementation 'androidx.activity:activity-compose:1.9.0'
+                implementation 'androidx.activity:activity-compose:1.9.3'
                 implementation 'androidx.security:security-crypto-ktx:1.1.0-alpha06'
                 implementation 'androidx.compose.ui:ui-tooling-preview:1.6.8'
                 implementation "io.ktor:ktor-client-okhttp:$ktor_version"
                 implementation "io.insert-koin:koin-android:$koin_version"
                 implementation "io.insert-koin:koin-androidx-compose:$koin_version"
                 implementation "app.cash.sqldelight:android-driver:$sqldelight_version"
-                implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3'
-                implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.3'
+                implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
+                implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
             }
         }
         iosMain {
             dependencies {
                 implementation "io.ktor:ktor-client-darwin:$ktor_version"
-                implementation "io.insert-koin:koin-core:$koin_version"
                 implementation "app.cash.sqldelight:native-driver:$sqldelight_version"
-                implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel:2.8.0"
             }
         }
         desktopMain {
@@ -136,11 +124,7 @@ kotlin {
                 implementation "com.microsoft:credential-secure-storage:1.0.0"
                 implementation "io.ktor:ktor-client-cio:$ktor_version"
                 implementation "org.jetbrains.kotlinx:kotlinx-coroutines-swing:$kotlinx_coroutines_version"
-                implementation "io.insert-koin:koin-core:$koin_version"
-                implementation "io.insert-koin:koin-compose:1.2.0-alpha3"
                 implementation "app.cash.sqldelight:sqlite-driver:$sqldelight_version"
-                // Lifecycle for desktop
-                implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0"
             }
         }
         desktopTest {
