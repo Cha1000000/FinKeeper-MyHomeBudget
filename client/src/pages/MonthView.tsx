@@ -86,12 +86,12 @@ const SortableGroup: React.FC<SortableGroupProps> = ({ group, isExpanded, toggle
 
             {/* Items List */}
             <div className={`transition-opacity duration-300 ease-in-out ${isMulti && !isExpanded ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-none opacity-100 overflow-visible'}`}>
+                {contextAddButton}
                 <table className="w-full text-left">
                     <tbody className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60">
                         {itemsContent}
                     </tbody>
                 </table>
-                {contextAddButton}
             </div>
         </div>
     );
@@ -450,6 +450,7 @@ const MonthView: React.FC = () => {
     const groupsWithBudget = Object.values(groupedExpenses).map(group => {
         const budget = budgets.find(b => b.category_id === group.id);
         const limit = budget ? budget.limit_amount : 0;
+        group.items.sort((a, b) => b.date.localeCompare(a.date));
         return {
             ...group,
             limit,
