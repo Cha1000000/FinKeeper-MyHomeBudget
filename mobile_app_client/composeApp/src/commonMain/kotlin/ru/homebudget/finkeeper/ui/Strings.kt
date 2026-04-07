@@ -70,7 +70,7 @@ object Strings {
     const val EXPENSES = "Расходы"
     const val SAVINGS = "Накопления"
     const val SAVINGS_PERCENT = "% в копилку"
-    const val AVAILABLE = "Доступный лимит"
+    const val AVAILABLE = "Лимит на расходы"
     const val RESOURCE = "Ресурс"
     const val AVAILABLE_WITHOUT_SAVINGS = "Всего без накоплений"
     const val TOTAL_ASSETS = "Всего активов"

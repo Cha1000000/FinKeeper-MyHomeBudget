@@ -298,7 +298,7 @@ const Dashboard: React.FC = () => {
                         <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200 dark:bg-rose-900/50 rounded-bl-full blur-2xl opacity-40"></div>
                     )}
                     <div className="flex flex-col justify-center h-full relative z-10">
-                        <p className="text-sm font-medium text-amber-800/80 dark:text-amber-300/80 mb-1">Доступный лимит</p>
+                        <p className="text-sm font-medium text-amber-800/80 dark:text-amber-300/80 mb-1">Лимит на расходы</p>
                         <p className={`text-2xl font-bold tracking-tight ${Math.max(0, totalLimit - (currentSummary?.expenses || 0)) >= 0 ? 'text-amber-950 dark:text-amber-100' : 'text-rose-600 dark:text-rose-400'}`}>
                             {formatCurrency(Math.max(0, totalLimit - (currentSummary?.expenses || 0)))}
                         </p>
