@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Pencil, GripVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Pencil, GripVertical, SlidersHorizontal } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -542,7 +542,7 @@ const MonthView: React.FC = () => {
                     <p className="text-sm text-rose-600 dark:text-rose-400 font-medium mb-1">Расходы</p>
                     <p className="text-3xl font-bold text-rose-700 dark:text-rose-300 tracking-tight">{formatCurrency(totalExpense)}</p>
                 </div>
-                <div className="bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] cursor-pointer hover:shadow-sm dark:shadow-none transition-all" onClick={() => setIsBudgetModalOpen(true)}>
+                <div className="bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] cursor-pointer hover:shadow-md dark:hover:bg-blue-900/20 transition-all group" onClick={() => setIsBudgetModalOpen(true)}>
                     <div className="flex justify-between items-center mb-1">
                         <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Лимит трат на месяц</p>
                         <span className="text-xs text-blue-500 dark:text-blue-300 font-bold bg-blue-100/80 dark:bg-blue-900/60 px-2 py-0.5 rounded-lg border border-blue-200/50 dark:border-blue-700/50 transition-colors">
@@ -553,7 +553,13 @@ const MonthView: React.FC = () => {
                     <div className="w-full bg-blue-200/50 dark:bg-blue-900/30 rounded-full h-1.5 mt-3 mb-2 overflow-hidden relative">
                         <div className="bg-blue-500 dark:bg-blue-400 h-1.5 rounded-full absolute left-0 top-0 transition-all duration-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${Math.min((totalExpense / (totalLimit || 1)) * 100, 100)}%` }}></div>
                     </div>
-                    <p className="text-xs text-blue-600/80 dark:text-blue-400/80 font-medium">Остаток: {formatCurrency(Math.max(0, totalLimit - totalExpense))}</p>
+                    <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-blue-600/80 dark:text-blue-400/80 font-medium">Остаток: {formatCurrency(Math.max(0, totalLimit - totalExpense))}</p>
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600/90 dark:text-blue-300 bg-blue-100/50 dark:bg-blue-900/40 px-2.5 py-1 rounded-lg border border-blue-200/60 dark:border-blue-700/40 group-hover:bg-blue-500 group-hover:text-white dark:group-hover:bg-blue-500 dark:group-hover:text-white group-hover:border-blue-500 dark:group-hover:border-blue-500 transition-colors">
+                            <SlidersHorizontal className="w-3.5 h-3.5" />
+                            Настроить
+                        </div>
+                    </div>
                 </div>
             </div>
 
