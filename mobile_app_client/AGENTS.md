@@ -139,7 +139,7 @@ composeApp/src/commonMain/kotlin/ru/homebudget/finkeeper/
 ├── data/
 │   ├── model/           # @Serializable data classes
 │   ├── remote/          # ApiClient, TokenStorage
-│   ├── local/           # SQLDelight DAOs (if used)
+│   ├── local/           # SQLDelight database, DAOs, sync queue
 │   └── repository/      # Repository pattern implementations
 ├── di/
 │   └── AppModule.kt     # Koin module definitions
@@ -147,7 +147,7 @@ composeApp/src/commonMain/kotlin/ru/homebudget/finkeeper/
 │   ├── components/      # Reusable Compose components
 │   ├── screens/         # Screen-level composables
 │   ├── theme/           # Colors, Theme, Typography
-│   ├── navigation/      # Navigation setup
+│   ├── navigation/      # State-driven app navigation
 │   └── viewmodel/       # ViewModels (one per screen)
 └── util/
     └── Formatters.kt    # Currency, date formatting
@@ -157,14 +157,14 @@ composeApp/src/commonMain/kotlin/ru/homebudget/finkeeper/
 
 | Library | Version | Purpose |
 |---------|---------|---------|
-| Kotlin | 2.0.21 | Language |
+| Kotlin | 2.2.10 | Language |
 | Compose Multiplatform | 1.6.10 | UI Framework |
-| Ktor Client | 3.0.1 | HTTP Client |
+| Ktor Client | 3.0.3 | HTTP Client |
 | Koin | 3.5.6 | Dependency Injection |
 | kotlinx-serialization | 1.7.1 | JSON Serialization |
-| kotlinx-datetime | 0.6.0 | Date/Time handling |
-| Navigation Compose | 2.7.7 | Navigation |
-| SQLDelight | 1.5.5 | Local database (if used) |
+| kotlinx-datetime | 0.6.1 | Date/Time handling |
+| Multiplatform Settings | 1.2.0 | Settings and server URL storage |
+| SQLDelight | 2.0.2 | Local database and sync queue |
 
 ## Platform Notes
 

@@ -21,14 +21,14 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 | --- | --- |
 | Kotlin | 2.2.10 |
 | Compose Multiplatform | 1.6.10 |
-| Ktor Client | 3.0.1 |
+| Ktor Client | 3.0.3 |
 | Kotlinx Serialization | 1.7.1 |
-| Kotlinx Coroutines | 1.8.1 |
-| Kotlinx Datetime | 0.6.0 |
-| Multiplatform Settings | 1.1.1 |
+| Kotlinx Coroutines | 1.9.0 |
+| Kotlinx Datetime | 0.6.1 |
+| Multiplatform Settings | 1.2.0 |
 | Koin | 3.5.6 |
 | SQLDelight | 2.0.2 |
-| App version | 1.5.0 |
+| App version | 2.0.0 |
 
 ### Платформы
 
@@ -47,14 +47,17 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 - Ktor для HTTP и WebSocket
 - SQLDelight для локальной БД
 - offline-first sync с локальной очередью изменений
+- платформенном secure storage для токенов
+- авто-обновлении access token через refresh flow
 
 Основные слои:
 
 - `data/model` — API и shared models
-- `data/remote` — `ApiClient`, `TokenStorage`
-- `data/local` — база и DAO
+- `data/remote` — `ApiClient`, `TokenStorage`, social auth launchers
+- `data/local` — база, DAO, sync queue
 - `data/repository` — бизнес-логика и sync
 - `ui/viewmodel` — экранные состояния и действия
+- `ui/navigation` — state-driven навигационная оболочка приложения
 - `di/AppModule.kt` — wiring зависимостей
 
 ## Синхронизация
@@ -75,6 +78,8 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 - timestamp-aware merge через server `created_at` / `updated_at`
 - tombstones через `deleted_records`
 - idempotent write requests через `operationId`
+- post-login sync trigger и online-triggered sync
+- диагностика sync-ошибок и состояния последней успешной синхронизации
 
 Подробное описание вынесено в:
 
@@ -84,6 +89,8 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 
 - JWT добавляется в `Authorization: Bearer ...`
 - URL сервера хранится в `TokenStorage`
+- `ApiClient` автоматически пытается обновить access token по `refreshToken` при `401/403` на защищённых endpoint'ах
+- social auth для KMP идёт через native browser launch + polling/exchange flow
 - для Android-эмулятора по умолчанию используется `http://10.0.2.2:3002`
 - для iOS/реальных устройств нужен реальный адрес сервера
 
@@ -101,6 +108,8 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 - desktop target использует JVM `17`
 - HTTP engine: Ktor CIO
 - SQLDelight driver: sqlite-driver
+- secure token storage через OS credential storage (с fallback)
+- база и диагностические логи хранятся в `~/.finkeeper/`
 
 ### iOS
 

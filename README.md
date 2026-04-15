@@ -99,12 +99,12 @@ FinKeeper-MyHomeBudget/
 | ---------- | ------ | ---------- |
 | Kotlin | 2.2.10 | Язык |
 | Compose Multiplatform | 1.6.10 | UI-фреймворк |
-| Ktor Client | 3.0.1 | HTTP-клиент |
+| Ktor Client | 3.0.3 | HTTP-клиент |
 | Koin | 3.5.6 | Dependency Injection |
 | kotlinx-serialization | 1.7.1 | JSON сериализация |
-| kotlinx-datetime | 0.6.0 | Дата/время |
+| kotlinx-datetime | 0.6.1 | Дата/время |
 | SQLDelight | 2.0.2 | Локальная БД |
-| Multiplatform Settings | 1.1.1 | Хранение настроек |
+| Multiplatform Settings | 1.2.0 | Хранение настроек |
 
 ### Архитектура
 

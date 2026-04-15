@@ -125,7 +125,7 @@ cd mobile_app_client/
 
 ### Mobile/Desktop Client (mobile_app_client/)
 
-**Stack**: Kotlin 2.0.21, Compose Multiplatform 1.6.10, Ktor Client 3.0.1, Koin 3.5.6, SQLDelight 1.5.5
+**Stack**: Kotlin 2.2.10, Compose Multiplatform 1.6.10, Ktor Client 3.0.3, Koin 3.5.6, SQLDelight 2.0.2
 
 **Key architectural patterns**:
 - MVVM: ViewModels with `StateFlow` state exposure

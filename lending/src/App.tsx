@@ -1011,7 +1011,7 @@ export default function App() {
                   </div>
                   <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-amber-400/5 border border-amber-400/20 backdrop-blur-sm group hover:bg-amber-400/10 transition-all duration-300">
                     <Star size={28} className="text-amber-400 mb-3 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="text-base font-display font-bold text-white">Рейтинг 4.9+</span>
+                    <span className="text-base font-display font-bold text-white">Рейтинг 4.7+</span>
                     <span className="text-xs text-slate-text/70 mt-1 font-light">Оценка пользователей</span>
                   </div>
                   <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-emerald-base/5 border border-emerald-base/20 backdrop-blur-sm group hover:bg-emerald-base/10 transition-all duration-300">
