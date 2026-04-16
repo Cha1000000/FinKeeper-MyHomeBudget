@@ -7,9 +7,9 @@
         "claude-in-mobile"
       ]
     },
-    "niuma-local-13964": {
+    "niuma-local-13580": {
       "type": "http",
-      "url": "http://127.0.0.1:13964/mcp"
+      "url": "http://127.0.0.1:13580/mcp"
     }
   }
 }

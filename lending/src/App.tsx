@@ -987,13 +987,13 @@ export default function App() {
                     <PlatformLink 
                       icon={Smartphone} 
                       title="Android" 
-                      desc="RuStore • APK • Play Store" 
-                      url="#" 
+                      desc="• RuStore • APK • Play Store" 
+                      url="https://www.rustore.ru/catalog/app/ru.homebudget.finkeeper" 
                     />
                     <PlatformLink 
                       icon={Monitor} 
                       title="Desktop" 
-                      desc="Windows • macOS • Linux" 
+                      desc="• Windows • macOS • Linux" 
                       url="#" 
                     />
                   </div>
@@ -1033,7 +1033,7 @@ export default function App() {
                     <div className="flex items-center justify-center gap-5 md:gap-8">
                       {/* Android */}
                       <motion.a 
-                        href="#"
+                        href="https://www.rustore.ru/catalog/app/ru.homebudget.finkeeper"
                         whileHover={{ scale: 1.15 }}
                         className="group"
                         aria-label="Android"
