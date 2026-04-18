@@ -994,7 +994,7 @@ export default function App() {
                       icon={Monitor} 
                       title="Desktop" 
                       desc="• Windows • macOS • Linux" 
-                      url="#" 
+                      url="/downloads.html" 
                     />
                   </div>
                 </motion.div>
@@ -1043,7 +1043,7 @@ export default function App() {
 
                       {/* Windows */}
                       <motion.a 
-                        href="#"
+                        href="/downloads.html"
                         whileHover={{ scale: 1.15 }}
                         className="group"
                         aria-label="Windows"
@@ -1053,7 +1053,7 @@ export default function App() {
 
                       {/* Apple/macOS */}
                       <motion.a 
-                        href="#"
+                        href="/downloads.html"
                         whileHover={{ scale: 1.15 }}
                         className="group"
                         aria-label="macOS"
@@ -1063,7 +1063,7 @@ export default function App() {
 
                       {/* Linux */}
                       <motion.a 
-                        href="#"
+                        href="/downloads.html"
                         whileHover={{ scale: 1.15 }}
                         className="group"
                         aria-label="Linux"
