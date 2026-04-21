@@ -39,6 +39,7 @@ data class DashboardState(
     val month: Int = 0,
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
+    val totalAllExpenses: Double = 0.0,
     val totalSavings: Double = 0.0,
     val savingsPercent: Double = 0.0,
     val available: Double = 0.0,
@@ -202,9 +203,8 @@ class DashboardViewModel(
 
             // Используем серверные данные если есть, иначе локальные
             val totalIncome = summary?.income ?: incomes.sumOf { it.amount }
-            val totalExpense = summary?.expenses ?: expenses.sumOf { it.amount }
+            val totalAllExpense = summary?.expenses ?: expenses.sumOf { it.amount }
             val totalLimit = budgets.sumOf { it.limitAmount }
-            val available = maxOf(0.0, totalLimit - totalExpense)
 
             // Всего активов = кумулятивный баланс до выбранного месяца включительно
             val cumulativeBalance = try {
@@ -212,7 +212,7 @@ class DashboardViewModel(
                     apiClient.getCumulativeBalance(year, month)
                 }.cumulativeBalance
             } catch (_: Exception) {
-                available // fallback: только текущий месяц если офлайн
+                maxOf(0.0, totalLimit - totalAllExpense) // fallback: только текущий месяц если офлайн
             }
             val totalAssets = cumulativeBalance + totalSavings
             val savingsPercent =
@@ -229,13 +229,16 @@ class DashboardViewModel(
             } else {
                 expenses
             }
+            val totalVisibleExpense = visibleExpenses.sumOf { it.amount }
+            val available = maxOf(0.0, totalLimit - totalAllExpense)
             val breakdown = buildExpenseBreakdown(visibleExpenses, categories)
 
             _state.value =
                 _state.value.copy(
                     isLoading = false,
                     totalIncome = totalIncome,
-                    totalExpense = totalExpense,
+                    totalExpense = totalVisibleExpense,
+                    totalAllExpenses = totalAllExpense,
                     totalSavings = totalSavings,
                     savingsPercent = savingsPercent,
                     available = available,

@@ -53,6 +53,7 @@ data class MonthViewState(
     val groupedExpenses: List<GroupedExpense> = emptyList(),
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
+    val totalAllExpenses: Double = 0.0,
     val totalLimit: Double = 0.0,
     val activeTab: Int = 0, // 0 = expenses, 1 = incomes
     val error: String? = null,
@@ -251,6 +252,7 @@ class MonthViewModel(
 
             val totalIncome = incomes.sumOf { it.amount }
             val totalExpense = visibleExpenses.sumOf { it.amount }
+            val totalAllExpenses = allExpenses.sumOf { it.amount }
             val totalLimit = budgets.sumOf { it.limitAmount }
 
             val grouped = buildGroupedExpenses(visibleExpenses, categories, budgets)
@@ -268,6 +270,7 @@ class MonthViewModel(
                     groupedExpenses = grouped,
                     totalIncome = totalIncome,
                     totalExpense = totalExpense,
+                    totalAllExpenses = totalAllExpenses,
                     totalLimit = totalLimit,
                     isOffline = isOffline,
                 )

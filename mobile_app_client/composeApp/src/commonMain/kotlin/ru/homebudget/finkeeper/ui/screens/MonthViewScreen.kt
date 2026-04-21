@@ -181,19 +181,19 @@ fun MonthViewScreen(
                     ) {
                         Text(Strings.SPENDING_LIMIT, style = MaterialTheme.typography.titleSmall, color = semantic.warningColor)
                         Text(
-                            "${formatCurrency(state.totalExpense)} / ${formatCurrency(state.totalLimit)}",
+                            "${formatCurrency(state.totalAllExpenses)} / ${formatCurrency(state.totalLimit)}",
                             style = MaterialTheme.typography.labelMedium,
                             color = semantic.warningColor,
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     ProgressBar(
-                        progress = if (state.totalLimit > 0) (state.totalExpense / state.totalLimit).toFloat() else 0f,
-                        color = if (state.totalExpense > state.totalLimit) MaterialTheme.colorScheme.error else semantic.warningColor,
+                        progress = if (state.totalLimit > 0) (state.totalAllExpenses / state.totalLimit).toFloat() else 0f,
+                        color = if (state.totalAllExpenses > state.totalLimit) MaterialTheme.colorScheme.error else semantic.warningColor,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${Strings.REMAINDER} ${formatCurrency(maxOf(0.0, state.totalLimit - state.totalExpense))}",
+                        text = "${Strings.REMAINDER} ${formatCurrency(maxOf(0.0, state.totalLimit - state.totalAllExpenses))}",
                         style = MaterialTheme.typography.labelMedium,
                         color = semantic.warningColor.copy(alpha = 0.8f),
                     )

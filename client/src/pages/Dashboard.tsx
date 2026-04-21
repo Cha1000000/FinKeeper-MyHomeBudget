@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals, getCumulativeBalance, getBudgets } from '../api';
-import type { SavingsGoal } from '../api';
+import type { SavingsGoal, Expense } from '../api';
 import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -52,12 +52,18 @@ const Dashboard: React.FC = () => {
     const [trendData, setTrendData] = useState<TrendItem[]>([]);
     const [currentSummary, setCurrentSummary] = useState<SummaryData | null>(null);
     const [expenseStructure, setExpenseStructure] = useState<ExpenseStructureItem[]>([]);
+    const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
     const [totalSavings, setTotalSavings] = useState<number>(0);
     const [cumulativeBalance, setCumulativeBalance] = useState<number>(0);
     const [totalLimit, setTotalLimit] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { resolvedTheme } = useTheme();
+
+    const totalAllExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalVisibleExpense = allExpenses
+        .filter(e => e.category_name !== 'Пополнение копилки')
+        .reduce((sum, e) => sum + e.amount, 0);
 
     const saveMonth = (date: Date) => {
         localStorage.setItem(DASHBOARD_MONTH_KEY, JSON.stringify({
@@ -115,6 +121,8 @@ const Dashboard: React.FC = () => {
                     catMap[e.category_name] += e.amount;
                 }
             });
+
+            setAllExpenses(expRes.data);
 
             const pieData = Object.keys(catMap).map(name => ({
                 name, value: catMap[name]
@@ -264,7 +272,7 @@ const Dashboard: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-rose-800/80 dark:text-rose-300/80">Расходы</p>
-                            <p className="text-2xl font-bold text-rose-950 dark:text-rose-100 tracking-tight mt-0.5">{formatCurrency(currentSummary?.expenses || 0)}</p>
+                            <p className="text-2xl font-bold text-rose-950 dark:text-rose-100 tracking-tight mt-0.5">{formatCurrency(totalVisibleExpense)}</p>
                         </div>
                     </div>
                 </div>
@@ -294,13 +302,13 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 <div className="bg-[image:var(--color-stat-amber-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-amber-border)] hover:shadow-[0_12px_40px_rgba(245,158,11,0.15)] transition-all relative overflow-hidden">
-                    {(Math.max(0, totalLimit - (currentSummary?.expenses || 0))) < 0 && (
+                    {(Math.max(0, totalLimit - totalAllExpenses)) < 0 && (
                         <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200 dark:bg-rose-900/50 rounded-bl-full blur-2xl opacity-40"></div>
                     )}
                     <div className="flex flex-col justify-center h-full relative z-10">
                         <p className="text-sm font-medium text-amber-800/80 dark:text-amber-300/80 mb-1">Лимит на расходы</p>
-                        <p className={`text-2xl font-bold tracking-tight ${Math.max(0, totalLimit - (currentSummary?.expenses || 0)) >= 0 ? 'text-amber-950 dark:text-amber-100' : 'text-rose-600 dark:text-rose-400'}`}>
-                            {formatCurrency(Math.max(0, totalLimit - (currentSummary?.expenses || 0)))}
+                        <p className={`text-2xl font-bold tracking-tight ${Math.max(0, totalLimit - totalAllExpenses) >= 0 ? 'text-amber-950 dark:text-amber-100' : 'text-rose-600 dark:text-rose-400'}`}>
+                            {formatCurrency(Math.max(0, totalLimit - totalAllExpenses))}
                         </p>
                     </div>
                 </div>
@@ -408,7 +416,7 @@ const Dashboard: React.FC = () => {
                                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                     <span className="text-xs font-medium text-slate-400 dark:text-[var(--color-text-muted)] mb-1">Всего</span>
                                     <span className="text-xl font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight">
-                                        {formatCurrency(currentSummary?.expenses || 0)}
+                                        {formatCurrency(totalVisibleExpense)}
                                     </span>
                                 </div>
                             )}
@@ -426,7 +434,7 @@ const Dashboard: React.FC = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-[var(--color-border-default)]">
                                     {expenseStructure.map((entry, idx) => {
-                                        const totalExp = currentSummary?.expenses || 1; 
+                                        const totalExp = totalVisibleExpense || 1;
                                         const share = (entry.value / totalExp) * 100;
                                         
                                         return (

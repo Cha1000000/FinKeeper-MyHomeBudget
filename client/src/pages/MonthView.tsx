@@ -120,6 +120,7 @@ const MonthView: React.FC = () => {
     const [monthData, setMonthData] = useState<Month | null>(null);
     const [incomes, setIncomes] = useState<Income[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
     const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -200,6 +201,7 @@ const MonthView: React.FC = () => {
             ]);
 
             setIncomes(incRes.data);
+            setAllExpenses(expRes.data);
             // Filter out hidden expenses (savings deposits) - category "Пополнение копилки"
             const visibleExpenses = expRes.data.filter((e: Expense) => e.category_name !== 'Пополнение копилки');
             setExpenses(visibleExpenses);
@@ -428,6 +430,7 @@ const MonthView: React.FC = () => {
 
     const totalIncome = incomes.reduce((sum, item) => sum + item.amount, 0);
     const totalExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
+    const totalAllExpenses = allExpenses.reduce((sum, item) => sum + item.amount, 0);
     const totalLimit = budgets.reduce((sum, item) => sum + item.limit_amount, 0);
 
     // Grouping Expenses with Budget Info
@@ -546,15 +549,15 @@ const MonthView: React.FC = () => {
                     <div className="flex justify-between items-center mb-1">
                         <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Лимит трат на месяц</p>
                         <span className="text-xs text-blue-500 dark:text-blue-300 font-bold bg-blue-100/80 dark:bg-blue-900/60 px-2 py-0.5 rounded-lg border border-blue-200/50 dark:border-blue-700/50 transition-colors">
-                            {Math.min((totalExpense / (totalLimit || 1)) * 100, 100).toFixed(0)}%
+                            {Math.min((totalAllExpenses / (totalLimit || 1)) * 100, 100).toFixed(0)}%
                         </span>
                     </div>
                     <p className="text-3xl font-bold text-blue-700 dark:text-blue-300 tracking-tight">{formatCurrency(totalLimit)}</p>
                     <div className="w-full bg-blue-200/50 dark:bg-blue-900/30 rounded-full h-1.5 mt-3 mb-2 overflow-hidden relative">
-                        <div className="bg-blue-500 dark:bg-blue-400 h-1.5 rounded-full absolute left-0 top-0 transition-all duration-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${Math.min((totalExpense / (totalLimit || 1)) * 100, 100)}%` }}></div>
+                        <div className="bg-blue-500 dark:bg-blue-400 h-1.5 rounded-full absolute left-0 top-0 transition-all duration-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${Math.min((totalAllExpenses / (totalLimit || 1)) * 100, 100)}%` }}></div>
                     </div>
                     <div className="flex items-center justify-between mt-2">
-                        <p className="text-xs text-blue-600/80 dark:text-blue-400/80 font-medium">Остаток: {formatCurrency(Math.max(0, totalLimit - totalExpense))}</p>
+                        <p className="text-xs text-blue-600/80 dark:text-blue-400/80 font-medium">Остаток: {formatCurrency(Math.max(0, totalLimit - totalAllExpenses))}</p>
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600/90 dark:text-blue-300 bg-blue-100/50 dark:bg-blue-900/40 px-2.5 py-1 rounded-lg border border-blue-200/60 dark:border-blue-700/40 group-hover:bg-blue-500 group-hover:text-white dark:group-hover:bg-blue-500 dark:group-hover:text-white group-hover:border-blue-500 dark:group-hover:border-blue-500 transition-colors">
                             <SlidersHorizontal className="w-3.5 h-3.5" />
                             Настроить
