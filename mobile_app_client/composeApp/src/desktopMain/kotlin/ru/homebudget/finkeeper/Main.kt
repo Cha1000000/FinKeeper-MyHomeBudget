@@ -138,6 +138,7 @@ fun main() {
             icon = painterResource("icon.png"),
         ) {
             desktopAwtWindow = this.window
+            this.window.minimumSize = java.awt.Dimension(900, 600)
 
             // Периодически сохраняем состояние окна (на случай краша)
             DisposableEffect(windowState) {
