@@ -22,6 +22,7 @@ data class SavingsState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val goals: List<SavingsGoal> = emptyList(),
+    val totalSavings: Double = 0.0,
     val error: String? = null,
     val isOffline: Boolean = false,
 )
@@ -88,7 +89,8 @@ class SavingsViewModel(
                 savingsGoalRepository.syncWithServer(currentUserId)
             }
 
-            _state.value = _state.value.copy(isLoading = false, goals = goals, isOffline = false)
+            val totalSavings = goals.sumOf { it.currentAmount }
+            _state.value = _state.value.copy(isLoading = false, goals = goals, totalSavings = totalSavings, isOffline = false)
         } catch (e: Exception) {
             _state.value =
                 _state.value.copy(
@@ -205,7 +207,8 @@ class SavingsViewModel(
                 val updatedGoals = _state.value.goals.map { g ->
                     if (g.id == goalId) g.copy(currentAmount = newAmount) else g
                 }
-                _state.value = _state.value.copy(goals = updatedGoals)
+                val totalSavings = updatedGoals.sumOf { it.currentAmount }
+                _state.value = _state.value.copy(goals = updatedGoals, totalSavings = totalSavings)
                 println("[SAVINGS-VM] addTransaction: UI updated with newAmount=$newAmount")
                 
                 notifySavingsUpdated()

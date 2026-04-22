@@ -117,6 +117,7 @@ object Strings {
     const val DRAG_HANDLE = "Перетащить"
 
     // === Экран копилок (Savings) ===
+    const val TOTAL_SAVINGS = "Всего накоплено"
     const val PIGGY_BANKS = "Копилки"
     const val NO_PIGGY_BANKS = "Нет копилок. Создайте первую!"
     const val FROM = "из"

@@ -105,6 +105,38 @@ fun SavingsScreen(
                 )
             }
 
+            if (state.totalSavings > 0) {
+                item {
+                    GlassyCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        baseColor = MaterialTheme.colorScheme.primary,
+                        highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = Strings.TOTAL_SAVINGS,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                            Text(
+                                text = formatCurrency(state.totalSavings),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
+                    }
+                }
+            }
+
             if (sortedGoals.isEmpty()) {
                 item { EmptyState(Strings.NO_PIGGY_BANKS) }
             } else {

@@ -215,6 +215,24 @@ const Savings: React.FC = () => {
                 </button>
             </div>
 
+            {goals.length > 0 && (
+                <div className="bg-[var(--color-primary)]/95 p-3 rounded-3xl shadow-[0_10px_40px_-10px_rgba(27,144,91,0.4)] dark:shadow-[0_10px_40px_-10px_rgba(16,185,129,0.3)] border border-white/20 backdrop-blur-xl transition-shadow overflow-hidden relative flex items-center justify-between">
+                    <div className="relative z-10 flex items-center gap-4">
+                        <div className="p-3 bg-white/10 backdrop-blur-md shadow-sm border border-white/10 rounded-2xl text-white">
+                            <PiggyBank className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <p className="text-white/80 text-lg font-medium mb-0.5">Всего накоплено</p>
+                            <p className="text-3xl font-bold text-white tracking-tight">
+                                {formatCurrency(goals.reduce((sum, g) => sum + g.current_amount, 0))}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="absolute -right-16 -bottom-16 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+                    <div className="absolute -left-16 -top-16 w-48 h-48 bg-black/10 rounded-full blur-3xl"></div>
+                </div>
+            )}
+
             {goals.length === 0 ? (
                 <PageState
                     variant="empty"
