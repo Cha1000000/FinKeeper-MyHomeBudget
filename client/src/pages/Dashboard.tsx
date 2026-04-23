@@ -189,7 +189,7 @@ const Dashboard: React.FC = () => {
     }
 
     return (
-        <div className="mx-auto w-full min-w-0 max-w-5xl space-y-8">
+        <div className="mx-auto w-full min-w-0 max-w-5xl xl:max-w-[1440px] grid grid-rows-[auto_auto_auto_auto_1fr] gap-8 min-h-full">
             <header>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-[var(--color-text-main)] tracking-tight">Обзор финансов</h2>
                 <p className="text-slate-500 dark:text-[var(--color-text-muted)] text-sm mt-1">Сводка за выбранный месяц и аналитика</p>
@@ -324,15 +324,15 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 grid-rows-1 gap-4 min-h-0">
 
                 {/* Trend Chart */}
-                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] transition-colors">
-                    <div className="flex items-center justify-between mb-8">
+                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] transition-colors flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-8 flex-shrink-0">
                         <h3 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight">Динамика финансов</h3>
                         <span className="text-xs font-medium text-slate-500 dark:text-[var(--color-text-muted)] bg-slate-100 dark:bg-[var(--color-surface-soft)] px-3 py-1.5 rounded-full transition-colors">6 месяцев</span>
                     </div>
-                    <div className="h-80 w-full min-w-0">
+                    <div className="flex-1 min-h-0 w-full">
                         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={320}>
                             <BarChart data={trendData} barGap={4}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={resolvedTheme === 'dark' ? '#2a3441' : '#f8fafc'} />
@@ -366,12 +366,12 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Breakdown Chart & Table */}
-                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] flex flex-col transition-colors">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight mb-8">Структура расходов</h3>
+                <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] flex flex-col transition-colors min-h-0">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight mb-8 flex-shrink-0">Структура расходов</h3>
                     
-                    <div className="flex flex-col xl:flex-row items-center gap-8 h-full">
+                    <div className="flex flex-col xl:flex-row xl:items-center items-stretch gap-4 xl:gap-6 flex-1 min-h-0 overflow-hidden">
                         {/* Chart */}
-                        <div className="relative h-64 w-full min-w-0 xl:flex-1">
+                        <div className="relative h-64 w-full min-w-0 xl:w-64 xl:flex-shrink-0 self-center">
                             {expenseStructure.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={256}>
                                     <PieChart>
@@ -423,12 +423,12 @@ const Dashboard: React.FC = () => {
                         </div>
 
                         {/* Detailed Table */}
-                        <div className="w-full xl:flex-1 overflow-auto max-h-80 custom-scrollbar pr-2 min-w-0">
+                        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar pr-2 min-w-0 self-start xl:self-stretch">
                             <table className="w-full text-sm relative border-separate border-spacing-0 table-fixed">
                                 <thead>
                                     <tr>
-                                        <th className="text-left pb-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider w-[55%]">Категория</th>
-                                        <th className="text-right pb-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider w-[30%]">Сумма</th>
+                                        <th className="text-left pb-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider w-[60%]">Категория</th>
+                                        <th className="text-right pb-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider w-[25%]">Сумма</th>
                                         <th className="text-right pb-4 font-semibold text-xs text-slate-400 dark:text-[var(--color-text-muted)] uppercase tracking-wider pr-4 w-[15%]">%</th>
                                     </tr>
                                 </thead>
@@ -439,16 +439,16 @@ const Dashboard: React.FC = () => {
                                         
                                         return (
                                             <tr key={idx} className="group hover:bg-[var(--color-surface-soft)] transition-colors">
-                                                <td className="py-3 pr-2 truncate max-w-0">
+                                                <td className="py-2 pr-1 truncate max-w-0">
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT_COLOR_CLASSES[idx % DOT_COLOR_CLASSES.length]}`}></div>
-                                                        <span className="text-slate-700 dark:text-[var(--color-text-main)] truncate font-medium">{entry.name}</span>
+                                                        <span className="text-slate-700 dark:text-[var(--color-text-main)] truncate font-medium" title={entry.name}>{entry.name}</span>
                                                     </div>
                                                 </td>
-                                                <td className="py-3 px-2 text-right text-slate-600 dark:text-[var(--color-text-muted)] font-medium tabular-nums whitespace-nowrap">
+                                                <td className="py-2 px-1 text-right text-slate-600 dark:text-[var(--color-text-muted)] font-medium tabular-nums whitespace-nowrap">
                                                     {formatCurrency(entry.value)}
                                                 </td>
-                                                <td className="py-3 pl-2 pr-4 text-right text-slate-400 dark:text-[var(--color-text-muted)] tabular-nums">
+                                                <td className="py-2 pl-1 pr-2 text-right text-slate-400 dark:text-[var(--color-text-muted)] tabular-nums">
                                                     {share.toFixed(1)}%
                                                 </td>
                                             </tr>
