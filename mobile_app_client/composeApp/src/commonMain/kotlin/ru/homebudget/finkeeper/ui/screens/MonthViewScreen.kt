@@ -3,6 +3,7 @@ package ru.homebudget.finkeeper.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -101,6 +102,9 @@ fun MonthViewScreen(
     LaunchedEffect(Unit) { onRefresh() }
 
     val semantic = AppTheme.semanticColors
+    val useFloatingAddButton = !isDesktop
+    val floatingActionButtonBottomPadding = if (useFloatingAddButton) 20.dp else 24.dp
+    val listBottomPadding = if (useFloatingAddButton) 104.dp else 8.dp
 
     if (state.isLoading) {
         LoadingScreen()
@@ -246,99 +250,135 @@ fun MonthViewScreen(
             }
         }
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            state = lazyListState,
-            contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (state.activeTab == 0) {
-                // Expenses tab
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            Strings.EXPENSES_BY_CATEGORIES,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        AppButton(
-                            text = Strings.ADD,
-                            onClick = { showAddDialog = true },
-                            containerColor = Color(0xFF1B5E20),
-                            contentColor = Color.White,
-                            style = GlassyButtonStyle.Glassy,
-                            modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
-                            textStyle = MaterialTheme.typography.labelLarge
-                        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                state = lazyListState,
+                contentPadding = PaddingValues(top = 8.dp, bottom = listBottomPadding),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (state.activeTab == 0) {
+                    // Expenses tab
+                    item {
+                        if (useFloatingAddButton) {
+                            Text(
+                                text = Strings.EXPENSES_BY_CATEGORIES,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(vertical = 4.dp),
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    Strings.EXPENSES_BY_CATEGORIES,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                AppButton(
+                                    text = Strings.ADD,
+                                    onClick = { showAddDialog = true },
+                                    containerColor = Color(0xFF1B5E20),
+                                    contentColor = Color.White,
+                                    style = GlassyButtonStyle.Glassy,
+                                    modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
+                                    textStyle = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                        }
                     }
-                }
 
-                if (localGroupedExpenses.isEmpty()) {
-                    item { EmptyState(Strings.NO_EXPENSES_THIS_MONTH) }
+                    if (localGroupedExpenses.isEmpty()) {
+                        item { EmptyState(Strings.NO_EXPENSES_THIS_MONTH) }
+                    } else {
+                        itemsIndexed(localGroupedExpenses, key = { _, group -> group.categoryId }) { _, group ->
+                            ReorderableItem(reorderableLazyListState, key = group.categoryId) { isDragging ->
+                                val elevation = if (isDragging) 8.dp else 0.dp
+                                ExpenseGroupCard(
+                                    group = group,
+                                    onDeleteExpense = { deleteExpenseId = it },
+                                    onEditExpense = { id, amount -> editingExpense = Pair(id, amount) },
+                                    onAddExpenseInCategory = { showAddExpenseForCategory = group.categoryId },
+                                    modifier = Modifier
+                                        .longPressDraggableHandle(
+                                            onDragStopped = {
+                                                onReorderExpenseGroups(localGroupedExpenses)
+                                            },
+                                        ),
+                                    elevation = elevation,
+                                )
+                            }
+                        }
+                    }
                 } else {
-                    itemsIndexed(localGroupedExpenses, key = { _, group -> group.categoryId }) { _, group ->
-                        ReorderableItem(reorderableLazyListState, key = group.categoryId) { isDragging ->
-                            val elevation = if (isDragging) 8.dp else 0.dp
-                            ExpenseGroupCard(
-                                group = group,
-                                onDeleteExpense = { deleteExpenseId = it },
-                                onEditExpense = { id, amount -> editingExpense = Pair(id, amount) },
-                                onAddExpenseInCategory = { showAddExpenseForCategory = group.categoryId },
-                                modifier = Modifier
-                                    .longPressDraggableHandle(
-                                        onDragStopped = {
-                                            onReorderExpenseGroups(localGroupedExpenses)
-                                        },
-                                    ),
-                                elevation = elevation,
+                    // Incomes tab
+                    item {
+                        if (useFloatingAddButton) {
+                            Text(
+                                text = Strings.INCOMES_TAB,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(vertical = 4.dp),
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    Strings.INCOMES_TAB,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+
+                                )
+                                AppButton(
+                                    text = Strings.ADD,
+                                    onClick = { showAddDialog = true },
+                                    containerColor = Color(0xFF1B5E20),
+                                    contentColor = Color.White,
+                                    style = GlassyButtonStyle.Glassy,
+                                    modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
+                                    textStyle = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                        }
+                    }
+
+                    if (state.incomesWithSources.isEmpty()) {
+                        item { EmptyState(Strings.NO_INCOMES_THIS_MONTH) }
+                    } else {
+                        items(state.incomesWithSources, key = { it.id }) { income ->
+                            IncomeItemCard(
+                                source = income.sourceName,
+                                amount = formatCurrency(income.amount),
+                                date = formatDate(income.date),
+                                onDelete = { deleteIncomeId = income.id },
                             )
                         }
                     }
                 }
-            } else {
-                // Incomes tab
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            Strings.INCOMES_TAB,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
+            }
 
-                        )
-                        AppButton(
-                            text = Strings.ADD,
-                            onClick = { showAddDialog = true },
-                            containerColor = Color(0xFF1B5E20),
-                            contentColor = Color.White,
-                            style = GlassyButtonStyle.Glassy,
-                            modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
-                            textStyle = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                }
-
-                if (state.incomesWithSources.isEmpty()) {
-                    item { EmptyState(Strings.NO_INCOMES_THIS_MONTH) }
-                } else {
-                    items(state.incomesWithSources, key = { it.id }) { income ->
-                        IncomeItemCard(
-                            source = income.sourceName,
-                            amount = formatCurrency(income.amount),
-                            date = formatDate(income.date),
-                            onDelete = { deleteIncomeId = income.id },
-                        )
-                    }
-                }
+            if (useFloatingAddButton) {
+                AppButton(
+                    text = Strings.ADD,
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = floatingActionButtonBottomPadding)
+                        .height(56.dp)
+                        .widthIn(min = 148.dp),
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    style = GlassyButtonStyle.Glassy,
+                    textStyle = MaterialTheme.typography.titleMedium,
+                )
             }
         }
     }
