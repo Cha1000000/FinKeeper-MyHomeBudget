@@ -112,11 +112,37 @@ private val DarkNightColorScheme = darkColorScheme(
     outlineVariant = OutlineVariantDarkNight,
 )
 
+private val BlueOceanColorScheme = darkColorScheme(
+    primary = PrimaryBlueOcean,
+    onPrimary = OnPrimaryBlueOcean,
+    primaryContainer = PrimaryContainerBlueOcean,
+    onPrimaryContainer = OnPrimaryContainerBlueOcean,
+    secondary = SecondaryBlueOcean,
+    onSecondary = OnSecondaryBlueOcean,
+    secondaryContainer = SecondaryContainerBlueOcean,
+    onSecondaryContainer = OnSecondaryContainerBlueOcean,
+    tertiary = TertiaryBlueOcean,
+    onTertiary = OnTertiaryBlueOcean,
+    error = ErrorBlueOcean,
+    onError = OnErrorBlueOcean,
+    errorContainer = ErrorContainerBlueOcean,
+    onErrorContainer = OnErrorContainerBlueOcean,
+    background = BackgroundBlueOcean,
+    onBackground = OnBackgroundBlueOcean,
+    surface = SurfaceBlueOcean,
+    onSurface = OnSurfaceBlueOcean,
+    surfaceVariant = SurfaceVariantBlueOcean,
+    onSurfaceVariant = OnSurfaceVariantBlueOcean,
+    outline = OutlineBlueOcean,
+    outlineVariant = OutlineVariantBlueOcean,
+)
+
 enum class ThemePalette {
     Light,
     Dark,
     Cyberpunk,
     DarkNight,
+    BlueOcean,
 }
 
 data class AppSemanticColors(
@@ -224,6 +250,27 @@ val CyberpunkSemanticColors = AppSemanticColors(
     logoutRed = LogoutRedDarkNight,
 )
 
+val BlueOceanSemanticColors = AppSemanticColors(
+    incomeColor = IncomeColorBlueOcean,
+    expenseColor = ExpenseColorBlueOcean,
+    savingsColor = SavingsColorBlueOcean,
+    warningColor = WarningBlueOcean,
+    tealColor = TealColorBlueOcean,
+    availableColor = AvailableColorBlueOcean,
+    incomeCardBg = IncomeCardBgBlueOcean,
+    expenseCardBg = ExpenseCardBgBlueOcean,
+    savingsCardBg = SavingsCardBgBlueOcean,
+    warningCardBg = WarningCardBgBlueOcean,
+    tealCardBg = TealCardBgBlueOcean,
+    availableCardBg = AvailableCardBgBlueOcean,
+    navBarColor = NavBarBlueOcean,
+    navBarContent = NavBarContentBlueOcean,
+    navBarContentInactive = NavBarContentInactiveBlueOcean,
+    backupBlue = BackupBlueBlueOcean,
+    restorePink = RestorePinkBlueOcean,
+    logoutRed = LogoutRedBlueOcean,
+)
+
 val LocalSemanticColors = staticCompositionLocalOf { LightSemanticColors }
 
 object AppTheme {
@@ -260,6 +307,7 @@ fun FinKeeperTheme(
             ThemePalette.Dark -> DarkColorScheme
             ThemePalette.Cyberpunk -> CyberpunkColorScheme
             ThemePalette.DarkNight -> DarkNightColorScheme
+            ThemePalette.BlueOcean -> BlueOceanColorScheme
         }
     val semanticColors =
         when (palette) {
@@ -267,6 +315,7 @@ fun FinKeeperTheme(
             ThemePalette.Dark -> DarkSemanticColors
             ThemePalette.Cyberpunk -> CyberpunkSemanticColors
             ThemePalette.DarkNight -> DarkNightSemanticColors
+            ThemePalette.BlueOcean -> BlueOceanSemanticColors
         }
 
     CompositionLocalProvider(LocalSemanticColors provides semanticColors) {

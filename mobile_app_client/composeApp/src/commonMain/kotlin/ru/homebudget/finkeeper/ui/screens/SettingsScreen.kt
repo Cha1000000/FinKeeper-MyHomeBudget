@@ -152,6 +152,7 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f).height(48.dp),
                         enabled = state.isOnline && !state.isSyncing,
                         isLoading = state.isSyncing,
+                        contentColor = Color.White,
                         style = GlassyButtonStyle.Glassy,
                     )
                     if (state.lastSyncError != null) {
@@ -600,6 +601,7 @@ fun SettingsScreen(
                         "night" to Strings.THEME_DARK,
                         "dark_night" to Strings.THEME_DARK_NIGHT,
                         "dark" to Strings.THEME_CYBERPUNK,
+                        "blue_ocean" to Strings.THEME_BLUE_OCEAN,
                     )
                 themeOptions.forEach { (mode, label) ->
                     Row(

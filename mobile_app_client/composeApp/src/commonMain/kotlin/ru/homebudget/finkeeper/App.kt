@@ -31,6 +31,7 @@ fun App() {
         "dark" -> ThemePalette.Cyberpunk
         "night" -> ThemePalette.Dark
         "dark_night" -> ThemePalette.DarkNight
+        "blue_ocean" -> ThemePalette.BlueOcean
         else -> if (isSystemInDarkTheme()) ThemePalette.Dark else ThemePalette.Light
     }
 

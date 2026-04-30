@@ -125,7 +125,7 @@ fun SavingsScreen(
                             Text(
                                 text = Strings.TOTAL_SAVINGS,
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = Color.White,
                             )
                             Text(
                                 text = formatCurrency(state.totalSavings),

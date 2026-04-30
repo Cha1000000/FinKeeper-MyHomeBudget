@@ -84,7 +84,7 @@ class TokenStorage(
             }
         }
 
-    // Theme mode: "light", "night" (soft dark), "dark" (Cyberpunk), "system"
+    // Theme mode: "light", "night" (soft dark), "dark" (Cyberpunk), "dark_night", "blue_ocean", "system"
     var themeMode: String
         get() = settings.getString(KEY_THEME_MODE, "light")
         set(value) {

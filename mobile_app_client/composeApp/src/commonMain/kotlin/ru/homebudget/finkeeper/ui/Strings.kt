@@ -175,6 +175,7 @@ object Strings {
     const val THEME_DARK = "Тёмная"
     const val THEME_DARK_NIGHT = "Тёмная ночь"
     const val THEME_CYBERPUNK = "Cyberpunk"
+    const val THEME_BLUE_OCEAN = "Синий океан"
     const val LOGOUT = "Выйти из аккаунта"
     const val CHANGE_NAME = "Сменить имя"
     const val CHANGE_NAME_CONFIRM = "Изменить имя пользователя на \"%1\u0024s\"?"

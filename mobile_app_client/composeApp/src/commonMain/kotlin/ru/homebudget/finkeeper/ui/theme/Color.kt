@@ -211,3 +211,53 @@ val AvailableCardBgDarkNight = Color(0xFF121A0A)
 val BackupBlueDarkNight = Color(0xFF1E88E5)       // Deep Blue
 val RestorePinkDarkNight = Color(0xFFAD1457)      // Dark Pink
 val LogoutRedDarkNight = Color(0xFFB71C1C)       // Deep Red
+
+// ── Blue Ocean Theme Colors (refined for stronger semantic accents) ──
+val PrimaryBlueOcean = Color(0xFFB0C4FF)            // Bright ocean mist highlight
+val OnPrimaryBlueOcean = Color(0xFF12225E)
+val PrimaryContainerBlueOcean = Color(0xFF4D5FD2)   // Indigo CTA / active state
+val OnPrimaryContainerBlueOcean = Color(0xFFF2F5FF)
+
+val SecondaryBlueOcean = Color(0xFF9AA8FF)          // Soft periwinkle accent
+val OnSecondaryBlueOcean = Color(0xFF141D57)
+val SecondaryContainerBlueOcean = Color(0xFF2B376F)
+val OnSecondaryContainerBlueOcean = Color(0xFFE8ECFF)
+
+val TertiaryBlueOcean = Color(0xFF75DEFF)           // Cyan chart / support accent
+val OnTertiaryBlueOcean = Color(0xFF002A3E)
+
+val ErrorBlueOcean = Color(0xFFFFA0B5)
+val OnErrorBlueOcean = Color(0xFF5D1123)
+val ErrorContainerBlueOcean = Color(0xFF7A2841)
+val OnErrorContainerBlueOcean = Color(0xFFFFD9E0)
+
+val BackgroundBlueOcean = Color(0xFF11162C)         // Deep night ocean base
+val OnBackgroundBlueOcean = Color(0xFFF2F4FF)
+val SurfaceBlueOcean = Color(0xFF1C2342)            // Neutral dark card surface
+val OnSurfaceBlueOcean = Color(0xFFF2F4FF)
+val SurfaceVariantBlueOcean = Color(0xFF242C52)
+val OnSurfaceVariantBlueOcean = Color(0xFFC5CCF3)
+val OutlineBlueOcean = Color(0xFF515D93)
+val OutlineVariantBlueOcean = Color(0xFF343D6E)
+
+val NavBarBlueOcean = Color(0xFF18204A)
+val NavBarContentBlueOcean = Color(0xFFAAC0FF)
+val NavBarContentInactiveBlueOcean = Color(0xFF7380B7)
+
+val IncomeColorBlueOcean = Color(0xFF71DEFF)
+val ExpenseColorBlueOcean = Color(0xFFFF98A9)
+val SavingsColorBlueOcean = Color(0xFFA183FF)
+val WarningBlueOcean = Color(0xFFB8CEFF)
+val TealColorBlueOcean = Color(0xFF62F0D2)
+val AvailableColorBlueOcean = Color(0xFFB3F66D)
+
+val IncomeCardBgBlueOcean = Color(0xFF10232F)
+val ExpenseCardBgBlueOcean = Color(0xFF311927)
+val SavingsCardBgBlueOcean = Color(0xFF21183D)
+val WarningCardBgBlueOcean = Color(0xFF2A345E)
+val TealCardBgBlueOcean = Color(0xFF102B2C)
+val AvailableCardBgBlueOcean = Color(0xFF1E2E1D)
+
+val BackupBlueBlueOcean = Color(0xFF4D92FF)
+val RestorePinkBlueOcean = Color(0xFF8E71FF)
+val LogoutRedBlueOcean = Color(0xFF7A2E47)
