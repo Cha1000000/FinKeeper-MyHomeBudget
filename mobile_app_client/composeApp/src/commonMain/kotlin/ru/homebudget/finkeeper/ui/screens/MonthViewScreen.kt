@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +22,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -42,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -102,9 +107,21 @@ fun MonthViewScreen(
     LaunchedEffect(Unit) { onRefresh() }
 
     val semantic = AppTheme.semanticColors
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val useFloatingAddButton = !isDesktop
     val floatingActionButtonBottomPadding = if (useFloatingAddButton) 20.dp else 24.dp
     val listBottomPadding = if (useFloatingAddButton) 104.dp else 8.dp
+    val floatingActionShape = RoundedCornerShape(percent = 50)
+    val floatingActionBlurTint =
+        if (isDarkTheme) {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.42f)
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.64f)
+        }
+    val floatingActionPlateTint =
+        MaterialTheme.colorScheme.primaryContainer.copy(
+            alpha = if (isDarkTheme) 0.22f else 0.18f
+        )
 
     if (state.isLoading) {
         LoadingScreen()
@@ -366,19 +383,38 @@ fun MonthViewScreen(
             }
 
             if (useFloatingAddButton) {
-                AppButton(
-                    text = Strings.ADD,
-                    onClick = { showAddDialog = true },
+                Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = floatingActionButtonBottomPadding)
                         .height(56.dp)
-                        .widthIn(min = 148.dp),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = GlassyButtonStyle.Glassy,
-                    textStyle = MaterialTheme.typography.titleMedium,
-                )
+                        .sizeIn(minWidth = 116.dp, maxWidth = 122.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                            .blur(26.dp)
+                            .clip(floatingActionShape)
+                            .background(floatingActionBlurTint),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 2.dp, vertical = 1.dp)
+                            .clip(floatingActionShape)
+                            .background(floatingActionPlateTint),
+                    )
+                    AppButton(
+                        text = Strings.ADD,
+                        onClick = { showAddDialog = true },
+                        modifier = Modifier.fillMaxSize(),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = GlassyButtonStyle.Glassy,
+                        textStyle = MaterialTheme.typography.titleMedium,
+                    )
+                }
             }
         }
     }
