@@ -1,16 +1,20 @@
 package ru.homebudget.finkeeper.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
@@ -71,6 +75,22 @@ fun CategoriesScreen(
 
     LaunchedEffect(Unit) { onRefresh() }
 
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val useFloatingAddButton = !isDesktop
+    val floatingActionButtonBottomPadding = if (useFloatingAddButton) 20.dp else 24.dp
+    val listBottomPadding = if (useFloatingAddButton) 104.dp else 8.dp
+    val floatingActionShape = RoundedCornerShape(percent = 50)
+    val floatingActionBlurTint =
+        if (isDarkTheme) {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.42f)
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.64f)
+        }
+    val floatingActionPlateTint =
+        MaterialTheme.colorScheme.primaryContainer.copy(
+            alpha = if (isDarkTheme) 0.22f else 0.18f
+        )
+
     if (state.isLoading) {
         LoadingScreen()
         return
@@ -119,129 +139,164 @@ fun CategoriesScreen(
 
         val activeListState = if (state.activeTab == 0) lazyListState else incomeListState
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            state = activeListState,
-            contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    if (state.activeTab == 0) {
-                        TextButton(onClick = {
-                            if (state.isReorderMode) {
-                                // При нажатии "Готово" — отправляем на сервер
-                                onReorderCategories(localCategories)
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                state = activeListState,
+                contentPadding = PaddingValues(top = 8.dp, bottom = listBottomPadding),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        if (state.activeTab == 0) {
+                            TextButton(onClick = {
+                                if (state.isReorderMode) {
+                                    onReorderCategories(localCategories)
+                                }
+                                onToggleReorderMode()
+                            }) {
+                                Text(
+                                    if (state.isReorderMode) Strings.DONE else Strings.REORDER_MODE,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
-                            onToggleReorderMode()
-                        }) {
-                            Text(
-                                if (state.isReorderMode) Strings.DONE else Strings.REORDER_MODE,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                        } else {
+                            TextButton(onClick = {
+                                if (state.isIncomeSourceReorderMode) {
+                                    onReorderIncomeSources(localIncomeSources)
+                                }
+                                onToggleIncomeSourceReorderMode()
+                            }) {
+                                Text(
+                                    if (state.isIncomeSourceReorderMode) Strings.DONE else Strings.REORDER_MODE,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
-                    } else {
-                        TextButton(onClick = {
-                            if (state.isIncomeSourceReorderMode) {
-                                onReorderIncomeSources(localIncomeSources)
-                            }
-                            onToggleIncomeSourceReorderMode()
-                        }) {
-                            Text(
-                                if (state.isIncomeSourceReorderMode) Strings.DONE else Strings.REORDER_MODE,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary
+                        if (!useFloatingAddButton) {
+                            AppButton(
+                                text = Strings.ADD,
+                                onClick = { showAddDialog = true },
+                                containerColor = Color(0xFF1B5E20),
+                                contentColor = Color.White,
+                                style = GlassyButtonStyle.Glassy,
+                                modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
+                                textStyle = MaterialTheme.typography.labelLarge
                             )
                         }
                     }
-                    AppButton(
-                        text = Strings.ADD,
-                        onClick = { showAddDialog = true },
-                        containerColor = Color(0xFF1B5E20),
-                        contentColor = Color.White,
-                        style = GlassyButtonStyle.Glassy,
-                        modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
-                        textStyle = MaterialTheme.typography.labelLarge
-                    )
+                }
+
+                if (state.activeTab == 0) {
+                    val activeCategories = state.categories.filter { it.isActive == 1 }
+                    if (activeCategories.isEmpty()) {
+                        item { EmptyState(Strings.NO_CATEGORIES) }
+                    } else {
+                        if (state.isReorderMode) {
+                            itemsIndexed(localCategories, key = { _, cat -> cat.id }) { _, cat ->
+                                ReorderableItem(reorderableLazyListState, key = cat.id) { isDragging ->
+                                    val elevation = if (isDragging) 8.dp else 0.dp
+                                    ReorderableCategoryItem(
+                                        name = cat.name,
+                                        modifier = Modifier.longPressDraggableHandle(),
+                                        elevation = elevation
+                                    )
+                                }
+                            }
+                        } else {
+                            items(activeCategories, key = { it.id }) { cat ->
+                                EditableItemCard(
+                                    name = cat.name,
+                                    isEditing = editingId == cat.id,
+                                    editingName = editingName,
+                                    onEditingNameChange = { editingName = it },
+                                    onStartEdit = { editingId = cat.id; editingName = cat.name },
+                                    onSaveEdit = {
+                                        onUpdateCategory(cat.id, editingName)
+                                        editingId = null
+                                    },
+                                    onCancelEdit = { editingId = null },
+                                    onDelete = { deleteId = cat.id }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    val activeIncomeSources = state.incomeSources.filter { it.isActive == 1 }
+                    if (activeIncomeSources.isEmpty()) {
+                        item { EmptyState(Strings.NO_INCOME_SOURCES) }
+                    } else {
+                        if (state.isIncomeSourceReorderMode) {
+                            itemsIndexed(localIncomeSources, key = { _, src -> src.id }) { _, src ->
+                                ReorderableItem(reorderableIncomeListState, key = src.id) { isDragging ->
+                                    val elevation = if (isDragging) 8.dp else 0.dp
+                                    ReorderableCategoryItem(
+                                        name = src.name,
+                                        modifier = Modifier.longPressDraggableHandle(),
+                                        elevation = elevation
+                                    )
+                                }
+                            }
+                        } else {
+                            items(activeIncomeSources, key = { it.id }) { src ->
+                                EditableItemCard(
+                                    name = src.name,
+                                    isEditing = editingId == src.id,
+                                    editingName = editingName,
+                                    onEditingNameChange = { editingName = it },
+                                    onStartEdit = { editingId = src.id; editingName = src.name },
+                                    onSaveEdit = {
+                                        onUpdateIncomeSource(src.id, editingName)
+                                        editingId = null
+                                    },
+                                    onCancelEdit = { editingId = null },
+                                    onDelete = { deleteId = src.id }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            if (state.activeTab == 0) {
-                // Используем state.categories напрямую вне режима сортировки
-                val activeCategories = state.categories.filter { it.isActive == 1 }
-                if (activeCategories.isEmpty()) {
-                    item { EmptyState(Strings.NO_CATEGORIES) }
-                } else {
-                    if (state.isReorderMode) {
-                        // В режиме сортировки используем localCategories
-                        itemsIndexed(localCategories, key = { _, cat -> cat.id }) { _, cat ->
-                            ReorderableItem(reorderableLazyListState, key = cat.id) { isDragging ->
-                                val elevation = if (isDragging) 8.dp else 0.dp
-                                ReorderableCategoryItem(
-                                    name = cat.name,
-                                    modifier = Modifier.longPressDraggableHandle(),
-                                    elevation = elevation
-                                )
-                            }
-                        }
-                    } else {
-                        // Вне режима сортировки используем state.categories напрямую
-                        items(activeCategories, key = { it.id }) { cat ->
-                            EditableItemCard(
-                                name = cat.name,
-                                isEditing = editingId == cat.id,
-                                editingName = editingName,
-                                onEditingNameChange = { editingName = it },
-                                onStartEdit = { editingId = cat.id; editingName = cat.name },
-                                onSaveEdit = {
-                                    onUpdateCategory(cat.id, editingName)
-                                    editingId = null
-                                },
-                                onCancelEdit = { editingId = null },
-                                onDelete = { deleteId = cat.id }
-                            )
-                        }
-                    }
-                }
-            } else {
-                val activeIncomeSources = state.incomeSources.filter { it.isActive == 1 }
-                if (activeIncomeSources.isEmpty()) {
-                    item { EmptyState(Strings.NO_INCOME_SOURCES) }
-                } else {
-                    if (state.isIncomeSourceReorderMode) {
-                        itemsIndexed(localIncomeSources, key = { _, src -> src.id }) { _, src ->
-                            ReorderableItem(reorderableIncomeListState, key = src.id) { isDragging ->
-                                val elevation = if (isDragging) 8.dp else 0.dp
-                                ReorderableCategoryItem(
-                                    name = src.name,
-                                    modifier = Modifier.longPressDraggableHandle(),
-                                    elevation = elevation
-                                )
-                            }
-                        }
-                    } else {
-                        items(activeIncomeSources, key = { it.id }) { src ->
-                            EditableItemCard(
-                                name = src.name,
-                                isEditing = editingId == src.id,
-                                editingName = editingName,
-                                onEditingNameChange = { editingName = it },
-                                onStartEdit = { editingId = src.id; editingName = src.name },
-                                onSaveEdit = {
-                                    onUpdateIncomeSource(src.id, editingName)
-                                    editingId = null
-                                },
-                                onCancelEdit = { editingId = null },
-                                onDelete = { deleteId = src.id }
-                            )
-                        }
-                    }
+            if (useFloatingAddButton) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = floatingActionButtonBottomPadding)
+                        .height(56.dp)
+                        .sizeIn(minWidth = 116.dp, maxWidth = 122.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                            .blur(26.dp)
+                            .clip(floatingActionShape)
+                            .background(floatingActionBlurTint),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 2.dp, vertical = 1.dp)
+                            .clip(floatingActionShape)
+                            .background(floatingActionPlateTint),
+                    )
+                    AppButton(
+                        text = Strings.ADD,
+                        onClick = { showAddDialog = true },
+                        modifier = Modifier.fillMaxSize(),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = GlassyButtonStyle.Glassy,
+                        textStyle = MaterialTheme.typography.titleMedium,
+                    )
                 }
             }
         }
