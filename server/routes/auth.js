@@ -685,7 +685,7 @@ router.get('/me', authenticateToken, (req, res) => {
 
     // Check last backup time to avoid spamming backups on reload
     const lastBackup = db.prepare('SELECT created_at FROM user_backups WHERE user_id = ? ORDER BY created_at DESC LIMIT 1').get(req.user.id);
-    const shouldBackup = !lastBackup || (new Date() - new Date(lastBackup.created_at + 'Z')) > 60 * 60 * 1000; // 1 hour
+    const shouldBackup = !lastBackup || (new Date() - new Date(lastBackup.created_at)) > 60 * 60 * 1000; // 1 hour
 
     if (shouldBackup) {
         createBackup(req.user.id);

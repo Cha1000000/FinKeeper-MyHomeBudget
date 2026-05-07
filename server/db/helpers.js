@@ -125,7 +125,7 @@ function createBackup(userId) {
             savings_transactions
         });
 
-        db.prepare('INSERT INTO user_backups (user_id, data) VALUES (?, ?)').run(userId, backupData);
+        db.prepare('INSERT INTO user_backups (user_id, data, created_at) VALUES (?, ?, ?)').run(userId, backupData, nowIso());
 
         const backups = db.prepare('SELECT id FROM user_backups WHERE user_id = ? ORDER BY created_at DESC, id DESC').all(userId);
         if (backups.length > MAX_BACKUPS) {
