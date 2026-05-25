@@ -62,6 +62,8 @@ class AuthViewModel(
         tokenStorage.accessToken = authData.accessToken
         tokenStorage.refreshToken = authData.refreshToken
         tokenStorage.userId = authData.user.id.toLong()
+        tokenStorage.username = authData.user.username
+        tokenStorage.email = authData.user.email
     }
 
     private fun observeAuthEvents() {
@@ -89,6 +91,8 @@ class AuthViewModel(
                         apiClient.getMe()
                     }
                 tokenStorage.userId = user.id.toLong()
+                tokenStorage.username = user.username
+                tokenStorage.email = user.email
                 _state.value = _state.value.copy(user = user, isLoading = false, isAuthenticated = true, error = null)
             } catch (e: Exception) {
                 val currentInfoMessage = _state.value.infoMessage
@@ -101,6 +105,8 @@ class AuthViewModel(
                             apiClient.refreshAuth()
                             val user = apiClient.getMe()
                             tokenStorage.userId = user.id.toLong()
+                            tokenStorage.username = user.username
+                            tokenStorage.email = user.email
                             _state.value = _state.value.copy(
                                 user = user,
                                 isLoading = false,
@@ -117,8 +123,15 @@ class AuthViewModel(
                     }
                     updateLoggedOutState(infoMessage = currentInfoMessage)
                 } else {
-                    // Network error — keep session, show error
+                    // Network error — keep session, show error, but allow offline access
+                    // Restore the offline user so that the app can navigate past the login screen
+                    val offlineUser = User(
+                        id = tokenStorage.userId.toInt(),
+                        username = tokenStorage.username ?: "Офлайн",
+                        email = tokenStorage.email
+                    )
                     _state.value = _state.value.copy(
+                        user = offlineUser,
                         isLoading = false,
                         error = Strings.CONNECTION_ERROR,
                         isAuthenticated = true,
