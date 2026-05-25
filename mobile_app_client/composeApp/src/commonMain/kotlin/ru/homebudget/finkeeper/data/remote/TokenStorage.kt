@@ -60,6 +60,20 @@ class TokenStorage(
             settings.putLong(KEY_USER_ID, value)
         }
 
+    var username: String?
+        get() = settings.getStringOrNull(KEY_USERNAME)
+        set(value) {
+            if (value != null) settings.putString(KEY_USERNAME, value)
+            else settings.remove(KEY_USERNAME)
+        }
+
+    var email: String?
+        get() = settings.getStringOrNull(KEY_EMAIL)
+        set(value) {
+            if (value != null) settings.putString(KEY_EMAIL, value)
+            else settings.remove(KEY_EMAIL)
+        }
+
     var serverUrl: String
         get() {
             if (!BuildConfig.SHOW_SERVER_SETTINGS) {
@@ -121,6 +135,8 @@ class TokenStorage(
         secureTokenStorage.clear()
         settings.remove(KEY_TOKEN)
         settings.remove(KEY_USER_ID)
+        settings.remove(KEY_USERNAME)
+        settings.remove(KEY_EMAIL)
         authEvent?.let { _authEvents.tryEmit(it) }
     }
 
@@ -129,6 +145,8 @@ class TokenStorage(
     companion object {
         private const val KEY_TOKEN = "auth_token"
         private const val KEY_USER_ID = "user_id"
+        private const val KEY_USERNAME = "user_name"
+        private const val KEY_EMAIL = "user_email"
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_DASHBOARD_YEAR = "dashboard_year"
