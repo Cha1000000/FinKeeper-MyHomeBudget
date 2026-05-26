@@ -52,6 +52,10 @@ npm run preview
 
 ```text
 lending/
+├── public/              # Статические файлы и дополнительные страницы
+│   ├── downloads.html   # Страница загрузки приложений (macOS, Windows, Android)
+│   ├── privacy.html     # Политика конфиденциальности
+│   └── terms.html       # Пользовательское соглашение
 ├── src/
 │   ├── App.tsx          # Основной компонент лендинга
 │   ├── index.css        # Точка входа стилей и Tailwind v4 Theme Variables
@@ -59,12 +63,12 @@ lending/
 │   └── vite-env.d.ts    # Типы Vite среды
 ├── index.html           # HTML-документ, мета-теги и описание
 ├── package.json         # Зависимости и скрипты
-├── tailwind.config.ts   # (не требуется, конфигурация внутри index.css для Tailwind v4)
 └── vite.config.ts       # Настройка Vite, плагинов React и TailwindCSS
 ```
 
 ## Дополнительно
 
-Лендинг ссылается:
-* На Web-версию: https://app.finkeeper24.ru
-* Разделы для мобильного приложения (RuStore) и десктопных версий (GitHub) пока ссылаются на `#`.
+Лендинг ссылается на:
+* **Web-версию:** https://app.finkeeper24.ru
+* **Страницу загрузок:** `/downloads.html` (Desktop и Mobile версии)
+* **Документы:** `/privacy.html` и `/terms.html`
