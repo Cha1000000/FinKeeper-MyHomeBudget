@@ -61,6 +61,12 @@ FinKeeper-MyHomeBudget/
 | `deleted_records` | Tombstones удалённых записей для sync |
 | `idempotency_keys` | Хранилище обработанных `operationId` |
 | `user_backups` | Резервные копии данных |
+| `auth_refresh_sessions` | Refresh-сессии (хэш токена, срок, отзыв) для обновления access-токена |
+| `auth_email_verification_tokens` | Токены подтверждения email (хэш, срок, `used_at`) |
+| `auth_password_reset_tokens` | Токены восстановления пароля (хэш, срок, `used_at`) |
+| `auth_identities` | Привязки аккаунта к OAuth-провайдерам (`provider` + `provider_user_id`, unique) |
+| `auth_login_exchange_codes` | Одноразовые коды обмена при OAuth-логине (`code_hash`, `client_type`, `redirect_uri`) |
+| `auth_social_login_attempts` | Состояние попыток social-логина (статус, `exchange_code`, коды ошибок) |
 
 **Логика копилок**: при пополнении создаётся скрытый расход в категории "Пополнение копилки" (`is_active=0`), чтобы вклад в копилки снижал доступный баланс месяца. Снятие — отрицательная транзакция без скрытого расхода.
 

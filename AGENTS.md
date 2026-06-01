@@ -87,8 +87,11 @@ cd mobile_app_client/
 **Stack**: Express 5, better-sqlite3, JWT (jsonwebtoken), bcryptjs, ws (WebSocket)
 
 **Key architectural patterns**:
-- All API routes under `/api/*` protected by `authenticateToken` middleware
-- JWT secret hardcoded in `index.js` (line 13) - uses 'my-home-budget-secret-key-change-this'
+- Modular routes: `routes/auth.js` (mostly public: register/login/refresh/OAuth/password-recovery/email-verification), `routes/user.js` and `routes/data.js` are protected via `router.use(authenticateToken)`
+- `JWT_SECRET` is required from env (`config.js`, `index.js`) — the server refuses to start without it (no hardcoded fallback)
+- Security middleware: `helmet` (with CSP + `/api/csp-report`), CORS allowlist via `ALLOWED_ORIGINS` (required in production), JSON body limit via `JSON_BODY_LIMIT`
+- Rate limiting on register/login, password change, backup restore, email verification and password recovery (`429` + `Retry-After`)
+- Auth flow: short-lived access token + refresh sessions, email verification, password recovery, social/OAuth login (see `auth_*` tables)
 - WebSocket server for real-time updates between clients
 - Automatic backups: max 5 JSON snapshots per user, created on login and hourly token checks
 - Database: SQLite with foreign keys (see `db_setup.js` for schema)
@@ -150,7 +153,7 @@ cd mobile_app_client/
 - **Sort order**: Categories have manual drag-and-drop ordering via `sort_order` field
 - **Default data**: New users get initial categories and income sources from `server/default_data.js`
 - **Backup restore**: Transactional - clears all user data before restoring snapshot
-- **CORS enabled**: Server allows all origins (`app.use(cors())`)
+- **CORS**: allowlist via `ALLOWED_ORIGINS` (required in production); requests from other origins are rejected
 
 ## Testing
 
