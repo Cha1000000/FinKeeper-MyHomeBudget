@@ -4,9 +4,7 @@
 .env.*
 !.env*.example
 
-/node_modules
-/server/node_modules
-/client/node_modules
+node_modules/
 
 .niuma-local/dialog-trigger.js
 .niuma-local/port_1ffd91cb89.txt
@@ -17,3 +15,4 @@
 
 server/database.sqlite
 server/backend.log
+server_debug.log
