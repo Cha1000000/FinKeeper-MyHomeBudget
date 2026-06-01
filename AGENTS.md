@@ -5,10 +5,10 @@ This file provides guidance to AI agents when working with code in this reposito
 ## Role Routing
 
 For automatic role selection (Architect/Orchestrator/Coder/Analyst/Designer/Layout/Reviewer/QA) and matching skill selection, use:
-`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/roles/Roles.md`
+`.agents/roles/Roles.md`
 
 Project-local custom skills live in:
-`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/skills`
+`.agents/skills`
 
 Current custom UI skills:
 - `stitch-design` — Stitch-driven design generation/editing and design-system synthesis

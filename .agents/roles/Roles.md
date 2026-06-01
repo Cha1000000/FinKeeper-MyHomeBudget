@@ -13,7 +13,7 @@ Purpose: provide automatic role routing for AI agents in this project, independe
 ## Project Custom Skills
 
 Project-local custom skills live in:
-`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/skills`
+`.agents/skills`
 
 Available custom skills currently adopted in this repository:
 - `stitch-design` — use for Stitch-driven screen generation/editing and design-system synthesis

@@ -3,12 +3,12 @@
 ## Role Routing Rules
 
 When handling tasks, apply role routing and skill mapping from:
-`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/roles/Roles.md`
+`.agents/roles/Roles.md`
 
 If the user explicitly asks for a role or names specific skills, that explicit instruction overrides automatic routing.
 
 Project-local custom skills live in:
-`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/skills`
+`.agents/skills`
 
 Current custom UI skills:
 - `stitch-design` — Stitch-driven design generation/editing and design-system synthesis

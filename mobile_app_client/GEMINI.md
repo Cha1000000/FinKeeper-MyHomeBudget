@@ -5,7 +5,7 @@ This directory contains the **FinKeeper24** mobile application, built using **Ko
 ## Role Routing Rules
 
 When handling tasks, apply role routing and skill mapping from:
-`/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/roles/Roles.md`
+`.agents/roles/Roles.md`
 
 If the user explicitly asks for a role or names specific skills, that explicit instruction overrides automatic routing.
 

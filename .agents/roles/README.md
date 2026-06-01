@@ -6,7 +6,7 @@ This folder enables role routing via:
 
 Project-local custom skills are stored in:
 
-- `/Users/racerkafa/Documents/MyProjects/Web/My Home Budget/.agents/skills`
+- `.agents/skills`
 
 Current custom UI skills:
 
