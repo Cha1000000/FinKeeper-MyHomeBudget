@@ -1,0 +1,97 @@
+name: Publish AUR package
+
+# Публикует/обновляет AUR-пакет finkeeper24-bin.
+# Запускать ВРУЧНУЮ ПОСЛЕ того, как новый .deb залит на finkeeper24.ru:
+# воркфлоу берёт sha256 с живого файла на сайте, поэтому контрольная сумма
+# гарантированно совпадёт с тем, что скачают пользователи.
+#
+# Требуется секрет репозитория AUR_SSH_PRIVATE_KEY — приватный SSH-ключ,
+# привязанный к AUR-аккаунту (gh secret set AUR_SSH_PRIVATE_KEY < ~/.ssh/aur).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Версия пакета (пусто = взять app_version из build.gradle)"
+        required: false
+        default: ""
+      pkgrel:
+        description: "pkgrel (обычно 1; увеличить при переиздании той же версии)"
+        required: false
+        default: "1"
+
+permissions:
+  contents: write   # для коммита обновлённого PKGBUILD обратно в main
+
+jobs:
+  publish-aur:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Определить версию
+        id: ver
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="$(grep -oP "app_version\s*=\s*['\"]\K[^'\"]+" \
+              mobile_app_client/composeApp/build.gradle | head -n1)"
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "::error::Не удалось определить версию (вход пуст и app_version не найден)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Версия для публикации: $VERSION"
+
+      - name: Проверить .deb на сайте и посчитать sha256
+        id: deb
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          URL="https://finkeeper24.ru/downloads/linux/finkeeper24_${VERSION}_amd64.deb"
+          echo "Проверяю наличие: $URL"
+          CODE="$(curl -fsSL -I -o /dev/null -w '%{http_code}' "$URL" || true)"
+          if [ "$CODE" != "200" ]; then
+            echo "::error::.deb не найден на сайте (HTTP $CODE). Сначала залей finkeeper24_${VERSION}_amd64.deb на finkeeper24.ru, затем запусти воркфлоу снова."
+            exit 1
+          fi
+          echo "Скачиваю и считаю sha256..."
+          curl -fsSL "$URL" -o package.deb
+          SHA="$(sha256sum package.deb | awk '{print $1}')"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "sha256(.deb) = $SHA"
+
+      - name: Обновить PKGBUILD (pkgver / pkgrel / sha256)
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          PKGREL="${{ github.event.inputs.pkgrel }}"
+          SHA="${{ steps.deb.outputs.sha256 }}"
+          F="packaging/aur/PKGBUILD"
+          sed -i -E "s/^pkgver=.*/pkgver=${VERSION}/" "$F"
+          sed -i -E "s/^pkgrel=.*/pkgrel=${PKGREL}/" "$F"
+          # Первая запись sha256sums — это .deb (лицензия Apache на отдельной строке не трогается)
+          sed -i -E "s/^(sha256sums=\(')[0-9a-f]{64}'/\1${SHA}'/" "$F"
+          echo "=== Итоговый PKGBUILD ==="
+          cat "$F"
+
+      - name: Опубликовать в AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
+        with:
+          pkgname: finkeeper24-bin
+          pkgbuild: packaging/aur/PKGBUILD
+          commit_username: Cha1000000
+          commit_email: racerkafa@yandex.ru
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ steps.ver.outputs.version }}-${{ github.event.inputs.pkgrel }}"
+
+      - name: Закоммитить обновлённый PKGBUILD обратно в main
+        run: |
+          git config user.name "Cha1000000"
+          git config user.email "racerkafa@yandex.ru"
+          if git diff --quiet -- packaging/aur/PKGBUILD; then
+            echo "PKGBUILD без изменений — коммит не нужен."
+          else
+            git add packaging/aur/PKGBUILD
+            git commit -m "chore(aur): bump finkeeper24-bin to ${{ steps.ver.outputs.version }}-${{ github.event.inputs.pkgrel }}"
+            git push
+          fi
