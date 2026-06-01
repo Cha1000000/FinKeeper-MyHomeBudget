@@ -28,7 +28,7 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 | Multiplatform Settings | 1.2.0 |
 | Koin | 3.5.6 |
 | SQLDelight | 2.0.2 |
-| App version | 2.0.0 |
+| App version | 2.0.3 |
 
 ### Платформы
 
@@ -146,8 +146,52 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 ./gradlew composeApp:testDebugUnitTest
 ```
 
+## Релиз и публикация
+
+Сборка устанавливаемых пакетов и публикация в AUR автоматизированы через GitHub Actions
+(workflow'ы — в `../.github/workflows/`). Версия пакетов берётся из `app_version`
+в `composeApp/build.gradle`.
+
+### Сборка desktop-пакетов
+
+| Платформа | Workflow | Артефакты |
+| --- | --- | --- |
+| Linux | **Build Linux Desktop App** (`build-linux.yml`) | `.deb`, `.rpm` |
+| Windows | **Build Windows Desktop App** (`build-windows.yml`) | `.msi` |
+| macOS | **Build macOS Desktop App** (`build-mac.yml`) | `.app` |
+
+Запуск вручную: Actions → выбрать workflow → **Run workflow**. Артефакты хранятся 3 дня.
+Локально пакет для текущей ОС: `./gradlew :composeApp:packageDistributionForCurrentOS`
+(для Linux отдельно — `packageDeb` / `packageRpm`).
+
+### Публикация AUR-пакета `finkeeper24-bin`
+
+AUR хранит только рецепт (`PKGBUILD`) — он скачивает `.deb` с `finkeeper24.ru` и проверяет
+его по `sha256`. Поэтому публиковать в AUR нужно **после** того, как новый `.deb` залит на сайт
+(контрольная сумма берётся с живого файла, иначе сборка из AUR у пользователей упадёт).
+
+- канонический рецепт: `../packaging/aur/PKGBUILD`
+- workflow публикации: **Publish AUR package** (`../.github/workflows/publish-aur.yml`)
+- требуется секрет репозитория `AUR_SSH_PRIVATE_KEY` (приватный SSH-ключ AUR-аккаунта)
+
+**Порядок релиза:**
+
+1. Поднять `app_version` в `composeApp/build.gradle`.
+2. Собрать `.deb` — workflow **Build Linux Desktop App**.
+3. **Вручную** залить `finkeeper24_<версия>_amd64.deb` на `finkeeper24.ru/downloads/linux/`.
+4. Запустить публикацию в AUR:
+
+   ```bash
+   gh workflow run publish-aur.yml
+   ```
+
+   Версия подхватится из `build.gradle` (можно переопределить полем `version`).
+   Workflow проверит наличие `.deb` на сайте, посчитает `sha256`, обновит `PKGBUILD`,
+   опубликует в AUR и закоммитит `PKGBUILD` обратно в `main`.
+
 ## Связанные документы
 
 - команды сборки: `BUILD.md`
 - корневой обзор репозитория: `../README.md`
 - актуальная документация по sync: `../docs_and_instructions/current_sync_implementation.md`
+- план и обоснование AUR-публикации: `../docs_and_instructions/aur-ci-publish-plan.md`

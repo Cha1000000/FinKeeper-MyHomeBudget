@@ -208,20 +208,23 @@ cd mobile_app_client
 
 ## CI/CD (GitHub Actions)
 
-### Build Desktop Apps
+Все workflow'ы запускаются вручную (`workflow_dispatch`): **Actions** → выбрать workflow → **Run workflow**. Артефакты сборки хранятся 3 дня.
 
-Workflow: `.github/workflows/build-desktop.yml`
+### Сборка desktop-пакетов
 
-Запускается вручную (`workflow_dispatch`):
+| Workflow | Платформы | Артефакты |
+| --- | --- | --- |
+| **Build Desktop Apps** (`build-desktop.yml`) | Linux + Windows + macOS | `.deb`, `.rpm`, `.msi`, `.app` |
+| **Build Linux Desktop App** (`build-linux.yml`) | Linux | `.deb`, `.rpm` |
+| **Build Windows Desktop App** (`build-windows.yml`) | Windows | `.msi` |
+| **Build macOS Desktop App** (`build-mac.yml`) | macOS | `.app` |
 
-1. Перейти в **Actions** → **Build Desktop Apps**
-2. Нажать **Run workflow** → выбрать ветку → **Run workflow**
+### Публикация AUR-пакета
 
-Артефакты:
+**Publish AUR package** (`publish-aur.yml`) обновляет AUR-пакет `finkeeper24-bin`: берёт версию из `app_version`, считает `sha256` с `.deb` на `finkeeper24.ru` и публикует рецепт в AUR. Запускать **после** ручной заливки нового `.deb` на сайт.
 
-- **FinKeeper-Windows-EXE** — `.exe` установщик
-- **FinKeeper-Windows-MSI** — `.msi` установщик
-- **FinKeeper-macOS** — `.app` приложение
+- порядок релиза: `mobile_app_client/README.md` → раздел «Релиз и публикация»
+- план и обоснование: `docs_and_instructions/aur-ci-publish-plan.md`
 
 ---
 

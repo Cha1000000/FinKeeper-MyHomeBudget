@@ -159,4 +159,7 @@ cd mobile_app_client/
 
 ## CI/CD
 
-GitHub Actions workflow `.github/workflows/build-desktop.yml` builds desktop apps (Windows EXE/MSI, macOS .app) manually via workflow_dispatch.
+GitHub Actions workflows, all run manually via `workflow_dispatch`:
+
+- `build-desktop.yml` (Linux+Windows+macOS), `build-linux.yml` (`.deb`/`.rpm`), `build-windows.yml` (`.msi`), `build-mac.yml` (`.app`) — build desktop packages.
+- `publish-aur.yml` — publish/update the AUR package `finkeeper24-bin` (run after the new `.deb` is uploaded to finkeeper24.ru; sha256 is taken from the live file). Details: `mobile_app_client/README.md` → «Релиз и публикация», `docs_and_instructions/aur-ci-publish-plan.md`.
