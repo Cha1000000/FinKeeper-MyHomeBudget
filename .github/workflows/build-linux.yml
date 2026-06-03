@@ -25,8 +25,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y rpm fakeroot
-        # rpmrebuild нужен для патча .rpm; не критично, если недоступен — rpm-шаг это учитывает
-        sudo apt-get install -y rpmrebuild || echo "::warning::rpmrebuild не установился — .rpm не будет патчиться"
 
     - name: Build Linux App
       working-directory: ./mobile_app_client
@@ -42,10 +40,11 @@ jobs:
 
     # jpackage не пишет StartupWMClass в .desktop → на Wayland (Niri/GNOME/KDE) Dock не
     # сопоставляет окно (app_id ru-homebudget-finkeeper-MainKt) с ярлыком: дефолтная иконка
-    # и кривое имя. Дописываем строку прямо в собранные пакеты.
-    # БЕЗОПАСНОСТЬ: любая ошибка патча → восстанавливаем оригинальный (рабочий) пакет,
-    # сборку не роняем. .deb патчится надёжно (dpkg-deb), .rpm — best-effort (rpmrebuild).
-    - name: Add StartupWMClass to .desktop (Wayland Dock fix)
+    # и кривое имя. Дописываем строку прямо в собранный .deb.
+    # БЕЗОПАСНОСТЬ: любая ошибка патча → восстанавливаем оригинальный (рабочий) пакет, сборку не роняем.
+    # .rpm здесь НЕ патчим: на ubuntu-latest нет rpmrebuild, а пересборка через spec ломает
+    # scriptlet'ы регистрации ярлыка. Для .rpm фикс пока не делаем (см. план в docs_and_instructions).
+    - name: Add StartupWMClass to .deb .desktop (Wayland Dock fix)
       working-directory: ./mobile_app_client/composeApp/build/compose/binaries/main
       run: |
         set -u
@@ -70,33 +69,6 @@ jobs:
             rm -f "$deb.orig"; echo "::notice::DEB: StartupWMClass добавлен"
           else
             mv -f "$deb.orig" "$deb"; echo "::warning::DEB-патч не удался — залит оригинальный пакет"
-          fi
-        fi
-
-        # ---------- .rpm (best-effort) ----------
-        rpm="$(ls rpm/*.rpm 2>/dev/null | head -n1 || true)"
-        if [ -n "${rpm:-}" ]; then
-          if ! command -v rpmrebuild >/dev/null; then
-            echo "::warning::RPM: rpmrebuild недоступен — пакет оставлен как есть"
-          else
-            cp "$rpm" "$rpm.orig"
-            if (
-                  set -e
-                  timeout 600 rpmrebuild --batch \
-                    --change-files='f="$(find ./opt/finkeeper24/lib -maxdepth 1 -name "*.desktop" | head -n1)"; grep -q "^StartupWMClass=" "$f" || printf "StartupWMClass=ru-homebudget-finkeeper-MainKt\n" >> "$f"' \
-                    -p "$rpm"
-                  out="$(find "$HOME/rpmbuild/RPMS" -name '*.rpm' 2>/dev/null | head -n1)"
-                  [ -n "$out" ]
-                  # проверка через файл (не пайп в grep -q) — иначе pipefail+SIGPIPE даст ложный сбой
-                  chk="$(mktemp)"
-                  rpm2cpio "$out" | cpio -i --quiet --to-stdout './opt/finkeeper24/lib/finkeeper24-FinKeeper24.desktop' > "$chk" 2>/dev/null
-                  grep -q "^StartupWMClass=$WMCLASS" "$chk"
-                  cp -f "$out" "$rpm"
-               ); then
-            rm -f "$rpm.orig"; echo "::notice::RPM: StartupWMClass добавлен"
-          else
-            mv -f "$rpm.orig" "$rpm"; echo "::warning::RPM-патч не удался — залит оригинальный пакет"
-          fi
           fi
         fi
 
