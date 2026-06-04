@@ -63,6 +63,20 @@ jobs:
         path: mobile_app_client/composeApp/build/compose/binaries/main/app/FinKeeper.app
         retention-days: 3
 
+    - name: Upload macOS DMG
+      uses: actions/upload-artifact@v4
+      with:
+        name: FinKeeper-macOS-DMG
+        path: mobile_app_client/composeApp/build/compose/binaries/main/dmg/*.dmg
+        retention-days: 3
+
+    - name: Upload macOS PKG
+      uses: actions/upload-artifact@v4
+      with:
+        name: FinKeeper-macOS-PKG
+        path: mobile_app_client/composeApp/build/compose/binaries/main/pkg/*.pkg
+        retention-days: 3
+
   build-linux:
     runs-on: ubuntu-latest
     
