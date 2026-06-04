@@ -28,7 +28,7 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 | Multiplatform Settings | 1.2.0 |
 | Koin | 3.5.6 |
 | SQLDelight | 2.0.2 |
-| App version | 2.0.3 |
+| App version | 2.0.4 |
 
 ### Платформы
 
