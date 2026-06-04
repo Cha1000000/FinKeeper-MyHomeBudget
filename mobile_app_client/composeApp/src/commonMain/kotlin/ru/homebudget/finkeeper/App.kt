@@ -7,8 +7,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import ru.homebudget.finkeeper.ui.UiScale
 import ru.homebudget.finkeeper.util.DraggableArea
 import ru.homebudget.finkeeper.util.LocalWindowControls
+import ru.homebudget.finkeeper.util.detectSystemUiScale
 import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.ui.navigation.DesktopWindowControls
 import kotlinx.coroutines.delay
@@ -25,6 +29,8 @@ import ru.homebudget.finkeeper.ui.viewmodel.*
 fun App() {
     val tokenStorage = koinInject<TokenStorage>()
     var themeMode by remember { mutableStateOf(tokenStorage.themeMode) }
+    // null = режим «Авто» (следуем системному scale); число = ручной множитель.
+    var uiScalePref by remember { mutableStateOf(tokenStorage.uiScale) }
 
     val palette = when (themeMode) {
         "light" -> ThemePalette.Light
@@ -35,6 +41,7 @@ fun App() {
         else -> if (isSystemInDarkTheme()) ThemePalette.Dark else ThemePalette.Light
     }
 
+    val themedContent = @Composable {
     FinKeeperTheme(palette = palette) {
         val authViewModel = koinInject<AuthViewModel>()
         val authState by authViewModel.state.collectAsState()
@@ -80,7 +87,12 @@ fun App() {
                         onThemeModeChange = { mode ->
                             tokenStorage.themeMode = mode
                             themeMode = mode
-                        }
+                        },
+                        currentUiScale = uiScalePref,
+                        onUiScaleChange = { pref ->
+                            tokenStorage.uiScale = pref
+                            uiScalePref = pref
+                        },
                     )
                 }
             }
@@ -111,5 +123,22 @@ fun App() {
         } else {
             content()
         }
+    }
+    }
+
+    if (isDesktop) {
+        // Системный density как база; наш множитель (ручной или авто) — поверх.
+        val base = LocalDensity.current
+        val autoMultiplier = remember(base.density) {
+            detectSystemUiScale()?.let { UiScale.nearestStep(it / base.density) } ?: 1f
+        }
+        val effective = uiScalePref ?: autoMultiplier
+        CompositionLocalProvider(
+            LocalDensity provides Density(base.density * effective, base.fontScale)
+        ) {
+            themedContent()
+        }
+    } else {
+        themedContent()
     }
 }

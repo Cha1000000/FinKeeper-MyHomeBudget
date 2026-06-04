@@ -29,6 +29,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.data.model.User
 import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.ui.UiScale
+import ru.homebudget.finkeeper.util.isDesktop
+import kotlin.math.roundToInt
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
@@ -57,6 +60,8 @@ fun SettingsScreen(
     onDismissSyncError: () -> Unit,
     currentThemeMode: String = "system",
     onThemeModeChange: (String) -> Unit = {},
+    currentUiScale: Float? = null,
+    onUiScaleChange: (Float?) -> Unit = {},
 ) {
     var newUsername by remember(username) { mutableStateOf(username) }
     var email by remember(user?.email) { mutableStateOf(user?.email ?: "") }
@@ -622,6 +627,64 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(start = 8.dp),
                         )
+                    }
+                }
+            }
+        }
+
+        if (isDesktop) {
+            GlassyCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                baseColor = MaterialTheme.colorScheme.surface,
+                highlightColor = MaterialTheme.colorScheme.primary,
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = Strings.UI_SCALE,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = Strings.UI_SCALE_HINT,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // «Авто» + дискретные шаги из единого источника правды
+                    val scaleOptions: List<Pair<String, Float?>> = buildList {
+                        add(Strings.UI_SCALE_AUTO to null)
+                        UiScale.steps.forEach { step ->
+                            add("${(step * 100).roundToInt()}%" to step)
+                        }
+                    }
+                    scaleOptions.forEach { (label, value) ->
+                        val selected = if (value == null) {
+                            currentUiScale == null
+                        } else {
+                            currentUiScale != null &&
+                                kotlin.math.abs(currentUiScale - value) < 0.001f
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onUiScaleChange(value) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = selected,
+                                onClick = null,
+                            )
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
                     }
                 }
             }

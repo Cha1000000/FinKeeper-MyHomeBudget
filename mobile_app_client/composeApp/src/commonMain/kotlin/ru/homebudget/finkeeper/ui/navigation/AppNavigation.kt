@@ -92,6 +92,8 @@ fun AppNavigation(
     settingsViewModel: SettingsViewModel,
     currentThemeMode: String,
     onThemeModeChange: (String) -> Unit,
+    currentUiScale: Float?,
+    onUiScaleChange: (Float?) -> Unit,
 ) {
     val tokenStorage = koinInject<TokenStorage>()
     val securityOnboardingPromptState = remember { SecurityOnboardingPromptState(tokenStorage) }
@@ -283,6 +285,8 @@ fun AppNavigation(
                             onDismissSyncError = { settingsViewModel.clearSyncError() },
                             currentThemeMode = currentThemeMode,
                             onThemeModeChange = onThemeModeChange,
+                            currentUiScale = currentUiScale,
+                            onUiScaleChange = onUiScaleChange,
                         )
                 }
             }

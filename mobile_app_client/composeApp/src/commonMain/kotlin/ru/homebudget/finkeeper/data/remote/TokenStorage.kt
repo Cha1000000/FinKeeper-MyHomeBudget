@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import ru.homebudget.finkeeper.BuildConfig
+import ru.homebudget.finkeeper.ui.UiScale
 
 enum class AuthSessionEvent {
     LoggedOut,
@@ -105,6 +106,17 @@ class TokenStorage(
             settings.putString(KEY_THEME_MODE, value)
         }
 
+    // UI scale multiplier for desktop (1.0 = 100%). null = "Авто" (следуем системному scale).
+    var uiScale: Float?
+        get() = settings.getFloatOrNull(KEY_UI_SCALE)
+        set(value) {
+            if (value == null) {
+                settings.remove(KEY_UI_SCALE)
+            } else {
+                settings.putFloat(KEY_UI_SCALE, value.coerceIn(UiScale.MIN, UiScale.MAX))
+            }
+        }
+
     // Dashboard selected month (persisted between sessions)
     var dashboardYear: Int
         get() = settings.getInt(KEY_DASHBOARD_YEAR, 0)
@@ -149,6 +161,7 @@ class TokenStorage(
         private const val KEY_EMAIL = "user_email"
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_UI_SCALE = "ui_scale"
         private const val KEY_DASHBOARD_YEAR = "dashboard_year"
         private const val KEY_DASHBOARD_MONTH = "dashboard_month"
         private const val KEY_MONTHVIEW_YEAR = "monthview_year"
