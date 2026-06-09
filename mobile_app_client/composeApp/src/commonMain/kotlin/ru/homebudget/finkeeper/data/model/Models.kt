@@ -165,6 +165,9 @@ data class Category(
     val name: String,
     @SerialName("sort_order") val sortOrder: Int = 0,
     @SerialName("is_active") val isActive: Int = 1,
+    @SerialName("is_fixed") val isFixed: Int = 0,
+    @SerialName("fixed_amount") val fixedAmount: Double? = null,
+    @SerialName("auto_day") val autoDay: Int? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
 )
@@ -176,6 +179,9 @@ data class IncomeSource(
     val name: String,
     @SerialName("sort_order") val sortOrder: Int = 0,
     @SerialName("is_active") val isActive: Int = 1,
+    @SerialName("is_fixed") val isFixed: Int = 0,
+    @SerialName("fixed_amount") val fixedAmount: Double? = null,
+    @SerialName("auto_day") val autoDay: Int? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
 )
@@ -346,24 +352,36 @@ data class EnsureMonthRequest(
 
 @Serializable
 data class CreateCategoryRequest(
-    val name: String
+    val name: String,
+    @SerialName("is_fixed") val isFixed: Int? = null,
+    @SerialName("fixed_amount") val fixedAmount: Double? = null,
+    @SerialName("auto_day") val autoDay: Int? = null,
 )
 
 @Serializable
 data class UpdateCategoryRequest(
     val name: String? = null,
-    @SerialName("is_active") val isActive: Int? = null
+    @SerialName("is_active") val isActive: Int? = null,
+    @SerialName("is_fixed") val isFixed: Int? = null,
+    @SerialName("fixed_amount") val fixedAmount: Double? = null,
+    @SerialName("auto_day") val autoDay: Int? = null,
 )
 
 @Serializable
 data class CreateIncomeSourceRequest(
-    val name: String
+    val name: String,
+    @SerialName("is_fixed") val isFixed: Int? = null,
+    @SerialName("fixed_amount") val fixedAmount: Double? = null,
+    @SerialName("auto_day") val autoDay: Int? = null,
 )
 
 @Serializable
 data class UpdateIncomeSourceRequest(
     val name: String? = null,
-    @SerialName("is_active") val isActive: Int? = null
+    @SerialName("is_active") val isActive: Int? = null,
+    @SerialName("is_fixed") val isFixed: Int? = null,
+    @SerialName("fixed_amount") val fixedAmount: Double? = null,
+    @SerialName("auto_day") val autoDay: Int? = null,
 )
 
 @Serializable

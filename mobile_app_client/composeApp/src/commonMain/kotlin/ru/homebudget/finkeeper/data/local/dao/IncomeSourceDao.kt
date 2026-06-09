@@ -19,6 +19,9 @@ class IncomeSourceDao(
         name: String,
         sortOrder: Long = 0L,
         isActive: Long = 1L,
+        isFixed: Long = 0L,
+        fixedAmount: Long? = null,
+        autoDay: Long? = null,
         createdAt: String? = null,
         updatedAt: String? = null,
         serverId: String? = null,
@@ -31,6 +34,9 @@ class IncomeSourceDao(
                 name = name,
                 sort_order = sortOrder,
                 is_active = isActive,
+                is_fixed = isFixed,
+                fixed_amount = fixedAmount,
+                auto_day = autoDay,
                 created_at = createdAt ?: now,
                 updated_at = updatedAt ?: createdAt ?: now,
                 server_id = serverId,
@@ -48,6 +54,9 @@ class IncomeSourceDao(
         name: String,
         sortOrder: Long,
         isActive: Long,
+        isFixed: Long = 0L,
+        fixedAmount: Long? = null,
+        autoDay: Long? = null,
         updatedAt: String? = null,
         serverId: String? = null,
         syncStatus: String = "synced"
@@ -57,6 +66,9 @@ class IncomeSourceDao(
             name = name,
             sort_order = sortOrder,
             is_active = isActive,
+            is_fixed = isFixed,
+            fixed_amount = fixedAmount,
+            auto_day = autoDay,
             updated_at = updatedAt ?: now,
             server_id = serverId,
             sync_status = syncStatus,
@@ -153,6 +165,13 @@ class IncomeSourceDao(
     }
 
     /**
+     * Получение фиксированных источников дохода пользователя
+     */
+    fun getFixedByUser(userId: Long): List<IncomeSource> {
+        return queries.getFixedIncomeSourcesByUser(userId).executeAsList().map { toIncomeSource(it) }
+    }
+
+    /**
      * Удаление всех источников дохода
      */
     fun deleteAll() {
@@ -166,6 +185,9 @@ class IncomeSourceDao(
             name = entity.name,
             sortOrder = entity.sort_order,
             isActive = entity.is_active,
+            isFixed = entity.is_fixed,
+            fixedAmount = entity.fixed_amount,
+            autoDay = entity.auto_day,
             createdAt = entity.created_at,
             updatedAt = entity.updated_at,
             serverId = entity.server_id,
@@ -187,6 +209,9 @@ data class IncomeSource(
     val name: String,
     val sortOrder: Long,
     val isActive: Long,
+    val isFixed: Long = 0L,
+    val fixedAmount: Long? = null,
+    val autoDay: Long? = null,
     val createdAt: String,
     val updatedAt: String,
     val serverId: String?,

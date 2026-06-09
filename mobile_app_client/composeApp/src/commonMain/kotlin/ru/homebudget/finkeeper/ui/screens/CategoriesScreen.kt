@@ -28,6 +28,7 @@ import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesState
 import ru.homebudget.finkeeper.data.model.Category
 import ru.homebudget.finkeeper.data.model.IncomeSource
+import ru.homebudget.finkeeper.util.formatCurrency
 import ru.homebudget.finkeeper.util.isDesktop
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -49,12 +50,25 @@ fun CategoriesScreen(
     onUpdateCategoriesOrder: (List<Category>) -> Unit,
     onUpdateIncomeSourcesOrder: (List<IncomeSource>) -> Unit,
     onReorderCategories: (List<Category>) -> Unit,
-    onReorderIncomeSources: (List<IncomeSource>) -> Unit
+    onReorderIncomeSources: (List<IncomeSource>) -> Unit,
+    // Фиксированные категории
+    onAddFixedCategory: (String, Double, Int) -> Unit,
+    onUpdateFixedCategory: (Int, String?, Double?, Int?) -> Unit,
+    onDeactivateFixedCategory: (Int) -> Unit,
+    // Фиксированные источники дохода
+    onAddFixedIncomeSource: (String, Double, Int) -> Unit,
+    onUpdateFixedIncomeSource: (Int, String?, Double?, Int?) -> Unit,
+    onDeactivateFixedIncomeSource: (Int) -> Unit,
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<Int?>(null) }
     var editingName by remember { mutableStateOf("") }
     var deleteId by remember { mutableStateOf<Int?>(null) }
+
+    // Состояние для фиксированных элементов
+    var showAddFixedDialog by remember { mutableStateOf(false) }
+    var editingFixed by remember { mutableStateOf<EditingFixedItem?>(null) }
+    var deleteFixedId by remember { mutableStateOf<Int?>(null) }
     
     // localCategories используется ТОЛЬКО во время режима сортировки для drag-and-drop
     var localCategories by remember { mutableStateOf(state.categories.filter { it.isActive == 1 }) }
@@ -195,6 +209,45 @@ fun CategoriesScreen(
                 }
 
                 if (state.activeTab == 0) {
+                    // --- Секция "Фиксированные" для категорий ---
+                    item {
+                        FixedSectionHeader(
+                            title = Strings.FIXED_SECTION,
+                            onAdd = { showAddFixedDialog = true },
+                        )
+                    }
+                    if (state.fixedCategories.isEmpty()) {
+                        item {
+                            Text(
+                                Strings.NO_FIXED_CATEGORIES,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                            )
+                        }
+                    } else {
+                        items(state.fixedCategories, key = { "fixed_cat_${it.id}" }) { cat ->
+                            FixedItemCard(
+                                name = cat.name,
+                                amount = cat.fixedAmount ?: 0.0,
+                                autoDay = cat.autoDay ?: 1,
+                                onEdit = {
+                                    editingFixed = EditingFixedItem(
+                                        id = cat.id,
+                                        name = cat.name,
+                                        amount = cat.fixedAmount ?: 0.0,
+                                        autoDay = cat.autoDay ?: 1,
+                                    )
+                                },
+                                onDelete = { deleteFixedId = cat.id },
+                            )
+                        }
+                    }
+
+                    // --- Обычные категории ---
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                    }
                     val activeCategories = state.categories.filter { it.isActive == 1 }
                     if (activeCategories.isEmpty()) {
                         item { EmptyState(Strings.NO_CATEGORIES) }
@@ -229,6 +282,45 @@ fun CategoriesScreen(
                         }
                     }
                 } else {
+                    // --- Секция "Фиксированные" для источников дохода ---
+                    item {
+                        FixedSectionHeader(
+                            title = Strings.FIXED_SECTION,
+                            onAdd = { showAddFixedDialog = true },
+                        )
+                    }
+                    if (state.fixedIncomeSources.isEmpty()) {
+                        item {
+                            Text(
+                                Strings.NO_FIXED_INCOME_SOURCES,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                            )
+                        }
+                    } else {
+                        items(state.fixedIncomeSources, key = { "fixed_src_${it.id}" }) { src ->
+                            FixedItemCard(
+                                name = src.name,
+                                amount = src.fixedAmount ?: 0.0,
+                                autoDay = src.autoDay ?: 1,
+                                onEdit = {
+                                    editingFixed = EditingFixedItem(
+                                        id = src.id,
+                                        name = src.name,
+                                        amount = src.fixedAmount ?: 0.0,
+                                        autoDay = src.autoDay ?: 1,
+                                    )
+                                },
+                                onDelete = { deleteFixedId = src.id },
+                            )
+                        }
+                    }
+
+                    // --- Обычные источники дохода ---
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                    }
                     val activeIncomeSources = state.incomeSources.filter { it.isActive == 1 }
                     if (activeIncomeSources.isEmpty()) {
                         item { EmptyState(Strings.NO_INCOME_SOURCES) }
@@ -323,6 +415,53 @@ fun CategoriesScreen(
             },
             onDismiss = { deleteId = null },
             isDestructive = true
+        )
+    }
+
+    // --- Диалоги для фиксированных элементов ---
+    if (showAddFixedDialog) {
+        AddFixedDialog(
+            title = if (state.activeTab == 0) Strings.NEW_FIXED_CATEGORY else Strings.NEW_FIXED_INCOME_SOURCE,
+            onDismiss = { showAddFixedDialog = false },
+            onConfirm = { name, amount, day ->
+                if (state.activeTab == 0) {
+                    onAddFixedCategory(name, amount, day)
+                } else {
+                    onAddFixedIncomeSource(name, amount, day)
+                }
+                showAddFixedDialog = false
+            },
+        )
+    }
+
+    editingFixed?.let { item ->
+        AddFixedDialog(
+            title = if (state.activeTab == 0) Strings.EDIT_FIXED_CATEGORY else Strings.EDIT_FIXED_INCOME_SOURCE,
+            initialName = item.name,
+            initialAmount = item.amount,
+            initialDay = item.autoDay,
+            onDismiss = { editingFixed = null },
+            onConfirm = { name, amount, day ->
+                if (state.activeTab == 0) {
+                    onUpdateFixedCategory(item.id, name, amount, day)
+                } else {
+                    onUpdateFixedIncomeSource(item.id, name, amount, day)
+                }
+                editingFixed = null
+            },
+        )
+    }
+
+    deleteFixedId?.let { id ->
+        ConfirmDialog(
+            title = Strings.DELETE,
+            message = Strings.FIXED_DELETE_CONFIRMATION,
+            onConfirm = {
+                if (state.activeTab == 0) onDeactivateFixedCategory(id) else onDeactivateFixedIncomeSource(id)
+                deleteFixedId = null
+            },
+            onDismiss = { deleteFixedId = null },
+            isDestructive = true,
         )
     }
 
@@ -465,4 +604,154 @@ private fun ReorderableCategoryItem(
             )
         }
     }
+}
+
+// --- Фиксированные элементы ---
+
+private data class EditingFixedItem(
+    val id: Int,
+    val name: String,
+    val amount: Double,
+    val autoDay: Int,
+)
+
+@Composable
+private fun FixedSectionHeader(
+    title: String,
+    onAdd: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        TextButton(onClick = onAdd) {
+            Text(
+                Strings.ADD_FIXED,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FixedItemCard(
+    name: String,
+    amount: Double,
+    autoDay: Int,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    GlassyCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        baseColor = MaterialTheme.colorScheme.surface,
+        highlightColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "${formatCurrency(amount)}  ·  ${autoDay}${Strings.DAY_OF_MONTH_SUFFIX}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Row {
+                TextButton(onClick = onEdit) {
+                    Text(Strings.EDIT_ICON, style = MaterialTheme.typography.bodyLarge)
+                }
+                TextButton(
+                    onClick = onDelete,
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddFixedDialog(
+    title: String,
+    initialName: String = "",
+    initialAmount: Double = 0.0,
+    initialDay: Int = 1,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, amount: Double, day: Int) -> Unit,
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var amountText by remember {
+        mutableStateOf(if (initialAmount > 0.0) initialAmount.toBigDecimal().stripTrailingZeros().toPlainString() else "")
+    }
+    var dayText by remember { mutableStateOf(if (initialDay > 0) initialDay.toString() else "") }
+
+    val amount = amountText.toDoubleOrNull()
+    val day = dayText.toIntOrNull()
+    val isValid = name.isNotBlank() && amount != null && amount > 0 && day != null && day in 1..31
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = Strings.NAME,
+                )
+                AppTextField(
+                    value = amountText,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d*$"))) {
+                            amountText = newValue
+                        }
+                    },
+                    label = Strings.FIXED_AMOUNT,
+                )
+                AppTextField(
+                    value = dayText,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || (newValue.all { it.isDigit() } && newValue.length <= 2)) {
+                            dayText = newValue
+                        }
+                    },
+                    label = "${Strings.AUTO_DAY} (1–31)",
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (isValid) onConfirm(name, amount!!, day!!)
+                },
+                enabled = isValid,
+            ) {
+                Text(Strings.SAVE)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(Strings.CANCEL) }
+        },
+    )
 }

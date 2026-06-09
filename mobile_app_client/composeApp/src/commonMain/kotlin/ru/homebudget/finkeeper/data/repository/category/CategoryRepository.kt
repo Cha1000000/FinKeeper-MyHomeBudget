@@ -47,6 +47,9 @@ class CategoryRepository(
                             name = local.name,
                             sortOrder = local.sortOrder.toInt(),
                             isActive = local.isActive.toInt(),
+                            isFixed = local.isFixed.toInt(),
+                            fixedAmount = local.fixedAmount?.let { it.toDouble() / 100.0 },
+                            autoDay = local.autoDay?.toInt(),
                         )
                     }
 
@@ -72,6 +75,9 @@ class CategoryRepository(
                             name = local.name,
                             sortOrder = local.sortOrder.toInt(),
                             isActive = local.isActive.toInt(),
+                            isFixed = local.isFixed.toInt(),
+                            fixedAmount = local.fixedAmount?.let { it.toDouble() / 100.0 },
+                            autoDay = local.autoDay?.toInt(),
                         )
                     }
 
@@ -105,6 +111,9 @@ class CategoryRepository(
                             name = local.name,
                             sortOrder = local.sortOrder.toInt(),
                             isActive = local.isActive.toInt(),
+                            isFixed = local.isFixed.toInt(),
+                            fixedAmount = local.fixedAmount?.let { it.toDouble() / 100.0 },
+                            autoDay = local.autoDay?.toInt(),
                         )
                     }
 
@@ -135,6 +144,9 @@ class CategoryRepository(
         type: String,
         icon: String? = null,
         color: String? = null,
+        isFixed: Boolean = false,
+        fixedAmount: Double? = null,
+        autoDay: Int? = null,
     ): Result<RemoteCategory> =
         withContext(Dispatchers.Default) {
             try {
@@ -149,7 +161,10 @@ class CategoryRepository(
                         icon = icon,
                         color = color,
                         sortOrder = maxSortOrder + 1,
-                        isActive = 1L, // isActive = true -> 1L
+                        isActive = 1L,
+                        isFixed = if (isFixed) 1L else 0L,
+                        fixedAmount = fixedAmount?.let { (it * 100).toLong() },
+                        autoDay = autoDay?.toLong(),
                         createdAt = now,
                         updatedAt = now,
                         serverId = null,
@@ -191,11 +206,20 @@ class CategoryRepository(
         icon: String? = null,
         color: String? = null,
         isActive: Boolean? = null,
+        isFixed: Boolean? = null,
+        fixedAmount: Double? = null,
+        autoDay: Int? = null,
     ): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
                 val existing = categoryDao.getById(id) ?: return@withContext Result.error(Exception("Category not found"))
                 val now = Clock.System.now().toString()
+
+                val newIsFixed = when (isFixed) {
+                    true -> 1L
+                    false -> 0L
+                    null -> existing.isFixed
+                }
 
                 categoryDao.update(
                     id = id,
@@ -209,6 +233,9 @@ class CategoryRepository(
                         false -> 0L
                         null -> existing.isActive
                     },
+                    isFixed = newIsFixed,
+                    fixedAmount = if (newIsFixed == 1L) fixedAmount?.let { (it * 100).toLong() } ?: existing.fixedAmount else null,
+                    autoDay = if (newIsFixed == 1L) autoDay?.toLong() ?: existing.autoDay else null,
                     updatedAt = now,
                     serverId = existing.serverId,
                     syncStatus = SyncStatus.PENDING.value,
@@ -292,6 +319,9 @@ class CategoryRepository(
                             color = existing.color,
                             sortOrder = remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
+                            isFixed = remote.isFixed.toLong(),
+                            fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+                            autoDay = remote.autoDay?.toLong(),
                             updatedAt = remote.updatedAt ?: existing.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
@@ -307,6 +337,9 @@ class CategoryRepository(
                             color = null,
                             sortOrder = remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
+                            isFixed = remote.isFixed.toLong(),
+                            fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+                            autoDay = remote.autoDay?.toLong(),
                             createdAt = remoteCreatedAt,
                             updatedAt = remoteUpdatedAt,
                             serverId = remote.id.toString(),

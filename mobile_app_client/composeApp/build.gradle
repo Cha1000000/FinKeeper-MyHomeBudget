@@ -9,7 +9,7 @@ buildscript {
         multiplatform_settings_version = '1.2.0'
         koin_version = '3.5.6'
         sqldelight_version = '2.0.2'
-        app_version = '2.0.4'
+        app_version = '2.1.0'
     }
 }
 
@@ -257,15 +257,12 @@ compose.desktop {
     application {
         mainClass = "ru.homebudget.finkeeper.MainKt"
 
-        javaHome = providers.environmentVariable("COMPOSE_JDK").orElse(
+        def resolvedJavaHome = providers.environmentVariable("COMPOSE_JDK").orElse(
             providers.environmentVariable("JAVA_HOME")
-        ).orElse(
-            provider {
-                def proc = ["bash", "-c", "/usr/libexec/java_home 2>/dev/null || echo ''"].execute()
-                proc.waitFor()
-                proc.text.trim() ?: null
-            }
         ).orNull
+        if (resolvedJavaHome != null) {
+            javaHome = resolvedJavaHome
+        }
 
         nativeDistributions {
             targetFormats(

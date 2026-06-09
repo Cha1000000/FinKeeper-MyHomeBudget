@@ -23,6 +23,9 @@ class CategoryDao(
         color: String?,
         sortOrder: Long,
         isActive: Long,
+        isFixed: Long = 0L,
+        fixedAmount: Long? = null,
+        autoDay: Long? = null,
         createdAt: String,
         updatedAt: String,
         serverId: String? = null,
@@ -36,6 +39,9 @@ class CategoryDao(
             color = color,
             sort_order = sortOrder,
             is_active = isActive,
+            is_fixed = isFixed,
+            fixed_amount = fixedAmount,
+            auto_day = autoDay,
             created_at = createdAt,
             updated_at = updatedAt,
             server_id = serverId,
@@ -54,6 +60,9 @@ class CategoryDao(
         color: String?,
         sortOrder: Long,
         isActive: Long,
+        isFixed: Long = 0L,
+        fixedAmount: Long? = null,
+        autoDay: Long? = null,
         createdAt: String,
         updatedAt: String,
         serverId: String? = null,
@@ -68,6 +77,9 @@ class CategoryDao(
                 color = color,
                 sort_order = sortOrder,
                 is_active = isActive,
+                is_fixed = isFixed,
+                fixed_amount = fixedAmount,
+                auto_day = autoDay,
                 created_at = createdAt,
                 updated_at = updatedAt,
                 server_id = serverId,
@@ -88,6 +100,9 @@ class CategoryDao(
         color: String?,
         sortOrder: Long,
         isActive: Long,
+        isFixed: Long = 0L,
+        fixedAmount: Long? = null,
+        autoDay: Long? = null,
         updatedAt: String,
         serverId: String? = null,
         syncStatus: String = "synced"
@@ -99,6 +114,9 @@ class CategoryDao(
             color = color,
             sort_order = sortOrder,
             is_active = isActive,
+            is_fixed = isFixed,
+            fixed_amount = fixedAmount,
+            auto_day = autoDay,
             updated_at = updatedAt,
             server_id = serverId,
             sync_status = syncStatus,
@@ -216,6 +234,13 @@ class CategoryDao(
     }
 
     /**
+     * Получение фиксированных категорий пользователя
+     */
+    fun getFixedByUser(userId: Long): List<Category> {
+        return queries.getFixedCategoriesByUser(userId).executeAsList().map { toCategory(it) }
+    }
+
+    /**
      * Delete all categories (for testing or full sync reset)
      */
     fun deleteAll() {
@@ -232,6 +257,9 @@ class CategoryDao(
             color = entity.color,
             sortOrder = entity.sort_order,
             isActive = entity.is_active,
+            isFixed = entity.is_fixed,
+            fixedAmount = entity.fixed_amount,
+            autoDay = entity.auto_day,
             createdAt = entity.created_at,
             updatedAt = entity.updated_at,
             serverId = entity.server_id,
@@ -252,6 +280,9 @@ data class Category(
     val color: String?,
     val sortOrder: Long,
     val isActive: Long,
+    val isFixed: Long = 0L,
+    val fixedAmount: Long? = null,
+    val autoDay: Long? = null,
     val createdAt: String,
     val updatedAt: String,
     val serverId: String?,

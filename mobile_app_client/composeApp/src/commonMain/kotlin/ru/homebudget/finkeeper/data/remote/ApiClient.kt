@@ -364,12 +364,15 @@ class ApiClient(
 
     suspend fun createCategory(
         name: String,
+        isFixed: Int? = null,
+        fixedAmount: Double? = null,
+        autoDay: Int? = null,
         operationId: String? = null,
     ): Category {
         val response =
             client.post("$baseUrl/categories") {
                 applyOperationId(operationId)
-                setBody(CreateCategoryRequest(name))
+                setBody(CreateCategoryRequest(name, isFixed, fixedAmount, autoDay))
             }
         checkResponse(response)
         return response.body()
@@ -418,12 +421,15 @@ class ApiClient(
 
     suspend fun createIncomeSource(
         name: String,
+        isFixed: Int? = null,
+        fixedAmount: Double? = null,
+        autoDay: Int? = null,
         operationId: String? = null,
     ): IncomeSource {
         val response =
             client.post("$baseUrl/income_sources") {
                 applyOperationId(operationId)
-                setBody(CreateIncomeSourceRequest(name))
+                setBody(CreateIncomeSourceRequest(name, isFixed, fixedAmount, autoDay))
             }
         checkResponse(response)
         return response.body()

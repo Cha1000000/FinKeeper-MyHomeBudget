@@ -20,7 +20,9 @@ data class CategoriesState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val categories: List<Category> = emptyList(),
+    val fixedCategories: List<Category> = emptyList(),
     val incomeSources: List<IncomeSource> = emptyList(),
+    val fixedIncomeSources: List<IncomeSource> = emptyList(),
     val activeTab: Int = 0, // 0 = categories, 1 = income sources
     val isReorderMode: Boolean = false,
     val isIncomeSourceReorderMode: Boolean = false,
@@ -104,11 +106,19 @@ class CategoriesViewModel(
                 incomeSourceRepository.syncWithServer(currentUserId)
             }
 
+            // Разделяем на обычные и фиксированные
+            val regularCategories = categories.filter { it.isFixed == 0 && it.isActive == 1 }
+            val fixedCats = categories.filter { it.isFixed == 1 && it.isActive == 1 }
+            val regularSources = incomeSources.filter { it.isFixed == 0 && it.isActive == 1 }
+            val fixedSrcs = incomeSources.filter { it.isFixed == 1 && it.isActive == 1 }
+
             _state.update {
                 it.copy(
                     isLoading = false,
-                    categories = categories,
-                    incomeSources = incomeSources,
+                    categories = regularCategories,
+                    fixedCategories = fixedCats,
+                    incomeSources = regularSources,
+                    fixedIncomeSources = fixedSrcs,
                     isOffline = false,
                 )
             }
@@ -291,6 +301,113 @@ class CategoriesViewModel(
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "Ошибка изменения порядка источников дохода") }
+            }
+        }
+    }
+
+    // --- Фиксированные категории ---
+
+    fun addFixedCategory(name: String, fixedAmount: Double, autoDay: Int) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            try {
+                categoryRepository.createCategory(
+                    userId = currentUserId,
+                    name = name,
+                    type = "expense",
+                    isFixed = true,
+                    fixedAmount = fixedAmount,
+                    autoDay = autoDay,
+                )
+                loadData(showLoader = false, syncFromServer = false)
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Ошибка создания фиксированной категории") }
+            }
+        }
+    }
+
+    fun updateFixedCategory(id: Int, name: String? = null, fixedAmount: Double? = null, autoDay: Int? = null) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            try {
+                categoryRepository.updateCategory(
+                    id = id.toLong(),
+                    name = name,
+                    isFixed = true,
+                    fixedAmount = fixedAmount,
+                    autoDay = autoDay,
+                )
+                loadData(showLoader = false, syncFromServer = false)
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Ошибка обновления фиксированной категории") }
+            }
+        }
+    }
+
+    fun deactivateFixedCategory(id: Int) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            try {
+                categoryRepository.updateCategory(
+                    id = id.toLong(),
+                    isActive = false,
+                )
+                loadData(showLoader = false, syncFromServer = false)
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Ошибка удаления фиксированной категории") }
+            }
+        }
+    }
+
+    // --- Фиксированные источники дохода ---
+
+    fun addFixedIncomeSource(name: String, fixedAmount: Double, autoDay: Int) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            try {
+                incomeSourceRepository.createIncomeSource(
+                    userId = currentUserId,
+                    name = name,
+                    isFixed = true,
+                    fixedAmount = fixedAmount,
+                    autoDay = autoDay,
+                )
+                loadData(showLoader = false, syncFromServer = false)
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Ошибка создания фиксированного источника дохода") }
+            }
+        }
+    }
+
+    fun updateFixedIncomeSource(id: Int, name: String? = null, fixedAmount: Double? = null, autoDay: Int? = null) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            try {
+                incomeSourceRepository.updateIncomeSource(
+                    id = id.toLong(),
+                    name = name,
+                    isFixed = true,
+                    fixedAmount = fixedAmount,
+                    autoDay = autoDay,
+                )
+                loadData(showLoader = false, syncFromServer = false)
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Ошибка обновления фиксированного источника дохода") }
+            }
+        }
+    }
+
+    fun deactivateFixedIncomeSource(id: Int) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            try {
+                incomeSourceRepository.updateIncomeSource(
+                    id = id.toLong(),
+                    isActive = false,
+                )
+                loadData(showLoader = false, syncFromServer = false)
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Ошибка удаления фиксированного источника дохода") }
             }
         }
     }

@@ -42,6 +42,9 @@ class IncomeSourceRepository(
                             userId = local.userId.toInt(),
                             name = local.name,
                             isActive = local.isActive.toInt(),
+                            isFixed = local.isFixed.toInt(),
+                            fixedAmount = local.fixedAmount?.let { it.toDouble() / 100.0 },
+                            autoDay = local.autoDay?.toInt(),
                         )
                     }
 
@@ -66,6 +69,9 @@ class IncomeSourceRepository(
                             userId = local.userId.toInt(),
                             name = local.name,
                             isActive = local.isActive.toInt(),
+                            isFixed = local.isFixed.toInt(),
+                            fixedAmount = local.fixedAmount?.let { it.toDouble() / 100.0 },
+                            autoDay = local.autoDay?.toInt(),
                         )
                     }
 
@@ -93,6 +99,9 @@ class IncomeSourceRepository(
     suspend fun createIncomeSource(
         userId: Long,
         name: String,
+        isFixed: Boolean = false,
+        fixedAmount: Double? = null,
+        autoDay: Int? = null,
     ): Result<RemoteIncomeSource> =
         withContext(Dispatchers.Default) {
             try {
@@ -103,6 +112,9 @@ class IncomeSourceRepository(
                         name = name,
                         sortOrder = maxSortOrder + 1,
                         isActive = 1L,
+                        isFixed = if (isFixed) 1L else 0L,
+                        fixedAmount = fixedAmount?.let { (it * 100).toLong() },
+                        autoDay = autoDay?.toLong(),
                         serverId = null,
                         syncStatus = SyncStatus.PENDING.value,
                     )
@@ -139,10 +151,19 @@ class IncomeSourceRepository(
         id: Long,
         name: String? = null,
         isActive: Boolean? = null,
+        isFixed: Boolean? = null,
+        fixedAmount: Double? = null,
+        autoDay: Int? = null,
     ): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
                 val existing = incomeSourceDao.getById(id) ?: return@withContext Result.error(Exception("Income source not found"))
+
+                val newIsFixed = when (isFixed) {
+                    true -> 1L
+                    false -> 0L
+                    null -> existing.isFixed
+                }
 
                 incomeSourceDao.update(
                     id = id,
@@ -153,6 +174,9 @@ class IncomeSourceRepository(
                         false -> 0L
                         null -> existing.isActive
                     },
+                    isFixed = newIsFixed,
+                    fixedAmount = if (newIsFixed == 1L) fixedAmount?.let { (it * 100).toLong() } ?: existing.fixedAmount else null,
+                    autoDay = if (newIsFixed == 1L) autoDay?.toLong() ?: existing.autoDay else null,
                     serverId = existing.serverId,
                     syncStatus = SyncStatus.PENDING.value,
                 )
@@ -232,6 +256,9 @@ class IncomeSourceRepository(
                             name = remote.name,
                             sortOrder = remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
+                            isFixed = remote.isFixed.toLong(),
+                            fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+                            autoDay = remote.autoDay?.toLong(),
                             updatedAt = remote.updatedAt ?: existing.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
@@ -242,6 +269,9 @@ class IncomeSourceRepository(
                             name = remote.name,
                             sortOrder = remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
+                            isFixed = remote.isFixed.toLong(),
+                            fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+                            autoDay = remote.autoDay?.toLong(),
                             createdAt = remote.createdAt,
                             updatedAt = remote.updatedAt,
                             serverId = remote.id.toString(),

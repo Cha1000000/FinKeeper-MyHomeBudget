@@ -19,6 +19,9 @@ CREATE TABLE categories (
     color TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
+    is_fixed INTEGER NOT NULL DEFAULT 0,
+    fixed_amount INTEGER,
+    auto_day INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     server_id TEXT,
@@ -32,6 +35,9 @@ CREATE TABLE income_sources (
     name TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
+    is_fixed INTEGER NOT NULL DEFAULT 0,
+    fixed_amount INTEGER,
+    auto_day INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     server_id TEXT,
@@ -191,11 +197,11 @@ DELETE FROM users WHERE id = ?;
 
 -- Category queries
 insertCategory:
-INSERT INTO categories (user_id, name, type, icon, color, sort_order, is_active, created_at, updated_at, server_id, sync_status)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO categories (user_id, name, type, icon, color, sort_order, is_active, is_fixed, fixed_amount, auto_day, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateCategoryById:
-UPDATE categories SET name = ?, type = ?, icon = ?, color = ?, sort_order = ?, is_active = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+UPDATE categories SET name = ?, type = ?, icon = ?, color = ?, sort_order = ?, is_active = ?, is_fixed = ?, fixed_amount = ?, auto_day = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
 
 updateCategorySyncStatus:
 UPDATE categories SET sync_status = ?, server_id = ? WHERE id = ?;
@@ -239,16 +245,19 @@ SELECT EXISTS(SELECT 1 FROM categories WHERE server_id = ?);
 getCategoryByServerId:
 SELECT * FROM categories WHERE server_id = ?;
 
+getFixedCategoriesByUser:
+SELECT * FROM categories WHERE user_id = ? AND is_fixed = 1 AND is_active = 1 ORDER BY sort_order ASC;
+
 deleteAllCategories:
 DELETE FROM categories;
 
 -- Income Source queries
 insertIncomeSource:
-INSERT INTO income_sources (user_id, name, sort_order, is_active, created_at, updated_at, server_id, sync_status)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO income_sources (user_id, name, sort_order, is_active, is_fixed, fixed_amount, auto_day, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateIncomeSourceById:
-UPDATE income_sources SET name = ?, sort_order = ?, is_active = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+UPDATE income_sources SET name = ?, sort_order = ?, is_active = ?, is_fixed = ?, fixed_amount = ?, auto_day = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
 
 updateIncomeSourceSyncStatus:
 UPDATE income_sources SET sync_status = ?, server_id = ? WHERE id = ?;
@@ -285,6 +294,9 @@ SELECT EXISTS(SELECT 1 FROM income_sources WHERE server_id = ?);
 
 getIncomeSourceByServerId:
 SELECT * FROM income_sources WHERE server_id = ?;
+
+getFixedIncomeSourcesByUser:
+SELECT * FROM income_sources WHERE user_id = ? AND is_fixed = 1 AND is_active = 1 ORDER BY sort_order ASC;
 
 deleteAllIncomeSources:
 DELETE FROM income_sources;

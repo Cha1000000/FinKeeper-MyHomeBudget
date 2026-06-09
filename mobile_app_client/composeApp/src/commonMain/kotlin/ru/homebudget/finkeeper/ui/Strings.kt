@@ -104,7 +104,7 @@ object Strings {
 
     // === Экран справочников (Categories) ===
     const val REFERENCE_BOOKS = "Справочники"
-    const val CATEGORIES_TAB = "Категории"
+    const val CATEGORIES_TAB = "Категории расходов"
     const val INCOME_SOURCES_TAB = "Источники дохода"
     const val ADD_NEW = "+ Добавить"
     const val NO_CATEGORIES = "Нет категорий"
@@ -115,6 +115,21 @@ object Strings {
     const val NEW_NAME = "Новая копилка"
     const val REORDER_MODE = "Режим сортировки"
     const val DRAG_HANDLE = "Перетащить"
+
+    // === Фиксированные (регулярные) категории / источники ===
+    const val FIXED_SECTION = "Фиксированные"
+    const val FIXED_AMOUNT = "Сумма"
+    const val AUTO_DAY = "День месяца"
+    const val ADD_FIXED = "+ Добавить фиксированный"
+    const val ADD_FIXED_INCOME = "+ Добавить фиксированный"
+    const val NEW_FIXED_CATEGORY = "Новая фиксированная категория"
+    const val NEW_FIXED_INCOME_SOURCE = "Новый фиксированный источник"
+    const val EDIT_FIXED_CATEGORY = "Редактировать фиксированную категорию"
+    const val EDIT_FIXED_INCOME_SOURCE = "Редактировать фиксированный источник"
+    const val DAY_OF_MONTH_SUFFIX = " числа"
+    const val NO_FIXED_CATEGORIES = "Нет фиксированных категорий"
+    const val NO_FIXED_INCOME_SOURCES = "Нет фиксированных источников"
+    const val FIXED_DELETE_CONFIRMATION = "Вы уверены? Фиксированный элемент будет деактивирован."
 
     // === Экран копилок (Savings) ===
     const val TOTAL_SAVINGS = "Всего накоплено"

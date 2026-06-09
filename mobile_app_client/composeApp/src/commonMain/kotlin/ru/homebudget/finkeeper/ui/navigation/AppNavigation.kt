@@ -228,6 +228,12 @@ fun AppNavigation(
                                 onUpdateIncomeSourcesOrder = { categoriesViewModel.updateIncomeSourcesOrder(it) },
                                 onReorderCategories = { categoriesViewModel.reorderCategories(it) },
                                 onReorderIncomeSources = { categoriesViewModel.reorderIncomeSources(it) },
+                                onAddFixedCategory = { name, amount, day -> categoriesViewModel.addFixedCategory(name, amount, day) },
+                                onUpdateFixedCategory = { id, name, amount, day -> categoriesViewModel.updateFixedCategory(id, name, amount, day) },
+                                onDeactivateFixedCategory = { categoriesViewModel.deactivateFixedCategory(it) },
+                                onAddFixedIncomeSource = { name, amount, day -> categoriesViewModel.addFixedIncomeSource(name, amount, day) },
+                                onUpdateFixedIncomeSource = { id, name, amount, day -> categoriesViewModel.updateFixedIncomeSource(id, name, amount, day) },
+                                onDeactivateFixedIncomeSource = { categoriesViewModel.deactivateFixedIncomeSource(it) },
                             )
                         }
 

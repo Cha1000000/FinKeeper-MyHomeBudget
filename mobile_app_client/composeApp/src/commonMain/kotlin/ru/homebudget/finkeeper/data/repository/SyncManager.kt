@@ -497,7 +497,13 @@ class SyncManager(
 
         when (item.operation) {
             SyncOperation.INSERT.value -> {
-                val remote = apiClient.createCategory(category.name, operationId)
+                val remote = apiClient.createCategory(
+                    name = category.name,
+                    isFixed = if (category.isFixed == 1L) 1 else null,
+                    fixedAmount = category.fixedAmount?.let { it.toDouble() / 100.0 },
+                    autoDay = category.autoDay?.toInt(),
+                    operationId = operationId,
+                )
                 applyCategoryServerSnapshot(item, category.id, remote)
             }
             SyncOperation.UPDATE.value -> {
@@ -509,6 +515,9 @@ class SyncManager(
                             UpdateCategoryRequest(
                                 name = category.name,
                                 isActive = if (category.isActive == 1L) 1 else 0,
+                                isFixed = category.isFixed.toInt(),
+                                fixedAmount = category.fixedAmount?.let { it.toDouble() / 100.0 },
+                                autoDay = category.autoDay?.toInt(),
                             ),
                         operationId = operationId,
                     )
@@ -534,7 +543,13 @@ class SyncManager(
 
         when (item.operation) {
             SyncOperation.INSERT.value -> {
-                val remote = apiClient.createIncomeSource(source.name, operationId)
+                val remote = apiClient.createIncomeSource(
+                    name = source.name,
+                    isFixed = if (source.isFixed == 1L) 1 else null,
+                    fixedAmount = source.fixedAmount?.let { it.toDouble() / 100.0 },
+                    autoDay = source.autoDay?.toInt(),
+                    operationId = operationId,
+                )
                 applyIncomeSourceServerSnapshot(item, source.id, remote)
             }
             SyncOperation.UPDATE.value -> {
@@ -546,6 +561,9 @@ class SyncManager(
                             UpdateIncomeSourceRequest(
                                 name = source.name,
                                 isActive = if (source.isActive == 1L) 1 else 0,
+                                isFixed = source.isFixed.toInt(),
+                                fixedAmount = source.fixedAmount?.let { it.toDouble() / 100.0 },
+                                autoDay = source.autoDay?.toInt(),
                             ),
                         operationId = operationId,
                     )
@@ -698,7 +716,12 @@ class SyncManager(
             if (syncedServerId != null) {
                 syncedServerId
             } else {
-                val remote = apiClient.createCategory(category.name)
+                val remote = apiClient.createCategory(
+                    name = category.name,
+                    isFixed = if (category.isFixed == 1L) 1 else null,
+                    fixedAmount = category.fixedAmount?.let { it.toDouble() / 100.0 },
+                    autoDay = category.autoDay?.toInt(),
+                )
                 categoryDao.updateSyncStatus(
                     id = category.id,
                     syncStatus = SyncStatus.SYNCED.value,
@@ -726,7 +749,12 @@ class SyncManager(
             if (syncedServerId != null) {
                 syncedServerId
             } else {
-                val remote = apiClient.createIncomeSource(source.name)
+                val remote = apiClient.createIncomeSource(
+                    name = source.name,
+                    isFixed = if (source.isFixed == 1L) 1 else null,
+                    fixedAmount = source.fixedAmount?.let { it.toDouble() / 100.0 },
+                    autoDay = source.autoDay?.toInt(),
+                )
                 incomeSourceDao.updateSyncStatus(
                     id = source.id,
                     syncStatus = SyncStatus.SYNCED.value,
