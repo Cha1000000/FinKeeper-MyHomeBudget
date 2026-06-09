@@ -3,13 +3,14 @@ const router = express.Router();
 
 const { db, nowIso } = require('../db/connection');
 const { authenticateToken, sendError } = require('../middleware/authenticate');
-const { 
-    getOrCreateMonth, 
-    checkMonthAccess, 
-    executeIdempotent, 
+const {
+    getOrCreateMonth,
+    checkMonthAccess,
+    executeIdempotent,
     recordDeletedRecord,
     clearDeletedRecord,
-    getRowById
+    getRowById,
+    autoCreateRecurringRecords,
 } = require('../db/helpers');
 const logger = require('../logger');
 
@@ -60,12 +61,19 @@ router.get('/categories', (req, res) => {
 
 router.post('/categories', (req, res) => {
     return executeIdempotent(req, res, () => {
-        const { name } = req.body;
+        const { name, is_fixed, fixed_amount, auto_day } = req.body;
+
+        const isFixed = Number(is_fixed) === 1 ? 1 : 0;
+        if (isFixed && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed categories' } };
+        if (isFixed && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed categories' } };
+
         const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
         const nextOrder = (result.maxOrder || 0) + 1;
         const timestamp = nowIso();
-        
-        const info = db.prepare('INSERT INTO categories (user_id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(req.user.id, name, nextOrder, timestamp, timestamp);
+
+        const info = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_fixed, fixed_amount, auto_day, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
+            req.user.id, name, nextOrder, isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, timestamp, timestamp
+        );
         const body = getRowById('categories', info.lastInsertRowid);
         broadcastChange(req, req.user.id, 'category', 'created');
         return { statusCode: 200, body };
@@ -102,8 +110,25 @@ router.put('/categories/reorder', (req, res) => {
 
 router.put('/categories/:id', (req, res) => {
     return executeIdempotent(req, res, () => {
-        const { name, is_active } = req.body;
-        const result = db.prepare('UPDATE categories SET name = ?, is_active = ?, updated_at = ? WHERE id = ? AND user_id = ?').run(name, is_active, nowIso(), req.params.id, req.user.id);
+        const { name, is_active, is_fixed, fixed_amount, auto_day } = req.body;
+
+        const isFixed = is_fixed != null ? (Number(is_fixed) === 1 ? 1 : 0) : undefined;
+        if (isFixed === 1 && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed categories' } };
+        if (isFixed === 1 && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed categories' } };
+
+        const sets = ['updated_at = ?'];
+        const params = [nowIso()];
+
+        if (name != null) { sets.push('name = ?'); params.push(name); }
+        if (is_active != null) { sets.push('is_active = ?'); params.push(is_active); }
+
+        if (isFixed !== undefined) {
+            sets.push('is_fixed = ?', 'fixed_amount = ?', 'auto_day = ?');
+            params.push(isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null);
+        }
+
+        params.push(req.params.id, req.user.id);
+        const result = db.prepare(`UPDATE categories SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
         if (result.changes === 0) return { statusCode: 404, body: { error: 'Category not found' } };
         if (Number(is_active) !== 0) {
             clearDeletedRecord(req.user.id, 'category', Number(req.params.id));
@@ -137,14 +162,19 @@ router.get('/income_sources', (req, res) => {
 
 router.post('/income_sources', (req, res) => {
     return executeIdempotent(req, res, () => {
-        const { name } = req.body;
+        const { name, is_fixed, fixed_amount, auto_day } = req.body;
+
+        const isFixed = Number(is_fixed) === 1 ? 1 : 0;
+        if (isFixed && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed income sources' } };
+        if (isFixed && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed income sources' } };
+
         try {
             const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM income_sources WHERE user_id = ?').get(req.user.id);
             const nextOrder = (result.maxOrder || 0) + 1;
             const timestamp = nowIso();
-            
-            const stmt = db.prepare('INSERT INTO income_sources (user_id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)');
-            const insertResult = stmt.run(req.user.id, name, nextOrder, timestamp, timestamp);
+
+            const stmt = db.prepare('INSERT INTO income_sources (user_id, name, sort_order, is_fixed, fixed_amount, auto_day, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+            const insertResult = stmt.run(req.user.id, name, nextOrder, isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, timestamp, timestamp);
             const body = getRowById('income_sources', insertResult.lastInsertRowid);
             broadcastChange(req, req.user.id, 'income_source', 'created');
             return { statusCode: 200, body };
@@ -184,13 +214,29 @@ router.put('/income_sources/reorder', (req, res) => {
 
 router.put('/income_sources/:id', (req, res) => {
     return executeIdempotent(req, res, () => {
-        const { name, is_active } = req.body;
+        const { name, is_active, is_fixed, fixed_amount, auto_day } = req.body;
         const { id } = req.params;
+
+        const isFixed = is_fixed != null ? (Number(is_fixed) === 1 ? 1 : 0) : undefined;
+        if (isFixed === 1 && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed income sources' } };
+        if (isFixed === 1 && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed income sources' } };
+
         try {
-            const stmt = db.prepare('UPDATE income_sources SET name = ?, is_active = ?, updated_at = ? WHERE id = ? AND user_id = ?');
-            const result = stmt.run(name, is_active ?? 1, nowIso(), id, req.user.id);
+            const sets = ['updated_at = ?'];
+            const params = [nowIso()];
+
+            if (name != null) { sets.push('name = ?'); params.push(name); }
+            if (is_active != null) { sets.push('is_active = ?'); params.push(is_active); }
+
+            if (isFixed !== undefined) {
+                sets.push('is_fixed = ?', 'fixed_amount = ?', 'auto_day = ?');
+                params.push(isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null);
+            }
+
+            params.push(id, req.user.id);
+            const result = db.prepare(`UPDATE income_sources SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
             if (result.changes === 0) return { statusCode: 404, body: { error: 'Income source not found' } };
-            if (Number(is_active ?? 1) !== 0) {
+            if (is_active != null && Number(is_active) !== 0) {
                 clearDeletedRecord(req.user.id, 'income_source', Number(id));
             }
             const body = getRowById('income_sources', id);
@@ -231,6 +277,9 @@ router.post('/months/ensure', (req, res) => {
     return executeIdempotent(req, res, () => {
         const { year, month } = req.body;
         const id = getOrCreateMonth(req.user.id, year, month);
+        autoCreateRecurringRecords(req.user.id, id, (userId, entity, action) => {
+            broadcastChange(req, userId, entity, action);
+        });
         return { statusCode: 200, body: getRowById('months', id) };
     });
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Check, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Check, X, CalendarDays } from 'lucide-react';
 import api, { getCategories, getIncomeSources } from '../api';
 import type { Category, IncomeSource } from '../api';
 import Modal from '../components/Modal';
@@ -8,6 +8,18 @@ import StatusBanner from '../components/StatusBanner';
 import { useDataChanged } from '../hooks/useWebSocket';
 
 type TabType = 'expenses' | 'income';
+
+interface FixedFormData {
+    name: string;
+    fixedAmount: string;
+    autoDay: string;
+}
+
+const emptyFixedForm: FixedFormData = { name: '', fixedAmount: '', autoDay: '' };
+
+function formatCurrency(amount: number): string {
+    return amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 const Categories: React.FC = () => {
     const [activeTab, setActiveTab] = useState<TabType>('expenses');
@@ -23,6 +35,12 @@ const Categories: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
+
+    // Фиксированные элементы
+    const [isFixedModalOpen, setIsFixedModalOpen] = useState(false);
+    const [editingFixedId, setEditingFixedId] = useState<number | null>(null);
+    const [fixedForm, setFixedForm] = useState<FixedFormData>(emptyFixedForm);
+    const [pendingFixedDelete, setPendingFixedDelete] = useState<number | null>(null);
 
     const getActionErrorMessage = (errorValue: unknown, fallback: string) => {
         const apiError = errorValue as { response?: { data?: { error?: string } }; message?: string };
@@ -130,10 +148,83 @@ const Categories: React.FC = () => {
         }
     };
 
-    const currentList = activeTab === 'expenses' ? categories : incomeSources;
+    // --- Обработчики для фиксированных элементов ---
+    const openAddFixed = () => {
+        setEditingFixedId(null);
+        setFixedForm(emptyFixedForm);
+        setIsFixedModalOpen(true);
+    };
+
+    const openEditFixed = (item: Category | IncomeSource) => {
+        setEditingFixedId(item.id);
+        setFixedForm({
+            name: item.name,
+            fixedAmount: item.fixed_amount != null ? String(item.fixed_amount) : '',
+            autoDay: item.auto_day != null ? String(item.auto_day) : '',
+        });
+        setIsFixedModalOpen(true);
+    };
+
+    const handleFixedSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setActionError(null);
+        const amount = parseFloat(fixedForm.fixedAmount);
+        const day = parseInt(fixedForm.autoDay, 10);
+        if (!fixedForm.name.trim() || isNaN(amount) || amount <= 0 || isNaN(day) || day < 1 || day > 31) return;
+
+        try {
+            const endpoint = activeTab === 'expenses' ? '/categories' : '/income_sources';
+            if (editingFixedId) {
+                await api.put(`${endpoint}/${editingFixedId}`, {
+                    name: fixedForm.name,
+                    is_fixed: 1,
+                    fixed_amount: amount,
+                    auto_day: day,
+                });
+            } else {
+                await api.post(endpoint, {
+                    name: fixedForm.name,
+                    is_fixed: 1,
+                    fixed_amount: amount,
+                    auto_day: day,
+                });
+            }
+            setIsFixedModalOpen(false);
+            setFixedForm(emptyFixedForm);
+            setEditingFixedId(null);
+            fetchData();
+        } catch (e) {
+            console.error(e);
+            setActionError(getActionErrorMessage(e, 'Не удалось сохранить фиксированный элемент.'));
+        }
+    };
+
+    const confirmFixedDelete = async () => {
+        if (!pendingFixedDelete) return;
+        setActionError(null);
+        try {
+            const endpoint = activeTab === 'expenses' ? '/categories' : '/income_sources';
+            await api.put(`${endpoint}/${pendingFixedDelete}`, { is_active: 0 });
+            setPendingFixedDelete(null);
+            fetchData();
+        } catch (e) {
+            console.error(e);
+            setActionError(getActionErrorMessage(e, 'Не удалось удалить фиксированный элемент.'));
+        }
+    };
+
+    // Разделяем на обычные и фиксированные
+    const allItems = activeTab === 'expenses' ? categories : incomeSources;
+    const fixedItems = allItems.filter(i => i.is_fixed === 1 && i.is_active === 1);
+    const regularItems = allItems.filter(i => i.is_fixed !== 1);
+
+    const currentList = regularItems;
     const itemName = activeTab === 'expenses' ? 'эту категорию' : 'этот источник дохода';
     const modalTitle = activeTab === 'expenses' ? 'Добавить категорию' : 'Добавить источник дохода';
     const buttonTitle = activeTab === 'expenses' ? 'Новая категория' : 'Новый источник';
+    const fixedModalTitle = editingFixedId
+        ? (activeTab === 'expenses' ? 'Редактировать фиксированную категорию' : 'Редактировать фиксированный источник')
+        : (activeTab === 'expenses' ? 'Новая фиксированная категория' : 'Новый фиксированный источник');
 
     if (isLoading && currentList.length === 0) {
         return (
@@ -213,6 +304,50 @@ const Categories: React.FC = () => {
                 </button>
             </div>
 
+            {/* Секция "Фиксированные" */}
+            <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100/60 dark:border-[var(--color-border-default)]/60">
+                    <div className="flex items-center gap-2">
+                        <CalendarDays className="w-5 h-5 text-amber-500" />
+                        <h3 className="font-semibold text-slate-800 dark:text-[var(--color-text-main)]">Фиксированные</h3>
+                    </div>
+                    <button
+                        onClick={openAddFixed}
+                        className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary)] hover:opacity-80 transition-opacity"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Добавить
+                    </button>
+                </div>
+                {fixedItems.length === 0 ? (
+                    <div className="px-6 py-4 text-sm text-slate-400 dark:text-[var(--color-text-muted)]">
+                        {activeTab === 'expenses' ? 'Нет фиксированных категорий' : 'Нет фиксированных источников'}
+                    </div>
+                ) : (
+                    <ul className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60">
+                        {fixedItems.map(item => (
+                            <li key={item.id} className="p-4 px-6 hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d] flex items-center justify-between group transition-colors">
+                                <div>
+                                    <span className="font-medium text-slate-700 dark:text-[var(--color-text-main)]">{item.name}</span>
+                                    <div className="text-sm text-slate-400 dark:text-[var(--color-text-muted)] mt-0.5">
+                                        {item.fixed_amount != null ? formatCurrency(item.fixed_amount) : '—'} ₽ · {item.auto_day} числа
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => openEditFixed(item)} aria-label="Редактировать" title="Редактировать" className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => setPendingFixedDelete(item.id)} aria-label="Удалить" title="Удалить" className="p-2 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            {/* Обычные категории / источники */}
             <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
                 <ul className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60">
                     {currentList.length === 0 && (
@@ -310,6 +445,90 @@ const Categories: React.FC = () => {
                         </button>
                         <button
                             onClick={() => setPendingDelete(null)}
+                            className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            Отмена
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Модаль добавления/редактирования фиксированного элемента */}
+            <Modal
+                isOpen={isFixedModalOpen}
+                onClose={() => { setIsFixedModalOpen(false); setEditingFixedId(null); }}
+                title={fixedModalTitle}
+            >
+                <form onSubmit={handleFixedSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-[var(--color-text-muted)]">Название</label>
+                        <input
+                            type="text"
+                            required
+                            value={fixedForm.name}
+                            onChange={(e) => setFixedForm(f => ({ ...f, name: e.target.value }))}
+                            className="w-full p-3 border border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors shadow-sm"
+                            placeholder="Введите название..."
+                            autoFocus
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-[var(--color-text-muted)]">Сумма</label>
+                        <input
+                            type="number"
+                            required
+                            min="0.01"
+                            step="0.01"
+                            value={fixedForm.fixedAmount}
+                            onChange={(e) => setFixedForm(f => ({ ...f, fixedAmount: e.target.value }))}
+                            className="w-full p-3 border border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors shadow-sm"
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-[var(--color-text-muted)]">День месяца (1–31)</label>
+                        <input
+                            type="number"
+                            required
+                            min="1"
+                            max="31"
+                            value={fixedForm.autoDay}
+                            onChange={(e) => setFixedForm(f => ({ ...f, autoDay: e.target.value }))}
+                            className="w-full p-3 border border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors shadow-sm"
+                            placeholder="25"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-all shadow-sm hover:shadow-md mt-4"
+                    >
+                        {editingFixedId ? 'Сохранить' : 'Создать'}
+                    </button>
+                </form>
+            </Modal>
+
+            {/* Подтверждение удаления фиксированного элемента */}
+            <Modal
+                isOpen={!!pendingFixedDelete}
+                onClose={() => setPendingFixedDelete(null)}
+                title="Подтверждение удаления"
+            >
+                <div className="space-y-4">
+                    <p className="text-gray-600 dark:text-[var(--color-text-muted)]">
+                        Уверены, что хотите удалить этот фиксированный элемент?
+                    </p>
+                    <div className="rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300 transition-colors">
+                        Элемент будет деактивирован. Автосоздание записей прекратится, но уже созданные записи останутся.
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={confirmFixedDelete}
+                            className="flex-1 bg-rose-600 text-white py-3 rounded-xl font-medium hover:bg-rose-700 transition-colors"
+                        >
+                            Удалить
+                        </button>
+                        <button
+                            onClick={() => setPendingFixedDelete(null)}
                             className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                         >
                             Отмена

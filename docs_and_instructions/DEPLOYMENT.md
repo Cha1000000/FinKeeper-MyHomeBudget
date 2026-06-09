@@ -1,5 +1,25 @@
 # Домашняя бухгалтерия — Инструкция по развёртыванию
 
+## Деплой обновлений (TL;DR)
+
+После того как обновлённые файлы залиты на сервер — **одна команда**:
+
+```bash
+cd /var/www/app.finkeeper24.ru
+sudo bash deploy.sh
+```
+
+Скрипт `deploy.sh` автоматически:
+
+1. Обновляет зависимости (root, client, server)
+2. Пересобирает frontend (`npm run build`)
+3. Перезапускает systemd-сервис `finkeeper`
+4. Проверяет локальный и публичный healthcheck
+
+Ничего больше запускать не нужно — ни `npm run build`, ни `systemctl restart`.
+
+---
+
 ## Требования
 
 - Node.js версии 18 или выше
@@ -91,7 +111,7 @@ npm start
 - Backend API доступен по адресу `http://localhost:3002`
 - если нужен другой frontend origin, добавьте его в `ALLOWED_ORIGINS`
 
-## Запуск на production-сервере
+## Первоначальная настройка production-сервера
 
 1. Создайте файл `.env.production` в корне проекта:
 
@@ -115,18 +135,11 @@ RESTORE_RATE_LIMIT_MAX=3
 - раздавал frontend из `client/dist`
 - проксировал `/api/*` на `http://127.0.0.1:3002`
 
-1. Запустите production-сборку и backend:
+1. Первый запуск:
 
 ```bash
-bash start_prod.sh
+sudo bash deploy.sh
 ```
-
-Скрипт `start_prod.sh`:
-
-- загружает `.env.production`
-- собирает frontend в `client/dist`
-- запускает backend на порту из `PORT` или `3002` по умолчанию
-- проверяет healthcheck `http://127.0.0.1:<PORT>/api/health`
 
 После запуска приложение должно быть доступно по адресу `https://app.finkeeper24.ru`.
 
@@ -139,27 +152,9 @@ bash start_prod.sh
 | 3002 | Внутренний порт backend Node.js на сервере |
 | 5174 | Порт frontend для локальной разработки |
 
-## Управление сервером
+## Управление сервисом
 
-Для остановки backend, запущенного через `start_prod.sh`, используйте:
-
-```bash
-lsof -ti:3002 | xargs kill -9
-```
-
-Для production рекомендуется управлять автозапуском через:
-
-- `systemd`
-
-> `pm2` не рекомендуется для текущего `start_prod.sh`, потому что сам скрипт запускает backend через `nohup` в фоне и завершается. `pm2` в такой схеме не управляет фактическим Node.js-процессом.
-
-Если нужен постоянный автозапуск после перезагрузки сервера, предпочтительно оборачивать вызов `bash start_prod.sh` в `systemd`-unit.
-
-Для ручного перезапуска production-версии используйте:
-
-```bash
-bash start_prod.sh
-```
+Backend управляется через `systemd`-сервис `finkeeper`.
 
 ## Установка и запуск на Ubuntu
 
@@ -197,16 +192,7 @@ cd server && npm install && cd ..
 nano .env.production
 ```
 
-1. Заполните файл значениями production-конфига:
-
-```bash
-NODE_ENV=production
-JWT_SECRET=replace-with-long-random-secret
-ALLOWED_ORIGINS=https://app.finkeeper24.ru
-APP_BASE_URL=https://app.finkeeper24.ru
-PUBLIC_API_BASE_URL=https://app.finkeeper24.ru
-PORT=3002
-```
+1. Заполните файл значениями production-конфига (см. раздел выше).
 
 1. Установите и настройте `nginx`, если он ещё не установлен.
 
@@ -229,7 +215,7 @@ sudo ufw reload
 1. Запустите приложение:
 
 ```bash
-bash start_prod.sh
+sudo bash deploy.sh
 ```
 
 1. Проверьте доступность:
@@ -242,6 +228,52 @@ curl -I https://app.finkeeper24.ru/api/health
 ## База данных
 
 Данные приложения хранятся в файле `server/database.sqlite`. При первом запуске автоматически создаются необходимые таблицы и добавляются начальные данные.
+
+## Резервное копирование и восстановление БД
+
+> Бэкапы лежат **вне** папки деплоя (`/var/backups/finkeeper/`) — намеренно, чтобы их
+> нельзя было случайно затереть перезаливкой кода/папки `server/` через FileZilla.
+
+### Авто-бэкап (ежедневно)
+
+- **Скрипт:** `/usr/local/bin/finkeeper-db-backup.sh`
+- **Расписание:** `/etc/cron.d/finkeeper-db-backup` — каждый день в **23:55**
+- **Куда:** `/var/backups/finkeeper/database_ГГГГММДД_ЧЧММСС.sqlite.gz`
+- **Что делает:** консистентный снимок (`sqlite3 .backup`) → проверка `integrity_check`
+  → gzip → хранит **последние 7** копий (старые удаляет сам)
+- **Лог:** `/var/log/finkeeper-db-backup.log`
+
+Запустить вручную (например, перед рискованной операцией):
+
+```bash
+sudo /usr/local/bin/finkeeper-db-backup.sh
+```
+
+### Ручное восстановление из бэкапа
+
+- **Скрипт:** `/var/backups/finkeeper/finkeeper-db-restore.sh` (запускать от root)
+
+Что делает: показывает список бэкапов по датам → даёт выбрать → проверяет целостность и
+показывает сводку (юзеры, число расходов, max дата) → **перед заменой сохраняет текущую БД**
+в `pre_restore_*.sqlite.gz` → останавливает сервис, подменяет файл, стартует, проверяет.
+Путь к БД определяет сам (из `DB_PATH`, иначе `server/database.sqlite`).
+
+```bash
+# интерактивно — список и выбор номера:
+sudo /var/backups/finkeeper/finkeeper-db-restore.sh
+
+# сразу выбрать бэкап по дате (подстрока имени) или по имени файла:
+sudo /var/backups/finkeeper/finkeeper-db-restore.sh 20260608
+sudo /var/backups/finkeeper/finkeeper-db-restore.sh database_20260608_180738.sqlite.gz
+```
+
+Если восстановление оказалось неудачным — запусти скрипт снова и выбери созданный им
+`pre_restore_*` (откат к состоянию до восстановления).
+
+### Дополнительные ручные копии
+
+Перед особо рискованными операциями копии кладутся также в `/root/finkeeper_db_backups/`
+(точки отката, вне ротации). Исходники скриптов продублированы локально в `~/finkeeper_recovery/`.
 
 ## Решение проблем
 
@@ -268,45 +300,6 @@ lsof -ti:5174 | xargs kill -9
   - полностью перезапустить браузер
 - если сайт открывается через `nginx`, в production используйте домен вида `https://app.finkeeper24.ru`, а не прямой IP с портом `3002`
 - если настроены Google/Yandex OAuth, не забудьте обновить их redirect URI на новый production-домен
-
-## При новом деплое
-
-Рекомендуемый сценарий для текущей production-схемы:
-
-```bash
-cd /var/www/app.finkeeper24.ru
-bash deploy.sh
-```
-
-Скрипт `deploy.sh`:
-
-- обновляет зависимости в root, `client` и `server`
-- пересобирает frontend
-- перезапускает `systemd`-сервис `finkeeper`
-- проверяет локальный и публичный healthcheck
-
-`start_prod.sh` можно использовать для разового ручного запуска, но после перехода на `systemd` не стоит использовать его как основной механизм постоянного production-деплоя.
-
----
-
-## Как лучше работать после перехода на `systemd`
-
-### Рекомендуемый вариант
-
-#### Для деплоя:
-
-```bash
-cd /var/www/app.finkeeper24.ru/client
-npm run build
-```
-
-### Для backend:
-
-```bash
-systemctl restart finkeeper
-```
-
----
 
 ## Команды управления сервисом
 
@@ -345,5 +338,3 @@ systemctl enable finkeeper
 ```bash
 systemctl disable finkeeper
 ```
-
----

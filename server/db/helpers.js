@@ -114,6 +114,12 @@ function createBackup(userId) {
              savings_transactions = db.prepare(`SELECT * FROM savings_transactions WHERE goal_id IN (${placeholders})`).all(goalIds);
         }
 
+        let auto_created_records = [];
+        if (monthIds.length > 0) {
+            const placeholders2 = monthIds.map(() => '?').join(',');
+            auto_created_records = db.prepare(`SELECT * FROM auto_created_records WHERE user_id = ? AND month_id IN (${placeholders2})`).all(userId, ...monthIds);
+        }
+
         const backupData = JSON.stringify({
             categories,
             income_sources,
@@ -122,7 +128,8 @@ function createBackup(userId) {
             incomes,
             expenses,
             budgets,
-            savings_transactions
+            savings_transactions,
+            auto_created_records,
         });
 
         db.prepare('INSERT INTO user_backups (user_id, data, created_at) VALUES (?, ?, ?)').run(userId, backupData, nowIso());
@@ -158,6 +165,7 @@ function buildBackupSummary(backupData) {
         expenses: safeArrayLength(backupData?.expenses),
         budgets: safeArrayLength(backupData?.budgets),
         savingsTransactions: safeArrayLength(backupData?.savings_transactions),
+        autoCreatedRecords: safeArrayLength(backupData?.auto_created_records),
     };
 }
 
@@ -190,6 +198,101 @@ function getUserBackupRecord(userId, backupId) {
     `).get(userId, backupId);
 }
 
+function daysInMonth(year, month) {
+    return new Date(year, month, 0).getDate();
+}
+
+function autoCreateRecurringRecords(userId, monthId, broadcastFn) {
+    const month = db.prepare('SELECT * FROM months WHERE id = ? AND user_id = ?').get(monthId, userId);
+    if (!month) return;
+
+    const now = new Date();
+    const todayYear = now.getFullYear();
+    const todayMonth = now.getMonth() + 1;
+    const todayDay = now.getDate();
+
+    // Определяем, наступил ли указанный день для этого месяца
+    // Для прошлых месяцев — все дни считаются наступившими
+    // Для текущего месяца — только если today >= auto_day
+    // Для будущих месяцев — ничего не создаём
+    function isDayReached(autoDay) {
+        if (month.year < todayYear) return true;
+        if (month.year === todayYear && month.month < todayMonth) return true;
+        if (month.year === todayYear && month.month === todayMonth) {
+            const maxDay = daysInMonth(month.year, month.month);
+            const effectiveDay = Math.min(autoDay, maxDay);
+            return todayDay >= effectiveDay;
+        }
+        return false; // будущий месяц
+    }
+
+    const created = [];
+
+    // Фиксированные категории расходов
+    const fixedCategories = db.prepare(
+        'SELECT * FROM categories WHERE user_id = ? AND is_fixed = 1 AND is_active = 1 AND fixed_amount IS NOT NULL AND auto_day IS NOT NULL'
+    ).all(userId);
+
+    for (const cat of fixedCategories) {
+        if (!isDayReached(cat.auto_day)) continue;
+
+        const existing = db.prepare(
+            'SELECT id FROM auto_created_records WHERE user_id = ? AND template_type = ? AND template_id = ? AND month_id = ?'
+        ).get(userId, 'category', cat.id, monthId);
+        if (existing) continue;
+
+        const maxDay = daysInMonth(month.year, month.month);
+        const day = Math.min(cat.auto_day, maxDay);
+        const dateStr = `${month.year}-${String(month.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const timestamp = nowIso();
+
+        const info = db.prepare(
+            'INSERT INTO expenses (month_id, category_id, amount, date, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).run(monthId, cat.id, cat.fixed_amount, dateStr, 'Регулярный платёж', timestamp, timestamp);
+
+        db.prepare(
+            'INSERT INTO auto_created_records (user_id, template_type, template_id, month_id, created_record_id, created_record_type, amount_at_creation, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).run(userId, 'category', cat.id, monthId, info.lastInsertRowid, 'expense', cat.fixed_amount, timestamp);
+
+        created.push({ entity: 'expense', action: 'created' });
+    }
+
+    // Фиксированные источники дохода
+    const fixedSources = db.prepare(
+        'SELECT * FROM income_sources WHERE user_id = ? AND is_fixed = 1 AND is_active = 1 AND fixed_amount IS NOT NULL AND auto_day IS NOT NULL'
+    ).all(userId);
+
+    for (const src of fixedSources) {
+        if (!isDayReached(src.auto_day)) continue;
+
+        const existing = db.prepare(
+            'SELECT id FROM auto_created_records WHERE user_id = ? AND template_type = ? AND template_id = ? AND month_id = ?'
+        ).get(userId, 'income_source', src.id, monthId);
+        if (existing) continue;
+
+        const maxDay = daysInMonth(month.year, month.month);
+        const day = Math.min(src.auto_day, maxDay);
+        const dateStr = `${month.year}-${String(month.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const timestamp = nowIso();
+
+        const info = db.prepare(
+            'INSERT INTO incomes (month_id, source, amount, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(monthId, src.name, src.fixed_amount, dateStr, timestamp, timestamp);
+
+        db.prepare(
+            'INSERT INTO auto_created_records (user_id, template_type, template_id, month_id, created_record_id, created_record_type, amount_at_creation, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).run(userId, 'income_source', src.id, monthId, info.lastInsertRowid, 'income', src.fixed_amount, timestamp);
+
+        created.push({ entity: 'income', action: 'created' });
+    }
+
+    // Broadcast если что-то создано
+    if (created.length > 0 && broadcastFn) {
+        broadcastFn(userId, 'expense', 'created');
+        broadcastFn(userId, 'income', 'created');
+    }
+}
+
 function restoreBackupSnapshot(userId, backupData) {
     const restoreTransact = db.transaction(() => {
         db.prepare('DELETE FROM savings_transactions WHERE goal_id IN (SELECT id FROM savings_goals WHERE user_id = ?)').run(userId);
@@ -201,12 +304,13 @@ function restoreBackupSnapshot(userId, backupData) {
         db.prepare('DELETE FROM income_sources WHERE user_id = ?').run(userId);
         db.prepare('DELETE FROM savings_goals WHERE user_id = ?').run(userId);
         db.prepare('DELETE FROM deleted_records WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM auto_created_records WHERE user_id = ?').run(userId);
 
-        const insertCat = db.prepare('INSERT INTO categories (id, user_id, name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
-        (backupData.categories || []).forEach(row => insertCat.run(row.id, userId, row.name, row.sort_order, row.is_active, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
+        const insertCat = db.prepare('INSERT INTO categories (id, user_id, name, sort_order, is_active, is_fixed, fixed_amount, auto_day, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        (backupData.categories || []).forEach(row => insertCat.run(row.id, userId, row.name, row.sort_order, row.is_active, row.is_fixed ?? 0, row.fixed_amount ?? null, row.auto_day ?? null, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
 
-        const insertSource = db.prepare('INSERT INTO income_sources (id, user_id, name, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
-        (backupData.income_sources || []).forEach(row => insertSource.run(row.id, userId, row.name, row.is_active, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
+        const insertSource = db.prepare('INSERT INTO income_sources (id, user_id, name, is_active, sort_order, is_fixed, fixed_amount, auto_day, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        (backupData.income_sources || []).forEach(row => insertSource.run(row.id, userId, row.name, row.is_active, row.sort_order ?? 0, row.is_fixed ?? 0, row.fixed_amount ?? null, row.auto_day ?? null, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
 
         const insertGoal = db.prepare('INSERT INTO savings_goals (id, user_id, name, target_amount, current_amount, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
         (backupData.savings_goals || []).forEach(row => insertGoal.run(row.id, userId, row.name, row.target_amount, row.current_amount, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
@@ -225,6 +329,9 @@ function restoreBackupSnapshot(userId, backupData) {
 
         const insertTrans = db.prepare('INSERT INTO savings_transactions (id, goal_id, amount, date, month_id, is_adjustment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         (backupData.savings_transactions || []).forEach(row => insertTrans.run(row.id, row.goal_id, row.amount, row.date, row.month_id, row.is_adjustment || 0, row.created_at || row.updated_at || nowIso(), row.updated_at || row.created_at || nowIso()));
+
+        const insertAutoCreated = db.prepare('INSERT INTO auto_created_records (id, user_id, template_type, template_id, month_id, created_record_id, created_record_type, amount_at_creation, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        (backupData.auto_created_records || []).forEach(row => insertAutoCreated.run(row.id, userId, row.template_type, row.template_id, row.month_id, row.created_record_id, row.created_record_type, row.amount_at_creation, row.created_at || nowIso()));
     });
 
     restoreTransact();
@@ -237,6 +344,7 @@ module.exports = {
     executeIdempotent,
     getOrCreateMonth,
     checkMonthAccess,
+    autoCreateRecurringRecords,
     createBackup,
     parseBackupDataSafely,
     buildBackupSummary,

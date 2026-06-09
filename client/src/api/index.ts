@@ -287,12 +287,18 @@ export interface Category {
     id: number;
     name: string;
     is_active: number;
+    is_fixed: number;
+    fixed_amount: number | null;
+    auto_day: number | null;
 }
 
 export interface IncomeSource {
     id: number;
     name: string;
     is_active: number;
+    is_fixed: number;
+    fixed_amount: number | null;
+    auto_day: number | null;
 }
 
 export interface Month {

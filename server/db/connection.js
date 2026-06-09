@@ -162,6 +162,32 @@ function ensureSchemaUpToDate() {
     addColumnIfMissing('users', 'auth_password_enabled', 'INTEGER NOT NULL DEFAULT 1');
     addColumnIfMissing('auth_refresh_sessions', 'is_persistent', 'INTEGER NOT NULL DEFAULT 0');
     addColumnIfMissing('auth_social_login_attempts', 'exchange_code', 'TEXT');
+
+    // Фиксированные (регулярные) категории и источники дохода
+    addColumnIfMissing('categories', 'is_fixed', 'INTEGER DEFAULT 0');
+    addColumnIfMissing('categories', 'fixed_amount', 'REAL');
+    addColumnIfMissing('categories', 'auto_day', 'INTEGER');
+    addColumnIfMissing('income_sources', 'is_fixed', 'INTEGER DEFAULT 0');
+    addColumnIfMissing('income_sources', 'fixed_amount', 'REAL');
+    addColumnIfMissing('income_sources', 'auto_day', 'INTEGER');
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS auto_created_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            template_type TEXT NOT NULL,
+            template_id INTEGER NOT NULL,
+            month_id INTEGER NOT NULL,
+            created_record_id INTEGER NOT NULL,
+            created_record_type TEXT NOT NULL,
+            amount_at_creation REAL NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (month_id) REFERENCES months(id),
+            UNIQUE(user_id, template_type, template_id, month_id)
+        );
+    `);
+
     db.exec(`
         CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique
         ON users(email)

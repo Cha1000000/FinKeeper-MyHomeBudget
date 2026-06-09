@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -14,7 +14,7 @@
   "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.6.2",
+    "better-sqlite3": "^12.10.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
@@ -24,5 +24,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.10.0": true
   }
 }
