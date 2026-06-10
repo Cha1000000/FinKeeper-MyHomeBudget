@@ -8,6 +8,19 @@ const port = process.env.SMOKE_PORT || '3210';
 const dbPath = path.resolve(__dirname, '..', '.smoke-health.sqlite');
 const baseUrl = `http://127.0.0.1:${port}`;
 
+// Удаляет временную БД smoke-теста вместе со спутниками WAL/SHM.
+// Идемпотентна (force). Вызывается в finally, а также на выходе и по сигналам —
+// чтобы не оставлять мусор даже при ошибке, Ctrl+C или обрыве stdout (EPIPE).
+function cleanupDb() {
+    for (const suffix of ['', '-wal', '-shm']) {
+        fs.rmSync(`${dbPath}${suffix}`, { force: true });
+    }
+}
+
+process.on('exit', cleanupDb);
+process.on('SIGINT', () => process.exit(130));
+process.on('SIGTERM', () => process.exit(143));
+
 async function waitForHealth(timeoutMs = 10000) {
     const startedAt = Date.now();
 
@@ -83,7 +96,7 @@ async function main() {
             });
         });
     } finally {
-        fs.rmSync(dbPath, { force: true });
+        cleanupDb();
     }
 }
 
