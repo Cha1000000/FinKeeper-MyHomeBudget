@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -254,6 +255,30 @@ fun AppButton(
         textColor = contentColor,
         style = style,
         textStyle = textStyle
+    )
+}
+
+/**
+ * Десктопная кнопка первичного действия «Добавить» — единый стиль для всех экранов
+ * (Категории, Месяц и т.д.), чтобы спецификация (размер/цвет/стиль) жила в одном месте.
+ *
+ * На мобильных вместо неё используется статичный FAB внизу экрана, поэтому этот компонент
+ * применяется только в ветках `!useFloatingAddButton`.
+ */
+@Composable
+fun DesktopAddButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    text: String = Strings.ADD,
+) {
+    AppButton(
+        text = text,
+        onClick = onClick,
+        containerColor = Color(0xFF1B5E20),
+        contentColor = Color.White,
+        style = GlassyButtonStyle.Glassy,
+        modifier = modifier.height(40.dp).widthIn(min = 132.dp),
+        textStyle = MaterialTheme.typography.titleSmall,
     )
 }
 

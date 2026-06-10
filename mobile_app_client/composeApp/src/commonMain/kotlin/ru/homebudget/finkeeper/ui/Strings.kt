@@ -118,10 +118,11 @@ object Strings {
 
     // === Фиксированные (регулярные) категории / источники ===
     const val FIXED_SECTION = "Фиксированные"
+    const val FIXED_SECTION_ICON = "📅"
     const val FIXED_AMOUNT = "Сумма"
     const val AUTO_DAY = "День месяца"
-    const val ADD_FIXED = "+ Добавить фиксированный"
-    const val ADD_FIXED_INCOME = "+ Добавить фиксированный"
+    const val ADD_FIXED = "+ Добавить"
+    const val ADD_FIXED_INCOME = "+ Добавить"
     const val NEW_FIXED_CATEGORY = "Новая фиксированная категория"
     const val NEW_FIXED_INCOME_SOURCE = "Новый фиксированный источник"
     const val EDIT_FIXED_CATEGORY = "Редактировать фиксированную категорию"

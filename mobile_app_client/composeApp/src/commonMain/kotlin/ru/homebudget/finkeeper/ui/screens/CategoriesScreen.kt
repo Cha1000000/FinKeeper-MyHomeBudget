@@ -1,6 +1,7 @@
 package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.AppButton
+import ru.homebudget.finkeeper.ui.components.DesktopAddButton
 import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
@@ -131,8 +133,8 @@ fun CategoriesScreen(
 
         val lazyListState = rememberLazyListState()
         val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
-            val fromIndex = from.index - 1
-            val toIndex = to.index - 1
+            val fromIndex = from.index - 2
+            val toIndex = to.index - 2
             if (fromIndex >= 0 && toIndex >= 0 && fromIndex < localCategories.size && toIndex < localCategories.size) {
                 localCategories = localCategories.toMutableList().apply {
                     add(toIndex, removeAt(fromIndex))
@@ -142,8 +144,8 @@ fun CategoriesScreen(
 
         val incomeListState = rememberLazyListState()
         val reorderableIncomeListState = rememberReorderableLazyListState(incomeListState) { from, to ->
-            val fromIndex = from.index - 1
-            val toIndex = to.index - 1
+            val fromIndex = from.index - 2
+            val toIndex = to.index - 2
             if (fromIndex >= 0 && toIndex >= 0 && fromIndex < localIncomeSources.size && toIndex < localIncomeSources.size) {
                 localIncomeSources = localIncomeSources.toMutableList().apply {
                     add(toIndex, removeAt(fromIndex))
@@ -162,10 +164,64 @@ fun CategoriesScreen(
                 contentPadding = PaddingValues(top = 8.dp, bottom = listBottomPadding),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // --- Секция "Фиксированные": выделенный блок над кнопкой сортировки ---
+                item {
+                    if (state.activeTab == 0) {
+                        FixedSection(
+                            title = Strings.FIXED_SECTION,
+                            isEmpty = state.fixedCategories.isEmpty(),
+                            emptyText = Strings.NO_FIXED_CATEGORIES,
+                            onAdd = { showAddFixedDialog = true },
+                        ) {
+                            state.fixedCategories.forEach { cat ->
+                                FixedItemCard(
+                                    name = cat.name,
+                                    amount = cat.fixedAmount ?: 0.0,
+                                    autoDay = cat.autoDay ?: 1,
+                                    onEdit = {
+                                        editingFixed = EditingFixedItem(
+                                            id = cat.id,
+                                            name = cat.name,
+                                            amount = cat.fixedAmount ?: 0.0,
+                                            autoDay = cat.autoDay ?: 1,
+                                        )
+                                    },
+                                    onDelete = { deleteFixedId = cat.id },
+                                )
+                            }
+                        }
+                    } else {
+                        FixedSection(
+                            title = Strings.FIXED_SECTION,
+                            isEmpty = state.fixedIncomeSources.isEmpty(),
+                            emptyText = Strings.NO_FIXED_INCOME_SOURCES,
+                            onAdd = { showAddFixedDialog = true },
+                        ) {
+                            state.fixedIncomeSources.forEach { src ->
+                                FixedItemCard(
+                                    name = src.name,
+                                    amount = src.fixedAmount ?: 0.0,
+                                    autoDay = src.autoDay ?: 1,
+                                    onEdit = {
+                                        editingFixed = EditingFixedItem(
+                                            id = src.id,
+                                            name = src.name,
+                                            amount = src.fixedAmount ?: 0.0,
+                                            autoDay = src.autoDay ?: 1,
+                                        )
+                                    },
+                                    onDelete = { deleteFixedId = src.id },
+                                )
+                            }
+                        }
+                    }
+                }
+
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (state.activeTab == 0) {
                             TextButton(onClick = {
@@ -195,59 +251,13 @@ fun CategoriesScreen(
                             }
                         }
                         if (!useFloatingAddButton) {
-                            AppButton(
-                                text = Strings.ADD,
-                                onClick = { showAddDialog = true },
-                                containerColor = Color(0xFF1B5E20),
-                                contentColor = Color.White,
-                                style = GlassyButtonStyle.Glassy,
-                                modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
-                                textStyle = MaterialTheme.typography.labelLarge
-                            )
+                            DesktopAddButton(onClick = { showAddDialog = true })
                         }
                     }
                 }
 
                 if (state.activeTab == 0) {
-                    // --- Секция "Фиксированные" для категорий ---
-                    item {
-                        FixedSectionHeader(
-                            title = Strings.FIXED_SECTION,
-                            onAdd = { showAddFixedDialog = true },
-                        )
-                    }
-                    if (state.fixedCategories.isEmpty()) {
-                        item {
-                            Text(
-                                Strings.NO_FIXED_CATEGORIES,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                            )
-                        }
-                    } else {
-                        items(state.fixedCategories, key = { "fixed_cat_${it.id}" }) { cat ->
-                            FixedItemCard(
-                                name = cat.name,
-                                amount = cat.fixedAmount ?: 0.0,
-                                autoDay = cat.autoDay ?: 1,
-                                onEdit = {
-                                    editingFixed = EditingFixedItem(
-                                        id = cat.id,
-                                        name = cat.name,
-                                        amount = cat.fixedAmount ?: 0.0,
-                                        autoDay = cat.autoDay ?: 1,
-                                    )
-                                },
-                                onDelete = { deleteFixedId = cat.id },
-                            )
-                        }
-                    }
-
                     // --- Обычные категории ---
-                    item {
-                        Spacer(Modifier.height(8.dp))
-                    }
                     val activeCategories = state.categories.filter { it.isActive == 1 }
                     if (activeCategories.isEmpty()) {
                         item { EmptyState(Strings.NO_CATEGORIES) }
@@ -282,45 +292,7 @@ fun CategoriesScreen(
                         }
                     }
                 } else {
-                    // --- Секция "Фиксированные" для источников дохода ---
-                    item {
-                        FixedSectionHeader(
-                            title = Strings.FIXED_SECTION,
-                            onAdd = { showAddFixedDialog = true },
-                        )
-                    }
-                    if (state.fixedIncomeSources.isEmpty()) {
-                        item {
-                            Text(
-                                Strings.NO_FIXED_INCOME_SOURCES,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                            )
-                        }
-                    } else {
-                        items(state.fixedIncomeSources, key = { "fixed_src_${it.id}" }) { src ->
-                            FixedItemCard(
-                                name = src.name,
-                                amount = src.fixedAmount ?: 0.0,
-                                autoDay = src.autoDay ?: 1,
-                                onEdit = {
-                                    editingFixed = EditingFixedItem(
-                                        id = src.id,
-                                        name = src.name,
-                                        amount = src.fixedAmount ?: 0.0,
-                                        autoDay = src.autoDay ?: 1,
-                                    )
-                                },
-                                onDelete = { deleteFixedId = src.id },
-                            )
-                        }
-                    }
-
                     // --- Обычные источники дохода ---
-                    item {
-                        Spacer(Modifier.height(8.dp))
-                    }
                     val activeIncomeSources = state.incomeSources.filter { it.isActive == 1 }
                     if (activeIncomeSources.isEmpty()) {
                         item { EmptyState(Strings.NO_INCOME_SOURCES) }
@@ -615,27 +587,62 @@ private data class EditingFixedItem(
     val autoDay: Int,
 )
 
+/**
+ * Выделенный блок «Фиксированные»: рамка + тонированный фон, заголовок с иконкой,
+ * кнопка добавления и содержимое (список фиксированных элементов или текст-заглушка).
+ * Визуально отделяет фиксированные категории/источники от обычных, как в веб-версии.
+ */
 @Composable
-private fun FixedSectionHeader(
+private fun FixedSection(
     title: String,
+    isEmpty: Boolean,
+    emptyText: String,
     onAdd: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        TextButton(onClick = onAdd) {
-            Text(
-                Strings.ADD_FIXED,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(16.dp),
             )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "${Strings.FIXED_SECTION_ICON}  $title",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            TextButton(
+                onClick = onAdd,
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    Strings.ADD_FIXED,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        if (isEmpty) {
+            Text(
+                text = emptyText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            )
+        } else {
+            content()
         }
     }
 }

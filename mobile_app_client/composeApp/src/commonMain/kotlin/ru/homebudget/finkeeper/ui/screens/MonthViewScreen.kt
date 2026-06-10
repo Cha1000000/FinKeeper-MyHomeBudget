@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.AppButton
+import ru.homebudget.finkeeper.ui.components.DesktopAddButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.EmptyState
@@ -297,15 +298,7 @@ fun MonthViewScreen(
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                AppButton(
-                                    text = Strings.ADD,
-                                    onClick = { showAddDialog = true },
-                                    containerColor = Color(0xFF1B5E20),
-                                    contentColor = Color.White,
-                                    style = GlassyButtonStyle.Glassy,
-                                    modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
-                                    textStyle = MaterialTheme.typography.labelLarge
-                                )
+                                DesktopAddButton(onClick = { showAddDialog = true })
                             }
                         }
                     }
@@ -354,15 +347,7 @@ fun MonthViewScreen(
                                     color = MaterialTheme.colorScheme.onSurface
 
                                 )
-                                AppButton(
-                                    text = Strings.ADD,
-                                    onClick = { showAddDialog = true },
-                                    containerColor = Color(0xFF1B5E20),
-                                    contentColor = Color.White,
-                                    style = GlassyButtonStyle.Glassy,
-                                    modifier = Modifier.height(32.dp).widthIn(min = 110.dp),
-                                    textStyle = MaterialTheme.typography.labelLarge
-                                )
+                                DesktopAddButton(onClick = { showAddDialog = true })
                             }
                         }
                     }
