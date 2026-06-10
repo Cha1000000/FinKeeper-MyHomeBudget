@@ -54,6 +54,12 @@ adb shell am start -n ru.homebudget.finkeeper/.MainActivity
 ./gradlew :composeApp:run
 ```
 
+или для чистоты (при проблемах с рендером):
+
+```bash
+SKIKO_RENDER_API=SOFTWARE ./gradlew :composeApp:run
+```
+
 ### Сборка desktop-дистрибутива для текущей ОС
 
 ```bash

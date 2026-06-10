@@ -9,7 +9,7 @@ buildscript {
         multiplatform_settings_version = '1.2.0'
         koin_version = '3.5.6'
         sqldelight_version = '2.0.2'
-        app_version = '2.1.0'
+        app_version = '2.1.1'
     }
 }
 
@@ -153,7 +153,7 @@ android {
         applicationId "ru.homebudget.finkeeper"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
+        versionCode = 6
         versionName = app_version
     }
 
@@ -262,6 +262,13 @@ compose.desktop {
         ).orNull
         if (resolvedJavaHome != null) {
             javaHome = resolvedJavaHome
+        }
+
+        // На Linux форсируем софтверный рендер Skiko: дефолтный OpenGL-бэкенд
+        // даёт чёрное окно на NVIDIA под Wayland/XWayland (Niri и др. композиторы).
+        // Скорость для этого приложения некритична, зато окно гарантированно рисуется.
+        if (System.getProperty("os.name")?.toLowerCase()?.contains("linux")) {
+            jvmArgs.add("-Dskiko.renderApi=SOFTWARE")
         }
 
         nativeDistributions {
