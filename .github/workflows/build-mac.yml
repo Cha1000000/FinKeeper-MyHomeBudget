@@ -25,13 +25,6 @@ jobs:
       working-directory: ./mobile_app_client
       run: ./gradlew :composeApp:packageDistributionForCurrentOS
 
-    - name: Upload macOS App
-      uses: actions/upload-artifact@v4
-      with:
-        name: FinKeeper-macOS
-        path: mobile_app_client/composeApp/build/compose/binaries/main/app/FinKeeper.app
-        retention-days: 3
-
     - name: Upload macOS DMG
       uses: actions/upload-artifact@v4
       with:
