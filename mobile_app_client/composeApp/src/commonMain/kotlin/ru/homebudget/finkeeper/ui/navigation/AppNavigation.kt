@@ -194,8 +194,8 @@ fun AppNavigation(
                                 onAddIncome = { source, amount -> monthViewModel.addIncome(source, amount) },
                                 onAddIncomeWithSourceCheck = { source, amount -> monthViewModel.addIncomeWithSourceCheck(source, amount) },
                                 onAddExpense = { catId, amount, comment -> monthViewModel.addExpense(catId, amount, comment) },
-                                onUpdateIncome = { id, amount -> monthViewModel.updateIncome(id, amount) },
-                                onUpdateExpense = { id, amount -> monthViewModel.updateExpense(id, amount) },
+                                onUpdateIncome = { id, amount, _ -> monthViewModel.updateIncome(id, amount) },
+                                onUpdateExpense = { id, amount, comment -> monthViewModel.updateExpense(id, amount, comment) },
                                 onDeleteIncome = { monthViewModel.deleteIncome(it) },
                                 onDeleteExpense = { monthViewModel.deleteExpense(it) },
                                 onSetBudget = { catId, limit -> monthViewModel.setBudget(catId, limit) },
@@ -204,6 +204,10 @@ fun AppNavigation(
                                 onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
                                 onReorderExpenseGroups = { monthViewModel.reorderExpenseGroups(it) },
                                 onRefresh = { monthViewModel.loadData() },
+                                onConfirmPlanned = { item, amount -> monthViewModel.confirmPlanned(item, amount) },
+                                onSkipPlanned = { item, skipped -> monthViewModel.skipPlanned(item, skipped) },
+                                onOverridePlanned = { item, amount, day -> monthViewModel.overridePlanned(item, amount, day) },
+                                onResetPlanned = { monthViewModel.resetPlanned(it) },
                             )
                         }
 
@@ -228,11 +232,11 @@ fun AppNavigation(
                                 onUpdateIncomeSourcesOrder = { categoriesViewModel.updateIncomeSourcesOrder(it) },
                                 onReorderCategories = { categoriesViewModel.reorderCategories(it) },
                                 onReorderIncomeSources = { categoriesViewModel.reorderIncomeSources(it) },
-                                onAddFixedCategory = { name, amount, day -> categoriesViewModel.addFixedCategory(name, amount, day) },
-                                onUpdateFixedCategory = { id, name, amount, day -> categoriesViewModel.updateFixedCategory(id, name, amount, day) },
+                                onAddFixedCategory = { name, amount, day, requireConfirm -> categoriesViewModel.addFixedCategory(name, amount, day, requireConfirm) },
+                                onUpdateFixedCategory = { id, name, amount, day, requireConfirm -> categoriesViewModel.updateFixedCategory(id, name, amount, day, requireConfirm) },
                                 onDeactivateFixedCategory = { categoriesViewModel.deactivateFixedCategory(it) },
-                                onAddFixedIncomeSource = { name, amount, day -> categoriesViewModel.addFixedIncomeSource(name, amount, day) },
-                                onUpdateFixedIncomeSource = { id, name, amount, day -> categoriesViewModel.updateFixedIncomeSource(id, name, amount, day) },
+                                onAddFixedIncomeSource = { name, amount, day, requireConfirm -> categoriesViewModel.addFixedIncomeSource(name, amount, day, requireConfirm) },
+                                onUpdateFixedIncomeSource = { id, name, amount, day, requireConfirm -> categoriesViewModel.updateFixedIncomeSource(id, name, amount, day, requireConfirm) },
                                 onDeactivateFixedIncomeSource = { categoriesViewModel.deactivateFixedIncomeSource(it) },
                             )
                         }

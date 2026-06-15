@@ -20,6 +20,9 @@ import ru.homebudget.finkeeper.data.repository.income.IncomeSourceRepository
 import ru.homebudget.finkeeper.data.repository.month.MonthData
 import ru.homebudget.finkeeper.data.repository.month.MonthRepository
 import ru.homebudget.finkeeper.data.repository.onSuccess
+import ru.homebudget.finkeeper.data.repository.planned.PlannedRepository
+import ru.homebudget.finkeeper.data.planned.PlannedItem
+import ru.homebudget.finkeeper.data.planned.PlannedResult
 import ru.homebudget.finkeeper.util.currentIsoDate
 
 data class GroupedExpense(
@@ -29,6 +32,33 @@ data class GroupedExpense(
     val total: Double,
     val limit: Double,
     val isOverLimit: Boolean,
+)
+
+/** Плановый платёж для UI: суммы в рублях */
+data class PlannedUiItem(
+    val templateType: String,
+    val templateId: Long,
+    val name: String,
+    val amount: Double,
+    val originalAmount: Double,
+    val dueDay: Int,
+    val requireConfirm: Boolean,
+    val isSkipped: Boolean,
+    val isOverridden: Boolean,
+    val isOverdue: Boolean,
+)
+
+private fun PlannedItem.toUi() = PlannedUiItem(
+    templateType = templateType,
+    templateId = templateId,
+    name = name,
+    amount = amountCents / 100.0,
+    originalAmount = originalAmountCents / 100.0,
+    dueDay = dueDay,
+    requireConfirm = requireConfirm,
+    isSkipped = isSkipped,
+    isOverridden = isOverridden,
+    isOverdue = isOverdue,
 )
 
 data class IncomeWithSource(
@@ -55,6 +85,10 @@ data class MonthViewState(
     val totalExpense: Double = 0.0,
     val totalAllExpenses: Double = 0.0,
     val totalLimit: Double = 0.0,
+    val plannedExpenses: List<PlannedUiItem> = emptyList(),
+    val plannedIncomes: List<PlannedUiItem> = emptyList(),
+    val plannedExpensesTotal: Double = 0.0,
+    val plannedIncomesTotal: Double = 0.0,
     val activeTab: Int = 0, // 0 = expenses, 1 = incomes
     val error: String? = null,
     val isOffline: Boolean = false,
@@ -71,6 +105,7 @@ class MonthViewModel(
     private val categoryRepository: CategoryRepository,
     private val budgetRepository: BudgetRepository,
     private val incomeSourceRepository: IncomeSourceRepository,
+    private val plannedRepository: PlannedRepository,
     private val tokenStorage: TokenStorage,
     private val syncManager: SyncManager,
 ) : ViewModel() {
@@ -181,6 +216,11 @@ class MonthViewModel(
                         incomeRepository.syncWithServer(currentUserId, monthData.localId)
                         expenseRepository.syncWithServer(currentUserId, monthData.localId)
                         budgetRepository.syncWithServer(currentUserId, monthData.localId)
+                        try {
+                            plannedRepository.syncWithServer(currentUserId, monthData.localId)
+                        } catch (_: Exception) {
+                            // Старый сервер без planned-state не должен ломать загрузку месяца
+                        }
                     }
                 } catch (e: Exception) {
                     isOffline = true
@@ -257,6 +297,9 @@ class MonthViewModel(
 
             val grouped = buildGroupedExpenses(visibleExpenses, categories, budgets)
 
+            // Виртуальный план-слой: вычисляется локально, работает оффлайн
+            val planned: PlannedResult = plannedRepository.getPlanned(monthData.localId)
+
             _state.value =
                 _state.value.copy(
                     isLoading = false,
@@ -272,6 +315,10 @@ class MonthViewModel(
                     totalExpense = totalExpense,
                     totalAllExpenses = totalAllExpenses,
                     totalLimit = totalLimit,
+                    plannedExpenses = planned.expenses.map { it.toUi() },
+                    plannedIncomes = planned.incomes.map { it.toUi() },
+                    plannedExpensesTotal = planned.plannedExpensesCents / 100.0,
+                    plannedIncomesTotal = planned.plannedIncomesCents / 100.0,
                     isOffline = isOffline,
                 )
         } catch (e: Exception) {
@@ -303,6 +350,13 @@ class MonthViewModel(
                         ?.toLong() ?: 0L
                 println("[MONTH-VM] addIncome: sourceId=$sourceId")
 
+                // Имя источника задано, но в списке его нет — создаём источник,
+                // чтобы не получить доход с income_source_id=0 (он вечно падает в синке)
+                if (sourceId == 0L && source.isNotBlank()) {
+                    createSourceAndIncome(md.localId, source, amount)
+                    return@launch
+                }
+
                 incomeRepository.createIncome(
                     userId = currentUserId,
                     monthId = md.localId,
@@ -319,6 +373,32 @@ class MonthViewModel(
                 _state.value = _state.value.copy(error = e.message)
             }
         }
+    }
+
+    /**
+     * Последовательно создаёт источник дохода и доход с ним. id нового источника
+     * берётся прямо из результата создания, а не из перечитанного state — иначе
+     * доход создаётся с income_source_id=0 (гонка двух параллельных корутин).
+     */
+    private suspend fun createSourceAndIncome(monthLocalId: Long, source: String, amount: Double) {
+        val created = incomeSourceRepository.createIncomeSource(
+            userId = currentUserId,
+            name = source,
+        )
+        val newSourceId = (created as? ru.homebudget.finkeeper.data.repository.Result.Success)
+            ?.data?.id?.toLong()
+        if (newSourceId == null) {
+            _state.value = _state.value.copy(error = "Не удалось создать источник дохода")
+            return
+        }
+        incomeRepository.createIncome(
+            userId = currentUserId,
+            monthId = monthLocalId,
+            incomeSourceId = newSourceId,
+            amount = amount,
+            date = currentIsoDate(),
+        )
+        loadData(syncFromServer = false, showLoader = false)
     }
 
     fun addIncomeWithSourceCheck(
@@ -348,20 +428,24 @@ class MonthViewModel(
     fun confirmAddIncomeSource() {
         val source = _state.value.pendingSourceName ?: return
         val amount = _state.value.pendingSourceAmount ?: return
+        val md = _state.value.monthData ?: return
 
-        // First add the source
-        addIncomeSource(source)
-
-        // Then add income with the source
-        addIncome(source, amount)
-
-        // Clear pending state
+        // Очищаем pending-состояние сразу (диалог закрывается)
         _state.value =
             _state.value.copy(
                 pendingSourceName = null,
                 pendingSourceAmount = null,
                 showSourceConfirm = false,
             )
+
+        // Создаём источник и доход последовательно (см. createSourceAndIncome)
+        viewModelScope.launch {
+            try {
+                createSourceAndIncome(md.localId, source, amount)
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = e.message ?: "Ошибка добавления дохода")
+            }
+        }
     }
 
     fun cancelAddIncomeSource() {
@@ -411,7 +495,7 @@ class MonthViewModel(
     ) {
         viewModelScope.launch {
             try {
-                // Обновляем локально через репозиторий
+                // Обновляем локально через репозиторий (у доходов правится только сумма)
                 incomeRepository.updateIncome(
                     id = id.toLong(),
                     amount = amount,
@@ -427,13 +511,16 @@ class MonthViewModel(
     fun updateExpense(
         id: Int,
         amount: Double,
+        description: String? = null,
     ) {
         viewModelScope.launch {
             try {
-                // Обновляем локально через репозиторий
+                // Обновляем локально через репозиторий (расход: сумма + комментарий)
                 expenseRepository.updateExpense(
                     id = id.toLong(),
                     amount = amount,
+                    description = description,
+                    updateDescription = true,
                 )
 
                 loadData(syncFromServer = false, showLoader = false)
@@ -543,5 +630,59 @@ class MonthViewModel(
                     isOverLimit = limit > 0 && total > limit,
                 )
             }.sortedBy { categoryOrder[it.categoryId] ?: Int.MAX_VALUE }
+    }
+
+    // ── Действия план-слоя ──
+
+    /** «Оплачено/Получено»: только при сети — сервер создаёт реальную запись */
+    fun confirmPlanned(item: PlannedUiItem, amount: Double? = null) {
+        val md = _state.value.monthData ?: return
+        viewModelScope.launch {
+            val result = plannedRepository.confirm(
+                monthId = md.localId,
+                templateType = item.templateType,
+                templateId = item.templateId,
+                amountCents = amount?.let { (it * 100).toLong() },
+            )
+            if (result.isSuccess) {
+                loadData(syncFromServer = true, showLoader = false)
+            } else {
+                val message = (result as? ru.homebudget.finkeeper.data.repository.Result.Error)?.exception?.message
+                _state.value = _state.value.copy(error = message ?: "Не удалось подтвердить платёж")
+            }
+        }
+    }
+
+    /** Пропустить платёж в этом месяце / вернуть в план (offline-first) */
+    fun skipPlanned(item: PlannedUiItem, skipped: Boolean) {
+        val md = _state.value.monthData ?: return
+        viewModelScope.launch {
+            plannedRepository.setSkipped(md.localId, item.templateType, item.templateId, skipped)
+            loadData(syncFromServer = false, showLoader = false)
+        }
+    }
+
+    /** Изменить сумму/день только на этот месяц (offline-first) */
+    fun overridePlanned(item: PlannedUiItem, amount: Double, day: Int) {
+        val md = _state.value.monthData ?: return
+        viewModelScope.launch {
+            plannedRepository.setOverride(
+                monthId = md.localId,
+                templateType = item.templateType,
+                templateId = item.templateId,
+                amountCents = if (amount == item.originalAmount) null else (amount * 100).toLong(),
+                day = day,
+            )
+            loadData(syncFromServer = false, showLoader = false)
+        }
+    }
+
+    /** Сбросить изменения месяца к шаблону (offline-first) */
+    fun resetPlanned(item: PlannedUiItem) {
+        val md = _state.value.monthData ?: return
+        viewModelScope.launch {
+            plannedRepository.resetOverride(md.localId, item.templateType, item.templateId)
+            loadData(syncFromServer = false, showLoader = false)
+        }
     }
 }

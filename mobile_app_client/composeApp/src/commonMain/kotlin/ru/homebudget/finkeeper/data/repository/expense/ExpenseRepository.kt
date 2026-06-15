@@ -154,6 +154,9 @@ class ExpenseRepository(
         id: Long,
         amount: Double? = null,
         description: String? = null,
+        // true — выставить description ровно как передано (null = очистить);
+        // false — не трогать комментарий (обновление только суммы)
+        updateDescription: Boolean = false,
     ): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
@@ -165,7 +168,7 @@ class ExpenseRepository(
                     monthId = existing.monthId,
                     categoryId = existing.categoryId,
                     amount = amount?.toLong() ?: existing.amount,
-                    description = description ?: existing.description,
+                    description = if (updateDescription) description else existing.description,
                     date = existing.date,
                     updatedAt = now,
                     serverId = existing.serverId,
@@ -220,10 +223,14 @@ class ExpenseRepository(
     /**
      * Синхронизация с сервером
      */
-    suspend fun syncWithServer(
-        userId: Long,
-        monthId: Long,
-    ): Result<Unit> =
+    // Pull-синхронизация сериализуется мьютексом: Dashboard и Month ViewModel стартуют
+    // параллельно, и две гонящиеся insert-ветки дублировали локальные записи
+    private val syncPullMutex = Mutex()
+
+    suspend fun syncWithServer(userId: Long, monthId: Long,): Result<Unit> =
+        syncPullMutex.withLock { syncWithServerInternal(userId, monthId) }
+
+    private suspend fun syncWithServerInternal(userId: Long, monthId: Long,): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
                 // monthId здесь — локальный ID, нужен serverId для API

@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -60,7 +62,9 @@ import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ProgressBar
+import ru.homebudget.finkeeper.ui.components.PlannedSectionCard
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
+import ru.homebudget.finkeeper.ui.viewmodel.PlannedUiItem
 import ru.homebudget.finkeeper.ui.components.SummaryCard
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.GroupedExpense
@@ -82,8 +86,8 @@ fun MonthViewScreen(
     onAddIncome: (String, Double) -> Unit,
     onAddIncomeWithSourceCheck: (String, Double) -> Unit,
     onAddExpense: (Int, Double, String?) -> Unit,
-    onUpdateIncome: (Int, Double) -> Unit,
-    onUpdateExpense: (Int, Double) -> Unit,
+    onUpdateIncome: (Int, Double, String?) -> Unit,
+    onUpdateExpense: (Int, Double, String?) -> Unit,
     onDeleteIncome: (Int) -> Unit,
     onDeleteExpense: (Int) -> Unit,
     onSetBudget: (Int, Double) -> Unit,
@@ -92,13 +96,19 @@ fun MonthViewScreen(
     onCancelAddIncomeSource: () -> Unit,
     onReorderExpenseGroups: (List<GroupedExpense>) -> Unit,
     onRefresh: () -> Unit,
+    onConfirmPlanned: (PlannedUiItem, Double?) -> Unit = { _, _ -> },
+    onSkipPlanned: (PlannedUiItem, Boolean) -> Unit = { _, _ -> },
+    onOverridePlanned: (PlannedUiItem, Double, Int) -> Unit = { _, _, _ -> },
+    onResetPlanned: (PlannedUiItem) -> Unit = {},
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var showAddExpenseForCategory by remember { mutableStateOf<Int?>(null) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var deleteIncomeId by remember { mutableStateOf<Int?>(null) }
     var deleteExpenseId by remember { mutableStateOf<Int?>(null) }
-    var editingExpense by remember { mutableStateOf<Pair<Int, Double>?>(null) }
+    var editingEntry by remember { mutableStateOf<EditingEntry?>(null) }
+    var confirmPlannedItem by remember { mutableStateOf<PlannedUiItem?>(null) }
+    var overridePlannedItem by remember { mutableStateOf<PlannedUiItem?>(null) }
 
     var localGroupedExpenses by remember { mutableStateOf(state.groupedExpenses) }
     LaunchedEffect(state.groupedExpenses) {
@@ -168,6 +178,7 @@ fun MonthViewScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(IntrinsicSize.Min)
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -176,14 +187,20 @@ fun MonthViewScreen(
                 value = formatCurrency(state.totalIncome),
                 backgroundColor = semantic.incomeCardBg,
                 contentColor = semantic.incomeColor,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                subtitle = if (state.plannedIncomesTotal > 0) {
+                    "🕐 " + Strings.PLANNED_AWAITING_INCOME.replace("%s", formatCurrency(state.plannedIncomesTotal))
+                } else null,
             )
             SummaryCard(
                 title = Strings.EXPENSES_TAB,
                 value = formatCurrency(state.totalExpense),
                 backgroundColor = semantic.expenseCardBg,
                 contentColor = semantic.expenseColor,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                subtitle = if (state.plannedExpensesTotal > 0) {
+                    "🕐 " + Strings.PLANNED_BY_PLAN.replace("%s", formatCurrency(state.plannedExpensesTotal))
+                } else null,
             )
         }
 
@@ -303,6 +320,22 @@ fun MonthViewScreen(
                         }
                     }
 
+                    if (state.plannedExpenses.isNotEmpty()) {
+                        item(key = "planned-expenses") {
+                            PlannedSectionCard(
+                                title = Strings.PLANNED_EXPENSES_SECTION,
+                                items = state.plannedExpenses,
+                                total = state.plannedExpensesTotal,
+                                isIncome = false,
+                                isOffline = state.isOffline,
+                                onConfirm = { confirmPlannedItem = it },
+                                onSkip = onSkipPlanned,
+                                onOverride = { overridePlannedItem = it },
+                                onReset = onResetPlanned,
+                            )
+                        }
+                    }
+
                     if (localGroupedExpenses.isEmpty()) {
                         item { EmptyState(Strings.NO_EXPENSES_THIS_MONTH) }
                     } else {
@@ -312,7 +345,7 @@ fun MonthViewScreen(
                                 ExpenseGroupCard(
                                     group = group,
                                     onDeleteExpense = { deleteExpenseId = it },
-                                    onEditExpense = { id, amount -> editingExpense = Pair(id, amount) },
+                                    onEditExpense = { id, amount, comment -> editingEntry = EditingEntry(id, amount, comment, isIncome = false) },
                                     onAddExpenseInCategory = { showAddExpenseForCategory = group.categoryId },
                                     modifier = Modifier
                                         .longPressDraggableHandle(
@@ -352,6 +385,22 @@ fun MonthViewScreen(
                         }
                     }
 
+                    if (state.plannedIncomes.isNotEmpty()) {
+                        item(key = "planned-incomes") {
+                            PlannedSectionCard(
+                                title = Strings.PLANNED_INCOMES_SECTION,
+                                items = state.plannedIncomes,
+                                total = state.plannedIncomesTotal,
+                                isIncome = true,
+                                isOffline = state.isOffline,
+                                onConfirm = { confirmPlannedItem = it },
+                                onSkip = onSkipPlanned,
+                                onOverride = { overridePlannedItem = it },
+                                onReset = onResetPlanned,
+                            )
+                        }
+                    }
+
                     if (state.incomesWithSources.isEmpty()) {
                         item { EmptyState(Strings.NO_INCOMES_THIS_MONTH) }
                     } else {
@@ -360,6 +409,7 @@ fun MonthViewScreen(
                                 source = income.sourceName,
                                 amount = formatCurrency(income.amount),
                                 date = formatDate(income.date),
+                                onEdit = { editingEntry = EditingEntry(income.id, income.amount, null, isIncome = true) },
                                 onDelete = { deleteIncomeId = income.id },
                             )
                         }
@@ -436,14 +486,41 @@ fun MonthViewScreen(
         )
     }
 
-    // Edit expense dialog
-    editingExpense?.let { (expenseId, currentAmount) ->
-        EditExpenseDialog(
-            currentAmount = currentAmount,
-            onDismiss = { editingExpense = null },
-            onSave = { newAmount ->
-                onUpdateExpense(expenseId, newAmount)
-                editingExpense = null
+    // Диалог редактирования записи (расход/доход): сумма + комментарий
+    editingEntry?.let { entry ->
+        EditEntryDialog(
+            isIncome = entry.isIncome,
+            currentAmount = entry.amount,
+            currentComment = entry.comment,
+            onDismiss = { editingEntry = null },
+            onSave = { newAmount, newComment ->
+                if (entry.isIncome) onUpdateIncome(entry.id, newAmount, newComment)
+                else onUpdateExpense(entry.id, newAmount, newComment)
+                editingEntry = null
+            },
+        )
+    }
+
+    // Подтверждение оплаты/получения планового платежа
+    confirmPlannedItem?.let { item ->
+        ConfirmPlannedDialog(
+            item = item,
+            onDismiss = { confirmPlannedItem = null },
+            onConfirm = { amount ->
+                onConfirmPlanned(item, amount)
+                confirmPlannedItem = null
+            },
+        )
+    }
+
+    // Изменение планового платежа на этот месяц (override)
+    overridePlannedItem?.let { item ->
+        OverridePlannedDialog(
+            item = item,
+            onDismiss = { overridePlannedItem = null },
+            onSave = { amount, day ->
+                onOverridePlanned(item, amount, day)
+                overridePlannedItem = null
             },
         )
     }
@@ -510,7 +587,7 @@ fun MonthViewScreen(
 private fun ExpenseGroupCard(
     group: GroupedExpense,
     onDeleteExpense: (Int) -> Unit,
-    onEditExpense: (Int, Double) -> Unit,
+    onEditExpense: (Int, Double, String?) -> Unit,
     onAddExpenseInCategory: () -> Unit,
     modifier: Modifier = Modifier,
     elevation: androidx.compose.ui.unit.Dp = 0.dp,
@@ -612,7 +689,7 @@ private fun ExpenseGroupCard(
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                                 TextButton(
-                                    onClick = { onEditExpense(expense.id, expense.amount) },
+                                    onClick = { onEditExpense(expense.id, expense.amount, expense.comment) },
                                     modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
                                     contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
                                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
@@ -644,6 +721,7 @@ private fun IncomeItemCard(
     source: String,
     amount: String,
     date: String,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     GlassyCard(
@@ -676,11 +754,23 @@ private fun IncomeItemCard(
                 style = MaterialTheme.typography.titleMedium,
                 color = AppTheme.semanticColors.incomeColor,
             )
-            TextButton(
-                onClick = onDelete,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            ) {
-                Text(Strings.DELETE_ICON)
+            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                TextButton(
+                    onClick = onEdit,
+                    modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                ) {
+                    Text(Strings.EDIT_ICON, style = MaterialTheme.typography.bodyLarge)
+                }
+                TextButton(
+                    onClick = onDelete,
+                    modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge)
+                }
             }
         }
     }
@@ -937,21 +1027,88 @@ private fun AddExpenseForCategoryDialog(
 }
 
 @Composable
-private fun EditExpenseDialog(
+private fun EditEntryDialog(
+    isIncome: Boolean,
     currentAmount: Double,
+    currentComment: String?,
     onDismiss: () -> Unit,
-    onSave: (Double) -> Unit,
+    onSave: (Double, String?) -> Unit,
 ) {
     var amount by remember { mutableStateOf(currentAmount.toLong().toString()) }
+    var comment by remember { mutableStateOf(currentComment ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(Strings.EDIT_EXPENSE) },
+        title = { Text(if (isIncome) Strings.EDIT_INCOME else Strings.EDIT_EXPENSE) },
         text = {
             Column(
                 modifier = Modifier.then(if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                AppTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = Strings.AMOUNT,
+                    keyboardType = KeyboardType.Decimal,
+                )
+                // Комментарий — только у расходов (у доходов на сервере его негде хранить)
+                if (!isIncome) {
+                    AppTextField(
+                        value = comment,
+                        onValueChange = { comment = it },
+                        label = Strings.COMMENT_OPTIONAL,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
+                    onSave(amountVal, if (isIncome) null else comment.ifBlank { null })
+                },
+                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0,
+            ) {
+                Text(Strings.SAVE)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(Strings.CANCEL) }
+        },
+    )
+}
+
+/** Состояние редактируемой записи месяца (расход или доход) */
+private data class EditingEntry(
+    val id: Int,
+    val amount: Double,
+    val comment: String?,
+    val isIncome: Boolean,
+)
+
+
+@Composable
+private fun ConfirmPlannedDialog(
+    item: PlannedUiItem,
+    onDismiss: () -> Unit,
+    onConfirm: (Double?) -> Unit,
+) {
+    val isIncome = item.templateType == "income_source"
+    var amount by remember { mutableStateOf(item.amount.toLong().toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isIncome) Strings.PLANNED_CONFIRM_TITLE_INCOME else Strings.PLANNED_CONFIRM_TITLE_EXPENSE) },
+        text = {
+            Column(
+                modifier = Modifier.then(if (isDesktop) Modifier.padding(vertical = 16.dp) else Modifier),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = (if (isIncome) Strings.PLANNED_CONFIRM_TEXT_INCOME else Strings.PLANNED_CONFIRM_TEXT_EXPENSE)
+                        .replace("%s", item.name),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 AppTextField(
                     value = amount,
                     onValueChange = { amount = it },
@@ -964,9 +1121,63 @@ private fun EditExpenseDialog(
             TextButton(
                 onClick = {
                     val amountVal = amount.toDoubleOrNull() ?: return@TextButton
-                    onSave(amountVal)
+                    onConfirm(if (amountVal == item.amount) null else amountVal)
                 },
-                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0,
+                enabled = (amount.toDoubleOrNull() ?: 0.0) > 0,
+            ) {
+                Text(if (isIncome) Strings.PLANNED_RECEIVE_BUTTON else Strings.PLANNED_PAY_BUTTON)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(Strings.CANCEL) }
+        },
+    )
+}
+
+@Composable
+private fun OverridePlannedDialog(
+    item: PlannedUiItem,
+    onDismiss: () -> Unit,
+    onSave: (Double, Int) -> Unit,
+) {
+    var amount by remember { mutableStateOf(item.amount.toLong().toString()) }
+    var day by remember { mutableStateOf(item.dueDay.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(Strings.PLANNED_OVERRIDE_TITLE) },
+        text = {
+            Column(
+                modifier = Modifier.then(if (isDesktop) Modifier.padding(vertical = 16.dp) else Modifier),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "${item.name}: ${Strings.PLANNED_OVERRIDE_HINT}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                AppTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = Strings.AMOUNT + " (" + Strings.PLANNED_OVERRIDE_ORIGINAL.replace("%s", formatCurrency(item.originalAmount)) + ")",
+                    keyboardType = KeyboardType.Decimal,
+                )
+                AppTextField(
+                    value = day,
+                    onValueChange = { day = it },
+                    label = Strings.AUTO_DAY,
+                    keyboardType = KeyboardType.Number,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
+                    val dayVal = day.toIntOrNull() ?: return@TextButton
+                    onSave(amountVal, dayVal)
+                },
+                enabled = (amount.toDoubleOrNull() ?: 0.0) > 0 && (day.toIntOrNull() ?: 0) in 1..31,
             ) {
                 Text(Strings.SAVE)
             }

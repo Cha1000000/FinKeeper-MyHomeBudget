@@ -22,6 +22,7 @@ CREATE TABLE categories (
     is_fixed INTEGER NOT NULL DEFAULT 0,
     fixed_amount INTEGER,
     auto_day INTEGER,
+    require_confirm INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     server_id TEXT,
@@ -38,6 +39,7 @@ CREATE TABLE income_sources (
     is_fixed INTEGER NOT NULL DEFAULT 0,
     fixed_amount INTEGER,
     auto_day INTEGER,
+    require_confirm INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     server_id TEXT,
@@ -159,6 +161,40 @@ CREATE TABLE sync_queue (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Исключения план-слоя: пропуск / override суммы или дня регулярного платежа на месяц.
+-- Хранятся только отклонения от шаблона; синхронизируются с сервером (planned_overrides).
+CREATE TABLE planned_overrides (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    template_type TEXT NOT NULL CHECK (template_type IN ('category', 'income_source')),
+    template_id INTEGER NOT NULL,
+    month_id INTEGER NOT NULL,
+    override_amount INTEGER,
+    override_day INTEGER,
+    is_skipped INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    sync_status TEXT NOT NULL DEFAULT 'synced',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE CASCADE,
+    UNIQUE(user_id, template_type, template_id, month_id)
+);
+
+-- Зеркало серверной auto_created_records (read-only реплика для оффлайн-вычисления плана):
+-- какие фиксированные шаблоны уже материализованы в реальные записи за месяц
+CREATE TABLE auto_created_records (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    template_type TEXT NOT NULL,
+    template_id INTEGER NOT NULL,
+    month_id INTEGER NOT NULL,
+    created_record_type TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE CASCADE,
+    UNIQUE(user_id, template_type, template_id, month_id)
+);
+
 -- Indexes for performance optimization
 CREATE INDEX idx_categories_user ON categories(user_id);
 CREATE INDEX idx_categories_type ON categories(type);
@@ -175,6 +211,8 @@ CREATE INDEX idx_savings_goals_user ON savings_goals(user_id);
 CREATE INDEX idx_savings_transactions_goal ON savings_transactions(savings_goal_id);
 CREATE INDEX idx_sync_queue_user ON sync_queue(user_id);
 CREATE INDEX idx_sync_queue_status ON sync_queue(status);
+CREATE INDEX idx_planned_overrides_month ON planned_overrides(user_id, month_id);
+CREATE INDEX idx_auto_created_month ON auto_created_records(user_id, month_id);
 
 -- User queries
 getUserById:
@@ -197,11 +235,11 @@ DELETE FROM users WHERE id = ?;
 
 -- Category queries
 insertCategory:
-INSERT INTO categories (user_id, name, type, icon, color, sort_order, is_active, is_fixed, fixed_amount, auto_day, created_at, updated_at, server_id, sync_status)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO categories (user_id, name, type, icon, color, sort_order, is_active, is_fixed, fixed_amount, auto_day, require_confirm, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateCategoryById:
-UPDATE categories SET name = ?, type = ?, icon = ?, color = ?, sort_order = ?, is_active = ?, is_fixed = ?, fixed_amount = ?, auto_day = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+UPDATE categories SET name = ?, type = ?, icon = ?, color = ?, sort_order = ?, is_active = ?, is_fixed = ?, fixed_amount = ?, auto_day = ?, require_confirm = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
 
 updateCategorySyncStatus:
 UPDATE categories SET sync_status = ?, server_id = ? WHERE id = ?;
@@ -253,11 +291,11 @@ DELETE FROM categories;
 
 -- Income Source queries
 insertIncomeSource:
-INSERT INTO income_sources (user_id, name, sort_order, is_active, is_fixed, fixed_amount, auto_day, created_at, updated_at, server_id, sync_status)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO income_sources (user_id, name, sort_order, is_active, is_fixed, fixed_amount, auto_day, require_confirm, created_at, updated_at, server_id, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateIncomeSourceById:
-UPDATE income_sources SET name = ?, sort_order = ?, is_active = ?, is_fixed = ?, fixed_amount = ?, auto_day = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
+UPDATE income_sources SET name = ?, sort_order = ?, is_active = ?, is_fixed = ?, fixed_amount = ?, auto_day = ?, require_confirm = ?, updated_at = ?, server_id = ?, sync_status = ? WHERE id = ?;
 
 updateIncomeSourceSyncStatus:
 UPDATE income_sources SET sync_status = ?, server_id = ? WHERE id = ?;
@@ -636,9 +674,15 @@ DELETE FROM sync_queue;
 clearCompletedSyncQueueItems:
 DELETE FROM sync_queue WHERE status = 'completed';
 
--- Retry failed operations
+-- Retry failed operations (ручной ретрай из Настроек): сбрасывает и счётчик попыток,
+-- чтобы дать «чистый старт» элементам, исчерпавшим авто-ретраи
 updateFailedToPending:
-UPDATE sync_queue SET status = 'pending', error_message = NULL WHERE status = 'failed';
+UPDATE sync_queue SET status = 'pending', error_message = NULL, retry_count = 0 WHERE status = 'failed';
+
+-- Авто-ретрай: возвращает в pending только ещё «не выгоревшие» failed-элементы
+-- (retry_count < лимит) — чтобы перманентно падающие операции не штормили сервер
+resetRetriableFailedToPending:
+UPDATE sync_queue SET status = 'pending', error_message = NULL WHERE status = 'failed' AND retry_count < :maxRetryCount;
 
 -- Get total income for month
 getTotalIncomeByMonth:
@@ -671,3 +715,40 @@ SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE month_id = ? AND is_hidden =
 -- Get last insert row ID
 lastInsertRowId:
 SELECT last_insert_rowid();
+
+-- Planned Overrides queries (исключения план-слоя)
+upsertPlannedOverride:
+INSERT OR REPLACE INTO planned_overrides (user_id, template_type, template_id, month_id, override_amount, override_day, is_skipped, created_at, updated_at, sync_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deletePlannedOverride:
+DELETE FROM planned_overrides WHERE user_id = ? AND template_type = ? AND template_id = ? AND month_id = ?;
+
+getPlannedOverridesByMonth:
+SELECT * FROM planned_overrides WHERE user_id = ? AND month_id = ?;
+
+getPlannedOverride:
+SELECT * FROM planned_overrides WHERE user_id = ? AND template_type = ? AND template_id = ? AND month_id = ?;
+
+deleteSyncedPlannedOverridesByMonth:
+DELETE FROM planned_overrides WHERE user_id = ? AND month_id = ? AND sync_status = 'synced';
+
+updatePlannedOverrideSyncStatus:
+UPDATE planned_overrides SET sync_status = ? WHERE user_id = ? AND template_type = ? AND template_id = ? AND month_id = ?;
+
+deleteAllPlannedOverridesByUser:
+DELETE FROM planned_overrides WHERE user_id = ?;
+
+-- Auto Created Records queries (зеркало серверной таблицы)
+insertAutoCreatedRecord:
+INSERT OR IGNORE INTO auto_created_records (user_id, template_type, template_id, month_id, created_record_type, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+getAutoCreatedByMonth:
+SELECT * FROM auto_created_records WHERE user_id = ? AND month_id = ?;
+
+deleteAutoCreatedByMonth:
+DELETE FROM auto_created_records WHERE user_id = ? AND month_id = ?;
+
+deleteAllAutoCreatedByUser:
+DELETE FROM auto_created_records WHERE user_id = ?;

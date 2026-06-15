@@ -2,6 +2,7 @@ package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -54,12 +55,12 @@ fun CategoriesScreen(
     onReorderCategories: (List<Category>) -> Unit,
     onReorderIncomeSources: (List<IncomeSource>) -> Unit,
     // Фиксированные категории
-    onAddFixedCategory: (String, Double, Int) -> Unit,
-    onUpdateFixedCategory: (Int, String?, Double?, Int?) -> Unit,
+    onAddFixedCategory: (String, Double, Int, Boolean) -> Unit,
+    onUpdateFixedCategory: (Int, String?, Double?, Int?, Boolean?) -> Unit,
     onDeactivateFixedCategory: (Int) -> Unit,
     // Фиксированные источники дохода
-    onAddFixedIncomeSource: (String, Double, Int) -> Unit,
-    onUpdateFixedIncomeSource: (Int, String?, Double?, Int?) -> Unit,
+    onAddFixedIncomeSource: (String, Double, Int, Boolean) -> Unit,
+    onUpdateFixedIncomeSource: (Int, String?, Double?, Int?, Boolean?) -> Unit,
     onDeactivateFixedIncomeSource: (Int) -> Unit,
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -178,12 +179,14 @@ fun CategoriesScreen(
                                     name = cat.name,
                                     amount = cat.fixedAmount ?: 0.0,
                                     autoDay = cat.autoDay ?: 1,
+                                    requireConfirm = cat.requireConfirm == 1,
                                     onEdit = {
                                         editingFixed = EditingFixedItem(
                                             id = cat.id,
                                             name = cat.name,
                                             amount = cat.fixedAmount ?: 0.0,
                                             autoDay = cat.autoDay ?: 1,
+                                            requireConfirm = cat.requireConfirm == 1,
                                         )
                                     },
                                     onDelete = { deleteFixedId = cat.id },
@@ -202,12 +205,14 @@ fun CategoriesScreen(
                                     name = src.name,
                                     amount = src.fixedAmount ?: 0.0,
                                     autoDay = src.autoDay ?: 1,
+                                    requireConfirm = src.requireConfirm == 1,
                                     onEdit = {
                                         editingFixed = EditingFixedItem(
                                             id = src.id,
                                             name = src.name,
                                             amount = src.fixedAmount ?: 0.0,
                                             autoDay = src.autoDay ?: 1,
+                                            requireConfirm = src.requireConfirm == 1,
                                         )
                                     },
                                     onDelete = { deleteFixedId = src.id },
@@ -394,12 +399,13 @@ fun CategoriesScreen(
     if (showAddFixedDialog) {
         AddFixedDialog(
             title = if (state.activeTab == 0) Strings.NEW_FIXED_CATEGORY else Strings.NEW_FIXED_INCOME_SOURCE,
+            isExpense = state.activeTab == 0,
             onDismiss = { showAddFixedDialog = false },
-            onConfirm = { name, amount, day ->
+            onConfirm = { name, amount, day, requireConfirm ->
                 if (state.activeTab == 0) {
-                    onAddFixedCategory(name, amount, day)
+                    onAddFixedCategory(name, amount, day, requireConfirm)
                 } else {
-                    onAddFixedIncomeSource(name, amount, day)
+                    onAddFixedIncomeSource(name, amount, day, requireConfirm)
                 }
                 showAddFixedDialog = false
             },
@@ -409,15 +415,17 @@ fun CategoriesScreen(
     editingFixed?.let { item ->
         AddFixedDialog(
             title = if (state.activeTab == 0) Strings.EDIT_FIXED_CATEGORY else Strings.EDIT_FIXED_INCOME_SOURCE,
+            isExpense = state.activeTab == 0,
             initialName = item.name,
             initialAmount = item.amount,
             initialDay = item.autoDay,
+            initialRequireConfirm = item.requireConfirm,
             onDismiss = { editingFixed = null },
-            onConfirm = { name, amount, day ->
+            onConfirm = { name, amount, day, requireConfirm ->
                 if (state.activeTab == 0) {
-                    onUpdateFixedCategory(item.id, name, amount, day)
+                    onUpdateFixedCategory(item.id, name, amount, day, requireConfirm)
                 } else {
-                    onUpdateFixedIncomeSource(item.id, name, amount, day)
+                    onUpdateFixedIncomeSource(item.id, name, amount, day, requireConfirm)
                 }
                 editingFixed = null
             },
@@ -585,6 +593,7 @@ private data class EditingFixedItem(
     val name: String,
     val amount: Double,
     val autoDay: Int,
+    val requireConfirm: Boolean,
 )
 
 /**
@@ -652,6 +661,7 @@ private fun FixedItemCard(
     name: String,
     amount: Double,
     autoDay: Int,
+    requireConfirm: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -669,11 +679,25 @@ private fun FixedItemCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (requireConfirm) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = Strings.MANUAL_CONFIRM_BADGE,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                }
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = "${formatCurrency(amount)}  ·  ${autoDay}${Strings.DAY_OF_MONTH_SUFFIX}",
@@ -701,12 +725,15 @@ private fun FixedItemCard(
 @Composable
 private fun AddFixedDialog(
     title: String,
+    isExpense: Boolean,
     initialName: String = "",
     initialAmount: Double = 0.0,
     initialDay: Int = 1,
+    initialRequireConfirm: Boolean = false,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, amount: Double, day: Int) -> Unit,
+    onConfirm: (name: String, amount: Double, day: Int, requireConfirm: Boolean) -> Unit,
 ) {
+    var requireConfirm by remember { mutableStateOf(initialRequireConfirm) }
     var name by remember { mutableStateOf(initialName) }
     var amountText by remember {
         mutableStateOf(if (initialAmount > 0.0) initialAmount.toBigDecimal().stripTrailingZeros().toPlainString() else "")
@@ -745,12 +772,34 @@ private fun AddFixedDialog(
                     },
                     label = "${Strings.AUTO_DAY} (1–31)",
                 )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { requireConfirm = !requireConfirm }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = requireConfirm, onCheckedChange = { requireConfirm = it })
+                    Column {
+                        Text(
+                            text = if (isExpense) Strings.REQUIRE_CONFIRM_EXPENSE else Strings.REQUIRE_CONFIRM_INCOME,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = if (isExpense) Strings.REQUIRE_CONFIRM_EXPENSE_HINT else Strings.REQUIRE_CONFIRM_INCOME_HINT,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (isValid) onConfirm(name, amount!!, day!!)
+                    if (isValid) onConfirm(name, amount!!, day!!, requireConfirm)
                 },
                 enabled = isValid,
             ) {

@@ -206,10 +206,14 @@ class IncomeRepository(
     /**
      * Синхронизация с сервером
      */
-    suspend fun syncWithServer(
-        userId: Long,
-        monthId: Long,
-    ): Result<Unit> =
+    // Pull-синхронизация сериализуется мьютексом: Dashboard и Month ViewModel стартуют
+    // параллельно, и две гонящиеся insert-ветки дублировали локальные записи
+    private val syncPullMutex = Mutex()
+
+    suspend fun syncWithServer(userId: Long, monthId: Long,): Result<Unit> =
+        syncPullMutex.withLock { syncWithServerInternal(userId, monthId) }
+
+    private suspend fun syncWithServerInternal(userId: Long, monthId: Long,): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
                 // monthId здесь — локальный ID, нужен serverId для API

@@ -1,6 +1,8 @@
 package ru.homebudget.finkeeper.data.repository.income
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -45,6 +47,7 @@ class IncomeSourceRepository(
                             isFixed = local.isFixed.toInt(),
                             fixedAmount = local.fixedAmount?.let { it.toDouble() / 100.0 },
                             autoDay = local.autoDay?.toInt(),
+                            requireConfirm = local.requireConfirm.toInt(),
                         )
                     }
 
@@ -72,6 +75,7 @@ class IncomeSourceRepository(
                             isFixed = local.isFixed.toInt(),
                             fixedAmount = local.fixedAmount?.let { it.toDouble() / 100.0 },
                             autoDay = local.autoDay?.toInt(),
+                            requireConfirm = local.requireConfirm.toInt(),
                         )
                     }
 
@@ -102,6 +106,7 @@ class IncomeSourceRepository(
         isFixed: Boolean = false,
         fixedAmount: Double? = null,
         autoDay: Int? = null,
+        requireConfirm: Boolean = false,
     ): Result<RemoteIncomeSource> =
         withContext(Dispatchers.Default) {
             try {
@@ -115,6 +120,7 @@ class IncomeSourceRepository(
                         isFixed = if (isFixed) 1L else 0L,
                         fixedAmount = fixedAmount?.let { (it * 100).toLong() },
                         autoDay = autoDay?.toLong(),
+                        requireConfirm = if (requireConfirm) 1L else 0L,
                         serverId = null,
                         syncStatus = SyncStatus.PENDING.value,
                     )
@@ -154,6 +160,7 @@ class IncomeSourceRepository(
         isFixed: Boolean? = null,
         fixedAmount: Double? = null,
         autoDay: Int? = null,
+        requireConfirm: Boolean? = null,
     ): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
@@ -177,6 +184,13 @@ class IncomeSourceRepository(
                     isFixed = newIsFixed,
                     fixedAmount = if (newIsFixed == 1L) fixedAmount?.let { (it * 100).toLong() } ?: existing.fixedAmount else null,
                     autoDay = if (newIsFixed == 1L) autoDay?.toLong() ?: existing.autoDay else null,
+                    requireConfirm = if (newIsFixed == 1L) {
+                        when (requireConfirm) {
+                            true -> 1L
+                            false -> 0L
+                            null -> existing.requireConfirm
+                        }
+                    } else 0L,
                     serverId = existing.serverId,
                     syncStatus = SyncStatus.PENDING.value,
                 )
@@ -226,7 +240,14 @@ class IncomeSourceRepository(
     /**
      * Синхронизация с сервером
      */
+    // Pull-синхронизация сериализуется мьютексом: Dashboard и Month ViewModel стартуют
+    // параллельно, и две гонящиеся insert-ветки дублировали локальные записи
+    private val syncPullMutex = Mutex()
+
     suspend fun syncWithServer(userId: Long): Result<Unit> =
+        syncPullMutex.withLock { syncWithServerInternal(userId) }
+
+    private suspend fun syncWithServerInternal(userId: Long): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
                 val remoteSources = apiClient.getIncomeSources()
@@ -259,6 +280,7 @@ class IncomeSourceRepository(
                             isFixed = remote.isFixed.toLong(),
                             fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
                             autoDay = remote.autoDay?.toLong(),
+                            requireConfirm = remote.requireConfirm.toLong(),
                             updatedAt = remote.updatedAt ?: existing.updatedAt,
                             serverId = remote.id.toString(),
                             syncStatus = SyncStatus.SYNCED.value,
@@ -272,6 +294,7 @@ class IncomeSourceRepository(
                             isFixed = remote.isFixed.toLong(),
                             fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
                             autoDay = remote.autoDay?.toLong(),
+                            requireConfirm = remote.requireConfirm.toLong(),
                             createdAt = remote.createdAt,
                             updatedAt = remote.updatedAt,
                             serverId = remote.id.toString(),

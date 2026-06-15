@@ -28,6 +28,8 @@ import ru.homebudget.finkeeper.data.repository.expense.ExpenseRepository
 import ru.homebudget.finkeeper.data.repository.income.IncomeRepository
 import ru.homebudget.finkeeper.data.repository.income.IncomeSourceRepository
 import ru.homebudget.finkeeper.data.repository.month.MonthRepository
+import ru.homebudget.finkeeper.data.repository.planned.PlannedQueueKey
+import ru.homebudget.finkeeper.data.repository.planned.PlannedRepository
 import ru.homebudget.finkeeper.data.repository.savings.SavingsGoalRepository
 import ru.homebudget.finkeeper.data.repository.savings.SavingsTransactionRepository
 
@@ -54,9 +56,19 @@ class SyncManager(
     private val budgetRepository: BudgetRepository,
     private val savingsGoalRepository: SavingsGoalRepository,
     private val savingsTransactionRepository: SavingsTransactionRepository,
+    private val plannedRepository: PlannedRepository,
+    private val plannedOverrideDao: PlannedOverrideDao,
     private val syncStateStorage: SyncStateStorage,
     private val tokenStorage: TokenStorage,
 ) {
+    private companion object {
+        // Лимит авто-ретраев failed-операции. retry_count растёт ~+2 за цикл провала
+        // (pending→syncing→failed), так что ~6 циклов хватает на транзиентные ошибки
+        // (родитель ещё не синхронизирован, обрыв сети), но перманентно падающие
+        // операции перестают штормить сервер. Ручной ретрай из Настроек сбрасывает счётчик.
+        const val MAX_AUTO_RETRY_COUNT = 12L
+    }
+
     private val currentUserId: Long get() = tokenStorage.userId
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -218,7 +230,9 @@ class SyncManager(
                 syncFromServer(monthId)
 
                 // Этап 2: Отправляем локальные изменения (Upload)
-                syncQueueDao.retryFailed()
+                // Авто-ретрай failed-операций под лимитом (транзиентные ошибки повторяем,
+                // перманентные — не штормим)
+                syncQueueDao.retryRetriableFailed(MAX_AUTO_RETRY_COUNT)
                 val pendingItems = syncQueueDao.getPendingItems(limit = 50)
                 println("[SYNC] syncAll upload: ${pendingItems.size} pending items")
                 for (item in pendingItems) {
@@ -267,6 +281,12 @@ class SyncManager(
                 incomeRepository.syncWithServer(currentUserId, id)
                 expenseRepository.syncWithServer(currentUserId, id)
                 budgetRepository.syncWithServer(currentUserId, id)
+                try {
+                    plannedRepository.syncWithServer(currentUserId, id)
+                } catch (e: Exception) {
+                    // Старый сервер без planned-state не должен ломать остальную синхронизацию
+                    println("[SYNC] planned-state pull failed: ${e.message}")
+                }
             }
             applyDeletedRecordsFromServer()
             println("[SYNC] syncFromServer DONE")
@@ -443,6 +463,7 @@ class SyncManager(
                 "budget" -> syncBudgetToServer(item)
                 "savings_goal" -> syncSavingsGoalToServer(item)
                 "savings_transaction" -> syncSavingsTransactionToServer(item)
+                "planned_override" -> syncPlannedOverrideToServer(item)
                 else -> println("[SYNC] syncItemToServer: UNKNOWN entityType=${item.entityType}")
             }
 
@@ -502,6 +523,7 @@ class SyncManager(
                     isFixed = if (category.isFixed == 1L) 1 else null,
                     fixedAmount = category.fixedAmount?.let { it.toDouble() / 100.0 },
                     autoDay = category.autoDay?.toInt(),
+                    requireConfirm = if (category.isFixed == 1L) category.requireConfirm.toInt() else null,
                     operationId = operationId,
                 )
                 applyCategoryServerSnapshot(item, category.id, remote)
@@ -518,6 +540,7 @@ class SyncManager(
                                 isFixed = category.isFixed.toInt(),
                                 fixedAmount = category.fixedAmount?.let { it.toDouble() / 100.0 },
                                 autoDay = category.autoDay?.toInt(),
+                                requireConfirm = category.requireConfirm.toInt(),
                             ),
                         operationId = operationId,
                     )
@@ -548,6 +571,7 @@ class SyncManager(
                     isFixed = if (source.isFixed == 1L) 1 else null,
                     fixedAmount = source.fixedAmount?.let { it.toDouble() / 100.0 },
                     autoDay = source.autoDay?.toInt(),
+                    requireConfirm = if (source.isFixed == 1L) source.requireConfirm.toInt() else null,
                     operationId = operationId,
                 )
                 applyIncomeSourceServerSnapshot(item, source.id, remote)
@@ -564,6 +588,7 @@ class SyncManager(
                                 isFixed = source.isFixed.toInt(),
                                 fixedAmount = source.fixedAmount?.let { it.toDouble() / 100.0 },
                                 autoDay = source.autoDay?.toInt(),
+                                requireConfirm = source.requireConfirm.toInt(),
                             ),
                         operationId = operationId,
                     )
@@ -678,7 +703,7 @@ class SyncManager(
                     expense.serverId?.toIntOrNull()
                         ?: throw IllegalStateException("Cannot sync expense update: serverId is null for entityId=${item.entityId}")
 
-                val remote = apiClient.updateExpense(serverId, expense.amount.toDouble(), operationId)
+                val remote = apiClient.updateExpense(serverId, expense.amount.toDouble(), expense.description, operationId)
                 applyExpenseServerSnapshot(item, expense.id, remote, categoryId = expense.categoryId)
             }
         }
@@ -721,6 +746,7 @@ class SyncManager(
                     isFixed = if (category.isFixed == 1L) 1 else null,
                     fixedAmount = category.fixedAmount?.let { it.toDouble() / 100.0 },
                     autoDay = category.autoDay?.toInt(),
+                    requireConfirm = if (category.isFixed == 1L) category.requireConfirm.toInt() else null,
                 )
                 categoryDao.updateSyncStatus(
                     id = category.id,
@@ -754,6 +780,7 @@ class SyncManager(
                     isFixed = if (source.isFixed == 1L) 1 else null,
                     fixedAmount = source.fixedAmount?.let { it.toDouble() / 100.0 },
                     autoDay = source.autoDay?.toInt(),
+                    requireConfirm = if (source.isFixed == 1L) source.requireConfirm.toInt() else null,
                 )
                 incomeSourceDao.updateSyncStatus(
                     id = source.id,
@@ -882,6 +909,63 @@ class SyncManager(
     /**
      * Синхронизация цели накоплений на сервер
      */
+    /**
+     * Отправка исключения план-слоя (skip/override/reset) на сервер.
+     * entityId кодирует ключ (тип, локальный id шаблона, локальный id месяца);
+     * полное АКТУАЛЬНОЕ состояние читается из БД в момент отправки (last-write-wins),
+     * отсутствие строки = дефолт (сервер удалит своё исключение).
+     */
+    private suspend fun syncPlannedOverrideToServer(item: SyncQueueItem) {
+        val (templateType, templateId, monthId) = PlannedQueueKey.decode(item.entityId)
+
+        val serverMonthId = resolveMonthServerId(monthId)?.toIntOrNull()
+            ?: throw Exception("Month not synced yet for planned override (monthId=$monthId)")
+
+        val serverTemplateId = if (templateType == "category") {
+            categoryDao.getById(templateId)?.serverId?.toIntOrNull()
+        } else {
+            incomeSourceDao.getById(templateId)?.serverId?.toIntOrNull()
+        } ?: throw Exception("Template not synced yet for planned override ($templateType:$templateId)")
+
+        val row = plannedOverrideDao.get(item.userId, templateType, templateId, monthId)
+
+        try {
+            apiClient.putPlannedOverride(
+                monthId = serverMonthId,
+                templateType = templateType,
+                templateId = serverTemplateId,
+                request = PlannedOverrideRequest(
+                    isSkipped = if (row?.isSkipped == 1L) 1 else 0,
+                    overrideAmount = row?.overrideAmount?.let { it / 100.0 },
+                    overrideDay = row?.overrideDay?.toInt(),
+                ),
+                operationId = getOperationId(item),
+            )
+        } catch (e: Exception) {
+            // 409 = платёж уже материализован на сервере — исключение неактуально,
+            // pull planned-state приведёт локальное состояние в порядок
+            val message = e.message ?: ""
+            if (!message.contains("409")) throw e
+            println("[SYNC] syncPlannedOverrideToServer: 409 (already materialized), dropping override")
+        }
+
+        if (row != null) {
+            // Помечаем SYNCED только если строку не изменили во время отправки:
+            // иначе затёрли бы «грязное» состояние, которое ещё не доехало на сервер
+            // (новое изменение породит свою queue-операцию и отправится отдельно).
+            val current = plannedOverrideDao.get(item.userId, templateType, templateId, monthId)
+            if (current != null && current.updatedAt == row.updatedAt) {
+                plannedOverrideDao.updateSyncStatus(
+                    userId = item.userId,
+                    templateType = templateType,
+                    templateId = templateId,
+                    monthId = monthId,
+                    syncStatus = SyncStatus.SYNCED.value,
+                )
+            }
+        }
+    }
+
     private suspend fun syncSavingsGoalToServer(item: SyncQueueItem) {
         val operationId = getOperationId(item)
         if (item.operation == SyncOperation.DELETE.value) {
@@ -1079,6 +1163,10 @@ class SyncManager(
             _isSyncing.value = true
             syncStartedAt = Clock.System.now().toEpochMilliseconds()
             try {
+                // Подхватываем и failed-элементы под лимитом ретраев — иначе операция,
+                // упавшая из-за временной причины (родитель ещё не синхронизирован, обрыв
+                // сети), висела бы до следующего полного syncAll
+                syncQueueDao.retryRetriableFailed(MAX_AUTO_RETRY_COUNT)
                 val pendingItems = syncQueueDao.getPendingItems(limit = 50)
                 println("[SYNC] scheduleProcessQueue: ${pendingItems.size} pending items")
                 for (item in pendingItems) {
@@ -1268,6 +1356,12 @@ class SyncManager(
             color = local.color,
             sortOrder = remote.sortOrder.toLong(),
             isActive = remote.isActive.toLong(),
+            // Фиксированные поля обязательно из снапшота: у DAO дефолты 0/null,
+            // и их пропуск стирал «фиксированность» локально после каждого push
+            isFixed = remote.isFixed.toLong(),
+            fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+            autoDay = remote.autoDay?.toLong(),
+            requireConfirm = remote.requireConfirm.toLong(),
             updatedAt = remote.updatedAt ?: local.updatedAt,
             serverId = remote.id.toString(),
             syncStatus = SyncStatus.SYNCED.value,
@@ -1289,6 +1383,11 @@ class SyncManager(
             name = remote.name,
             sortOrder = remote.sortOrder.toLong(),
             isActive = remote.isActive.toLong(),
+            // Фиксированные поля обязательно из снапшота (см. applyCategoryServerSnapshot)
+            isFixed = remote.isFixed.toLong(),
+            fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+            autoDay = remote.autoDay?.toLong(),
+            requireConfirm = (remote.requireConfirm ?: 0).toLong(),
             updatedAt = remote.updatedAt ?: local.updatedAt,
             serverId = remote.id.toString(),
             syncStatus = SyncStatus.SYNCED.value,

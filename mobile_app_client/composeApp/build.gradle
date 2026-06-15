@@ -9,7 +9,7 @@ buildscript {
         multiplatform_settings_version = '1.2.0'
         koin_version = '3.5.6'
         sqldelight_version = '2.0.2'
-        app_version = '2.1.1'
+        app_version = '2.2.0'
     }
 }
 
@@ -153,7 +153,7 @@ android {
         applicationId "ru.homebudget.finkeeper"
         minSdk = 24
         targetSdk = 35
-        versionCode = 6
+        versionCode = 7
         versionName = app_version
     }
 
@@ -269,6 +269,14 @@ compose.desktop {
         // Скорость для этого приложения некритична, зато окно гарантированно рисуется.
         if (System.getProperty("os.name")?.toLowerCase()?.contains("linux")) {
             jvmArgs.add("-Dskiko.renderApi=SOFTWARE")
+        }
+
+        // Dev-изоляция: FINKEEPER_USER_HOME подменяет user.home ТОЛЬКО для JVM приложения
+        // (локальная БД ~/.finkeeper и Java Preferences уедут в песочницу) — чтобы
+        // тестовые запуски `:composeApp:run` не трогали реальные данные пользователя
+        def devUserHome = providers.environmentVariable("FINKEEPER_USER_HOME").orNull
+        if (devUserHome) {
+            jvmArgs.add("-Duser.home=" + devUserHome)
         }
 
         nativeDistributions {

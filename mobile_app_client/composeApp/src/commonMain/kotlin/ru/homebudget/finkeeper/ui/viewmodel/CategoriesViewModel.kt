@@ -307,7 +307,7 @@ class CategoriesViewModel(
 
     // --- Фиксированные категории ---
 
-    fun addFixedCategory(name: String, fixedAmount: Double, autoDay: Int) {
+    fun addFixedCategory(name: String, fixedAmount: Double, autoDay: Int, requireConfirm: Boolean = false) {
         viewModelScope.launch {
             _state.update { it.copy(error = null) }
             try {
@@ -318,6 +318,7 @@ class CategoriesViewModel(
                     isFixed = true,
                     fixedAmount = fixedAmount,
                     autoDay = autoDay,
+                    requireConfirm = requireConfirm,
                 )
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
@@ -326,7 +327,7 @@ class CategoriesViewModel(
         }
     }
 
-    fun updateFixedCategory(id: Int, name: String? = null, fixedAmount: Double? = null, autoDay: Int? = null) {
+    fun updateFixedCategory(id: Int, name: String? = null, fixedAmount: Double? = null, autoDay: Int? = null, requireConfirm: Boolean? = null) {
         viewModelScope.launch {
             _state.update { it.copy(error = null) }
             try {
@@ -336,6 +337,7 @@ class CategoriesViewModel(
                     isFixed = true,
                     fixedAmount = fixedAmount,
                     autoDay = autoDay,
+                    requireConfirm = requireConfirm,
                 )
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
@@ -361,7 +363,7 @@ class CategoriesViewModel(
 
     // --- Фиксированные источники дохода ---
 
-    fun addFixedIncomeSource(name: String, fixedAmount: Double, autoDay: Int) {
+    fun addFixedIncomeSource(name: String, fixedAmount: Double, autoDay: Int, requireConfirm: Boolean = false) {
         viewModelScope.launch {
             _state.update { it.copy(error = null) }
             try {
@@ -371,6 +373,7 @@ class CategoriesViewModel(
                     isFixed = true,
                     fixedAmount = fixedAmount,
                     autoDay = autoDay,
+                    requireConfirm = requireConfirm,
                 )
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
@@ -379,7 +382,7 @@ class CategoriesViewModel(
         }
     }
 
-    fun updateFixedIncomeSource(id: Int, name: String? = null, fixedAmount: Double? = null, autoDay: Int? = null) {
+    fun updateFixedIncomeSource(id: Int, name: String? = null, fixedAmount: Double? = null, autoDay: Int? = null, requireConfirm: Boolean? = null) {
         viewModelScope.launch {
             _state.update { it.copy(error = null) }
             try {
@@ -389,6 +392,7 @@ class CategoriesViewModel(
                     isFixed = true,
                     fixedAmount = fixedAmount,
                     autoDay = autoDay,
+                    requireConfirm = requireConfirm,
                 )
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {

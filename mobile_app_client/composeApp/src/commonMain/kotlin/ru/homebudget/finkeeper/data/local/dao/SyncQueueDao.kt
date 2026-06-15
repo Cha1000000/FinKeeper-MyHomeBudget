@@ -137,10 +137,18 @@ class SyncQueueDao(
     }
 
     /**
-     * Повтор неудачных операций
+     * Ручной повтор всех неудачных операций (сбрасывает счётчик попыток)
      */
     fun retryFailed() {
         queries.updateFailedToPending()
+    }
+
+    /**
+     * Авто-повтор: возвращает в очередь только failed-элементы, ещё не исчерпавшие
+     * лимит попыток (retry_count < maxRetryCount). Перманентно падающие — пропускаются.
+     */
+    fun retryRetriableFailed(maxRetryCount: Long) {
+        queries.resetRetriableFailedToPending(maxRetryCount)
     }
 
     /**

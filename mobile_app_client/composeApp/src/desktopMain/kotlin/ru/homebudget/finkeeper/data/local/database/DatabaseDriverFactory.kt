@@ -94,6 +94,7 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
             is_fixed INTEGER NOT NULL DEFAULT 0,
             fixed_amount INTEGER,
             auto_day INTEGER,
+            require_confirm INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
             server_id TEXT,
@@ -109,6 +110,7 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
             is_fixed INTEGER NOT NULL DEFAULT 0,
             fixed_amount INTEGER,
             auto_day INTEGER,
+            require_confirm INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
             server_id TEXT,
@@ -220,6 +222,34 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
             error_message TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )""",
+        """CREATE TABLE IF NOT EXISTS planned_overrides (
+            id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            template_type TEXT NOT NULL CHECK (template_type IN ('category', 'income_source')),
+            template_id INTEGER NOT NULL,
+            month_id INTEGER NOT NULL,
+            override_amount INTEGER,
+            override_day INTEGER,
+            is_skipped INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            sync_status TEXT NOT NULL DEFAULT 'synced',
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE CASCADE,
+            UNIQUE(user_id, template_type, template_id, month_id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS auto_created_records (
+            id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            template_type TEXT NOT NULL,
+            template_id INTEGER NOT NULL,
+            month_id INTEGER NOT NULL,
+            created_record_type TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE CASCADE,
+            UNIQUE(user_id, template_type, template_id, month_id)
+        )""",
         // ── Indexes ──
         "CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_categories_type ON categories(type)",
@@ -236,6 +266,8 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
         "CREATE INDEX IF NOT EXISTS idx_savings_transactions_goal ON savings_transactions(savings_goal_id)",
         "CREATE INDEX IF NOT EXISTS idx_sync_queue_user ON sync_queue(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status)",
+        "CREATE INDEX IF NOT EXISTS idx_planned_overrides_month ON planned_overrides(user_id, month_id)",
+        "CREATE INDEX IF NOT EXISTS idx_auto_created_month ON auto_created_records(user_id, month_id)",
     )
     for (sql in statements) {
         try {

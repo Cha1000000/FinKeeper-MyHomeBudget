@@ -58,7 +58,8 @@ enum class EntityType(val value: String) {
     EXPENSE("expense"),
     BUDGET("budget"),
     SAVINGS_GOAL("savings_goal"),
-    SAVINGS_TRANSACTION("savings_transaction");
+    SAVINGS_TRANSACTION("savings_transaction"),
+    PLANNED_OVERRIDE("planned_override");
 
     companion object {
         fun fromValue(value: String): EntityType {

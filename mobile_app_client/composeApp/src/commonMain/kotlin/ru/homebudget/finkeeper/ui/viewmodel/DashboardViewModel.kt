@@ -19,6 +19,7 @@ import ru.homebudget.finkeeper.data.repository.expense.ExpenseRepository
 import ru.homebudget.finkeeper.data.repository.income.IncomeRepository
 import ru.homebudget.finkeeper.data.repository.month.MonthData
 import ru.homebudget.finkeeper.data.repository.month.MonthRepository
+import ru.homebudget.finkeeper.data.repository.planned.PlannedRepository
 import ru.homebudget.finkeeper.data.repository.onSuccess
 import ru.homebudget.finkeeper.data.repository.savings.SavingsGoalRepository
 import ru.homebudget.finkeeper.util.RetryConfig
@@ -47,6 +48,11 @@ data class DashboardState(
     val totalAssets: Double = 0.0,
     val trendData: List<TrendItem> = emptyList(),
     val expenseBreakdown: List<ExpenseCategoryBreakdown> = emptyList(),
+    // План-слой: суммы плановых платежей и прогноз месяца
+    val plannedExpensesTotal: Double = 0.0,
+    val plannedIncomesTotal: Double = 0.0,
+    val forecastExpenses: Double = 0.0,
+    val forecastFree: Double = 0.0,
     val error: String? = null,
     val isOffline: Boolean = false,
 )
@@ -58,6 +64,7 @@ class DashboardViewModel(
     private val incomeRepository: IncomeRepository,
     private val budgetRepository: BudgetRepository,
     private val categoryRepository: CategoryRepository,
+    private val plannedRepository: PlannedRepository,
     private val apiClient: ApiClient,
     private val tokenStorage: TokenStorage,
     private val syncManager: SyncManager,
@@ -162,6 +169,11 @@ class DashboardViewModel(
                 if (monthData.serverId != null) {
                     expenseRepository.syncWithServer(currentUserId, monthData.localId)
                     incomeRepository.syncWithServer(currentUserId, monthData.localId)
+                    try {
+                        plannedRepository.syncWithServer(currentUserId, monthData.localId)
+                    } catch (_: Exception) {
+                        // Старый сервер без planned-state не должен ломать загрузку
+                    }
                     summary = withRetry(config = RetryConfig(maxAttempts = 2)) {
                         apiClient.getMonthSummary(monthData.serverId)
                     }
@@ -233,6 +245,15 @@ class DashboardViewModel(
             val available = maxOf(0.0, totalLimit - totalAllExpense)
             val breakdown = buildExpenseBreakdown(visibleExpenses, categories)
 
+            // План-слой: локальное вычисление (оффлайн). Прогноз — из видимых цифр:
+            // скрытые расходы копилки уменьшают свободное (totalAllExpense), savings
+            // отдельно не вычитаем — иначе двойной счёт (как в веб-клиенте)
+            val planned = plannedRepository.getPlanned(monthData.localId)
+            val plannedExpensesTotal = planned.plannedExpensesCents / 100.0
+            val plannedIncomesTotal = planned.plannedIncomesCents / 100.0
+            val forecastExpenses = totalVisibleExpense + plannedExpensesTotal
+            val forecastFree = (totalIncome + plannedIncomesTotal) - (totalAllExpense + plannedExpensesTotal)
+
             _state.value =
                 _state.value.copy(
                     isLoading = false,
@@ -246,6 +267,10 @@ class DashboardViewModel(
                     totalAssets = totalAssets,
                     trendData = trend,
                     expenseBreakdown = breakdown,
+                    plannedExpensesTotal = plannedExpensesTotal,
+                    plannedIncomesTotal = plannedIncomesTotal,
+                    forecastExpenses = forecastExpenses,
+                    forecastFree = forecastFree,
                     isOffline = isOffline,
                 )
         } catch (e: Exception) {

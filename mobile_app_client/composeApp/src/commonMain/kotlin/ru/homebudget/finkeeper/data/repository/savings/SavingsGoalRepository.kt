@@ -1,6 +1,8 @@
 package ru.homebudget.finkeeper.data.repository.savings
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -214,7 +216,14 @@ class SavingsGoalRepository(
     /**
      * Синхронизация с сервером
      */
+    // Pull-синхронизация сериализуется мьютексом: Dashboard и Month ViewModel стартуют
+    // параллельно, и две гонящиеся insert-ветки дублировали локальные записи
+    private val syncPullMutex = Mutex()
+
     suspend fun syncWithServer(userId: Long): Result<Unit> =
+        syncPullMutex.withLock { syncWithServerInternal(userId) }
+
+    private suspend fun syncWithServerInternal(userId: Long): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
                 val remoteGoals = apiClient.getSavingsGoals()

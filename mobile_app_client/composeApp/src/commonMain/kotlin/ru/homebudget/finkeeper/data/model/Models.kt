@@ -168,6 +168,7 @@ data class Category(
     @SerialName("is_fixed") val isFixed: Int = 0,
     @SerialName("fixed_amount") val fixedAmount: Double? = null,
     @SerialName("auto_day") val autoDay: Int? = null,
+    @SerialName("require_confirm") val requireConfirm: Int = 0,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
 )
@@ -182,6 +183,7 @@ data class IncomeSource(
     @SerialName("is_fixed") val isFixed: Int = 0,
     @SerialName("fixed_amount") val fixedAmount: Double? = null,
     @SerialName("auto_day") val autoDay: Int? = null,
+    @SerialName("require_confirm") val requireConfirm: Int = 0,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
 )
@@ -265,7 +267,11 @@ data class MonthSummary(
     val income: Double = 0.0,
     val expenses: Double = 0.0,
     val savings: Double = 0.0,
-    val balance: Double = 0.0
+    val balance: Double = 0.0,
+    @SerialName("plannedExpenses") val plannedExpenses: Double = 0.0,
+    @SerialName("plannedIncomes") val plannedIncomes: Double = 0.0,
+    @SerialName("forecastExpenses") val forecastExpenses: Double = 0.0,
+    @SerialName("forecastBalance") val forecastBalance: Double = 0.0,
 )
 
 @Serializable
@@ -338,6 +344,12 @@ data class UpdateAmountRequest(
 )
 
 @Serializable
+data class UpdateExpenseRequest(
+    val amount: Double,
+    val comment: String? = null,
+)
+
+@Serializable
 data class SetBudgetRequest(
     @SerialName("month_id") val monthId: Int,
     @SerialName("category_id") val categoryId: Int,
@@ -356,6 +368,7 @@ data class CreateCategoryRequest(
     @SerialName("is_fixed") val isFixed: Int? = null,
     @SerialName("fixed_amount") val fixedAmount: Double? = null,
     @SerialName("auto_day") val autoDay: Int? = null,
+    @SerialName("require_confirm") val requireConfirm: Int? = null,
 )
 
 @Serializable
@@ -365,6 +378,7 @@ data class UpdateCategoryRequest(
     @SerialName("is_fixed") val isFixed: Int? = null,
     @SerialName("fixed_amount") val fixedAmount: Double? = null,
     @SerialName("auto_day") val autoDay: Int? = null,
+    @SerialName("require_confirm") val requireConfirm: Int? = null,
 )
 
 @Serializable
@@ -373,6 +387,7 @@ data class CreateIncomeSourceRequest(
     @SerialName("is_fixed") val isFixed: Int? = null,
     @SerialName("fixed_amount") val fixedAmount: Double? = null,
     @SerialName("auto_day") val autoDay: Int? = null,
+    @SerialName("require_confirm") val requireConfirm: Int? = null,
 )
 
 @Serializable
@@ -382,6 +397,7 @@ data class UpdateIncomeSourceRequest(
     @SerialName("is_fixed") val isFixed: Int? = null,
     @SerialName("fixed_amount") val fixedAmount: Double? = null,
     @SerialName("auto_day") val autoDay: Int? = null,
+    @SerialName("require_confirm") val requireConfirm: Int? = null,
 )
 
 @Serializable
@@ -443,4 +459,50 @@ data class ErrorResponse(
     val error: String? = null,
     val code: String? = null,
     val details: List<ValidationErrorDetail> = emptyList()
+)
+
+// --- План-слой (запланированные регулярные платежи) ---
+
+/** Сырое состояние план-слоя месяца с сервера: GET /months/:id/planned-state */
+@Serializable
+data class PlannedStateResponse(
+    @SerialName("auto_created") val autoCreated: List<AutoCreatedDto> = emptyList(),
+    val overrides: List<PlannedOverrideDto> = emptyList(),
+)
+
+@Serializable
+data class AutoCreatedDto(
+    @SerialName("template_type") val templateType: String,
+    @SerialName("template_id") val templateId: Int,
+    @SerialName("created_record_type") val createdRecordType: String,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+@Serializable
+data class PlannedOverrideDto(
+    @SerialName("template_type") val templateType: String,
+    @SerialName("template_id") val templateId: Int,
+    @SerialName("override_amount") val overrideAmount: Double? = null,
+    @SerialName("override_day") val overrideDay: Int? = null,
+    @SerialName("is_skipped") val isSkipped: Int = 0,
+    @SerialName("updated_at") val updatedAt: String? = null,
+)
+
+/**
+ * Тело PUT /months/:id/planned/:type/:id.
+ * Клиент всегда шлёт ПОЛНОЕ состояние исключения (сервер: null = сброс поля к шаблону,
+ * отсутствующее поле = «не менять» — на полном состоянии разница исчезает).
+ */
+@Serializable
+data class PlannedOverrideRequest(
+    @SerialName("is_skipped") val isSkipped: Int,
+    @SerialName("override_amount") val overrideAmount: Double?,
+    @SerialName("override_day") val overrideDay: Int?,
+)
+
+/** Тело POST /months/:id/planned/:type/:id/confirm */
+@Serializable
+data class ConfirmPlannedRequest(
+    val amount: Double? = null,
+    val date: String? = null,
 )

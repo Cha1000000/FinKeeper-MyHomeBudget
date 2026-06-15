@@ -367,12 +367,13 @@ class ApiClient(
         isFixed: Int? = null,
         fixedAmount: Double? = null,
         autoDay: Int? = null,
+        requireConfirm: Int? = null,
         operationId: String? = null,
     ): Category {
         val response =
             client.post("$baseUrl/categories") {
                 applyOperationId(operationId)
-                setBody(CreateCategoryRequest(name, isFixed, fixedAmount, autoDay))
+                setBody(CreateCategoryRequest(name, isFixed, fixedAmount, autoDay, requireConfirm))
             }
         checkResponse(response)
         return response.body()
@@ -424,12 +425,13 @@ class ApiClient(
         isFixed: Int? = null,
         fixedAmount: Double? = null,
         autoDay: Int? = null,
+        requireConfirm: Int? = null,
         operationId: String? = null,
     ): IncomeSource {
         val response =
             client.post("$baseUrl/income_sources") {
                 applyOperationId(operationId)
-                setBody(CreateIncomeSourceRequest(name, isFixed, fixedAmount, autoDay))
+                setBody(CreateIncomeSourceRequest(name, isFixed, fixedAmount, autoDay, requireConfirm))
             }
         checkResponse(response)
         return response.body()
@@ -552,12 +554,13 @@ class ApiClient(
     suspend fun updateExpense(
         id: Int,
         amount: Double,
+        comment: String? = null,
         operationId: String? = null,
     ): Expense {
         val response =
             client.put("$baseUrl/expenses/$id") {
                 applyOperationId(operationId)
-                setBody(UpdateAmountRequest(amount))
+                setBody(UpdateExpenseRequest(amount, comment))
             }
         checkResponse(response)
         return response.body()
@@ -695,6 +698,61 @@ class ApiClient(
         val response =
             client.delete("$baseUrl/savings_transactions/$id") {
                 applyOperationId(operationId)
+            }
+        checkResponse(response)
+    }
+
+    // ── План-слой (запланированные регулярные платежи) ──
+
+    /** Сырое состояние план-слоя месяца (материализованные + исключения) для локального вычисления плана */
+    suspend fun getPlannedState(monthId: Int): PlannedStateResponse {
+        val response = client.get("$baseUrl/months/$monthId/planned-state")
+        checkResponse(response)
+        return response.body()
+    }
+
+    /** Полное состояние исключения (skip/override); сервер вернёт 409, если платёж уже материализован */
+    suspend fun putPlannedOverride(
+        monthId: Int,
+        templateType: String,
+        templateId: Int,
+        request: PlannedOverrideRequest,
+        operationId: String? = null,
+    ) {
+        val response =
+            client.put("$baseUrl/months/$monthId/planned/$templateType/$templateId") {
+                applyOperationId(operationId)
+                setBody(request)
+            }
+        checkResponse(response)
+    }
+
+    /** Полный сброс исключения к шаблону */
+    suspend fun deletePlannedOverride(
+        monthId: Int,
+        templateType: String,
+        templateId: Int,
+        operationId: String? = null,
+    ) {
+        val response =
+            client.delete("$baseUrl/months/$monthId/planned/$templateType/$templateId/override") {
+                applyOperationId(operationId)
+            }
+        checkResponse(response)
+    }
+
+    /** «Оплачено/Получено»: материализует плановый платёж в реальную запись */
+    suspend fun confirmPlanned(
+        monthId: Int,
+        templateType: String,
+        templateId: Int,
+        amount: Double? = null,
+        operationId: String? = null,
+    ) {
+        val response =
+            client.post("$baseUrl/months/$monthId/planned/$templateType/$templateId/confirm") {
+                applyOperationId(operationId)
+                setBody(ConfirmPlannedRequest(amount = amount))
             }
         checkResponse(response)
     }

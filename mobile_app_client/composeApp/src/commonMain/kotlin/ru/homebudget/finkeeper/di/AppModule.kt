@@ -16,6 +16,7 @@ import ru.homebudget.finkeeper.data.repository.expense.ExpenseRepository
 import ru.homebudget.finkeeper.data.repository.income.IncomeRepository
 import ru.homebudget.finkeeper.data.repository.income.IncomeSourceRepository
 import ru.homebudget.finkeeper.data.repository.month.MonthRepository
+import ru.homebudget.finkeeper.data.repository.planned.PlannedRepository
 import ru.homebudget.finkeeper.data.repository.savings.SavingsGoalRepository
 import ru.homebudget.finkeeper.data.repository.savings.SavingsTransactionRepository
 import ru.homebudget.finkeeper.ui.viewmodel.*
@@ -42,6 +43,8 @@ val appModule =
         single { SavingsGoalDao(get<ru.homebudget.finkeeper.data.local.database.DatabaseProvider>().database) }
         single { SavingsTransactionDao(get<ru.homebudget.finkeeper.data.local.database.DatabaseProvider>().database) }
         single { SyncQueueDao(get<ru.homebudget.finkeeper.data.local.database.DatabaseProvider>().database) }
+        single { PlannedOverrideDao(get<ru.homebudget.finkeeper.data.local.database.DatabaseProvider>().database) }
+        single { AutoCreatedDao(get<ru.homebudget.finkeeper.data.local.database.DatabaseProvider>().database) }
 
         // Repositories
         single { CategoryRepository(get(), get(), get()) }
@@ -52,6 +55,7 @@ val appModule =
         single { BudgetRepository(get(), get(), get(), get(), get()) }
         single { SavingsGoalRepository(get(), get(), get()) }
         single { SavingsTransactionRepository(get(), get(), get(), get()) }
+        single { PlannedRepository(get(), get(), get(), get(), get(), get(), get()) }
 
         // SyncManager должен быть создан после репозиториев
         single {
@@ -74,6 +78,8 @@ val appModule =
                 get(), // budgetRepository
                 get(), // savingsGoalRepository
                 get(), // savingsTransactionRepository
+                get(), // plannedRepository
+                get(), // plannedOverrideDao
                 get(), // syncStateStorage
                 get(), // tokenStorage
             )
@@ -81,8 +87,8 @@ val appModule =
 
         // ViewModels
         factory { AuthViewModel(get(), get(), get<SocialAuthLauncher>()) }
-        factory { DashboardViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-        factory { MonthViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+        factory { DashboardViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        factory { MonthViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { CategoriesViewModel(get(), get(), get(), get(), get()) }
         factory { SavingsViewModel(get(), get(), get(), get(), get()) }
         factory { SettingsViewModel(get(), get(), get()) }
