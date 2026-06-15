@@ -11,6 +11,12 @@ const {
     clearDeletedRecord,
     getRowById,
     autoCreateRecurringRecords,
+    daysInMonth,
+    getFixedTemplate,
+    getAutoCreatedRecord,
+    materializePlannedRecord,
+    getPlannedRecords,
+    computePlannedAggregates,
 } = require('../db/helpers');
 const logger = require('../logger');
 
@@ -61,18 +67,19 @@ router.get('/categories', (req, res) => {
 
 router.post('/categories', (req, res) => {
     return executeIdempotent(req, res, () => {
-        const { name, is_fixed, fixed_amount, auto_day } = req.body;
+        const { name, is_fixed, fixed_amount, auto_day, require_confirm } = req.body;
 
         const isFixed = Number(is_fixed) === 1 ? 1 : 0;
         if (isFixed && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed categories' } };
         if (isFixed && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed categories' } };
+        const requireConfirm = isFixed && Number(require_confirm) === 1 ? 1 : 0;
 
         const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
         const nextOrder = (result.maxOrder || 0) + 1;
         const timestamp = nowIso();
 
-        const info = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_fixed, fixed_amount, auto_day, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
-            req.user.id, name, nextOrder, isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, timestamp, timestamp
+        const info = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_fixed, fixed_amount, auto_day, require_confirm, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+            req.user.id, name, nextOrder, isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, requireConfirm, timestamp, timestamp
         );
         const body = getRowById('categories', info.lastInsertRowid);
         broadcastChange(req, req.user.id, 'category', 'created');
@@ -110,7 +117,7 @@ router.put('/categories/reorder', (req, res) => {
 
 router.put('/categories/:id', (req, res) => {
     return executeIdempotent(req, res, () => {
-        const { name, is_active, is_fixed, fixed_amount, auto_day } = req.body;
+        const { name, is_active, is_fixed, fixed_amount, auto_day, require_confirm } = req.body;
 
         const isFixed = is_fixed != null ? (Number(is_fixed) === 1 ? 1 : 0) : undefined;
         if (isFixed === 1 && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed categories' } };
@@ -123,8 +130,8 @@ router.put('/categories/:id', (req, res) => {
         if (is_active != null) { sets.push('is_active = ?'); params.push(is_active); }
 
         if (isFixed !== undefined) {
-            sets.push('is_fixed = ?', 'fixed_amount = ?', 'auto_day = ?');
-            params.push(isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null);
+            sets.push('is_fixed = ?', 'fixed_amount = ?', 'auto_day = ?', 'require_confirm = ?');
+            params.push(isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, isFixed && Number(require_confirm) === 1 ? 1 : 0);
         }
 
         params.push(req.params.id, req.user.id);
@@ -162,19 +169,20 @@ router.get('/income_sources', (req, res) => {
 
 router.post('/income_sources', (req, res) => {
     return executeIdempotent(req, res, () => {
-        const { name, is_fixed, fixed_amount, auto_day } = req.body;
+        const { name, is_fixed, fixed_amount, auto_day, require_confirm } = req.body;
 
         const isFixed = Number(is_fixed) === 1 ? 1 : 0;
         if (isFixed && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed income sources' } };
         if (isFixed && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed income sources' } };
+        const requireConfirm = isFixed && Number(require_confirm) === 1 ? 1 : 0;
 
         try {
             const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM income_sources WHERE user_id = ?').get(req.user.id);
             const nextOrder = (result.maxOrder || 0) + 1;
             const timestamp = nowIso();
 
-            const stmt = db.prepare('INSERT INTO income_sources (user_id, name, sort_order, is_fixed, fixed_amount, auto_day, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-            const insertResult = stmt.run(req.user.id, name, nextOrder, isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, timestamp, timestamp);
+            const stmt = db.prepare('INSERT INTO income_sources (user_id, name, sort_order, is_fixed, fixed_amount, auto_day, require_confirm, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            const insertResult = stmt.run(req.user.id, name, nextOrder, isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, requireConfirm, timestamp, timestamp);
             const body = getRowById('income_sources', insertResult.lastInsertRowid);
             broadcastChange(req, req.user.id, 'income_source', 'created');
             return { statusCode: 200, body };
@@ -214,7 +222,7 @@ router.put('/income_sources/reorder', (req, res) => {
 
 router.put('/income_sources/:id', (req, res) => {
     return executeIdempotent(req, res, () => {
-        const { name, is_active, is_fixed, fixed_amount, auto_day } = req.body;
+        const { name, is_active, is_fixed, fixed_amount, auto_day, require_confirm } = req.body;
         const { id } = req.params;
 
         const isFixed = is_fixed != null ? (Number(is_fixed) === 1 ? 1 : 0) : undefined;
@@ -229,8 +237,8 @@ router.put('/income_sources/:id', (req, res) => {
             if (is_active != null) { sets.push('is_active = ?'); params.push(is_active); }
 
             if (isFixed !== undefined) {
-                sets.push('is_fixed = ?', 'fixed_amount = ?', 'auto_day = ?');
-                params.push(isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null);
+                sets.push('is_fixed = ?', 'fixed_amount = ?', 'auto_day = ?', 'require_confirm = ?');
+                params.push(isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, isFixed && Number(require_confirm) === 1 ? 1 : 0);
             }
 
             params.push(id, req.user.id);
@@ -366,13 +374,18 @@ router.post('/expenses', (req, res) => {
 
 router.put('/expenses/:id', (req, res) => {
     return executeIdempotent(req, res, () => {
-        const { amount } = req.body;
-        
+        const { amount, comment } = req.body;
+
         const expense = db.prepare('SELECT month_id FROM expenses WHERE id = ?').get(req.params.id);
         if (!expense) return { statusCode: 404, body: { error: 'Expense not found' } };
         if (!checkMonthAccess(req.user.id, expense.month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
 
-        db.prepare('UPDATE expenses SET amount = ?, updated_at = ? WHERE id = ?').run(amount, nowIso(), req.params.id);
+        // comment — необязательное поле: если не передано, не трогаем (обратная совместимость)
+        if (comment !== undefined) {
+            db.prepare('UPDATE expenses SET amount = ?, comment = ?, updated_at = ? WHERE id = ?').run(amount, comment ?? null, nowIso(), req.params.id);
+        } else {
+            db.prepare('UPDATE expenses SET amount = ?, updated_at = ? WHERE id = ?').run(amount, nowIso(), req.params.id);
+        }
         const body = getRowById('expenses', req.params.id);
         broadcastChange(req, req.user.id, 'expense', 'updated');
         return { statusCode: 200, body };
@@ -708,6 +721,185 @@ router.get('/savings_transactions/:goalId', (req, res) => {
     res.json(transactions);
 });
 
+// Planned: виртуальный план-слой регулярных платежей (ещё не материализованные
+// фиксированные категории/источники месяца). Ничего не хранится, кроме исключений
+// в planned_overrides (пропуск / override суммы или дня на конкретный месяц).
+const PLANNED_TEMPLATE_TYPES = ['category', 'income_source'];
+
+// Общие проверки planned-роутов; возвращает { error } ИЛИ контекст
+function resolvePlannedContext(req) {
+    const { monthId, templateType } = req.params;
+    const templateId = Number(req.params.templateId);
+
+    if (!PLANNED_TEMPLATE_TYPES.includes(templateType)) {
+        return { error: { statusCode: 400, body: { error: 'Invalid template type' } } };
+    }
+    if (!Number.isInteger(templateId) || templateId <= 0) {
+        return { error: { statusCode: 400, body: { error: 'Invalid template id' } } };
+    }
+    if (!checkMonthAccess(req.user.id, monthId)) {
+        return { error: { statusCode: 403, body: { error: 'Access denied' } } };
+    }
+    const template = getFixedTemplate(req.user.id, templateType, templateId);
+    if (!template) {
+        return { error: { statusCode: 404, body: { error: 'Fixed template not found' } } };
+    }
+    return { monthId, templateType, templateId, template };
+}
+
+function findPlannedItem(userId, monthId, templateType, templateId) {
+    const planned = getPlannedRecords(userId, monthId);
+    const list = templateType === 'category' ? planned.expenses : planned.incomes;
+    return list.find(item => item.template_id === templateId) ?? null;
+}
+
+router.get('/months/:monthId/planned', (req, res) => {
+    const monthId = req.params.monthId;
+    if (!checkMonthAccess(req.user.id, monthId)) return res.status(403).json({ error: 'Access denied' });
+
+    const planned = getPlannedRecords(req.user.id, monthId);
+    res.json({ ...planned, totals: computePlannedAggregates(planned) });
+});
+
+// Сырое состояние план-слоя месяца — для sync-pull KMP-клиентов,
+// которые вычисляют план локально (оффлайн) той же формулой, что сервер
+router.get('/months/:monthId/planned-state', (req, res) => {
+    const monthId = req.params.monthId;
+    if (!checkMonthAccess(req.user.id, monthId)) return res.status(403).json({ error: 'Access denied' });
+
+    const auto_created = db.prepare(
+        'SELECT template_type, template_id, created_record_type, created_at FROM auto_created_records WHERE user_id = ? AND month_id = ?'
+    ).all(req.user.id, monthId);
+    const overrides = db.prepare(
+        'SELECT template_type, template_id, override_amount, override_day, is_skipped, updated_at FROM planned_overrides WHERE user_id = ? AND month_id = ?'
+    ).all(req.user.id, monthId);
+
+    res.json({ auto_created, overrides });
+});
+
+// Пропуск/override планового платежа на месяц (upsert; отсутствующее поле = не менять, null = сброс)
+router.put('/months/:monthId/planned/:templateType/:templateId', (req, res) => {
+    return executeIdempotent(req, res, () => {
+        const ctx = resolvePlannedContext(req);
+        if (ctx.error) return ctx.error;
+        const { monthId, templateType, templateId } = ctx;
+
+        if (getAutoCreatedRecord(req.user.id, templateType, templateId, monthId)) {
+            return { statusCode: 409, body: { error: 'Payment already created for this month; edit the record itself' } };
+        }
+
+        const { is_skipped, override_amount, override_day } = req.body ?? {};
+        if (override_amount !== undefined && override_amount !== null && !(Number(override_amount) > 0)) {
+            return { statusCode: 400, body: { error: 'override_amount must be > 0' } };
+        }
+        if (override_day !== undefined && override_day !== null && (!Number.isInteger(override_day) || override_day < 1 || override_day > 31)) {
+            return { statusCode: 400, body: { error: 'override_day must be between 1 and 31' } };
+        }
+
+        const existing = db.prepare(
+            'SELECT * FROM planned_overrides WHERE user_id = ? AND template_type = ? AND template_id = ? AND month_id = ?'
+        ).get(req.user.id, templateType, templateId, monthId);
+
+        const merged = {
+            is_skipped: is_skipped !== undefined ? (Number(is_skipped) === 1 ? 1 : 0) : (existing?.is_skipped ?? 0),
+            override_amount: override_amount !== undefined ? override_amount : (existing?.override_amount ?? null),
+            override_day: override_day !== undefined ? override_day : (existing?.override_day ?? null),
+        };
+
+        const timestamp = nowIso();
+        if (!merged.is_skipped && merged.override_amount == null && merged.override_day == null) {
+            // Всё дефолтное — исключение больше не нужно
+            db.prepare('DELETE FROM planned_overrides WHERE user_id = ? AND template_type = ? AND template_id = ? AND month_id = ?')
+                .run(req.user.id, templateType, templateId, monthId);
+        } else {
+            db.prepare(`
+                INSERT INTO planned_overrides (user_id, template_type, template_id, month_id, override_amount, override_day, is_skipped, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, template_type, template_id, month_id)
+                DO UPDATE SET override_amount = excluded.override_amount, override_day = excluded.override_day, is_skipped = excluded.is_skipped, updated_at = excluded.updated_at
+            `).run(req.user.id, templateType, templateId, monthId, merged.override_amount, merged.override_day, merged.is_skipped, timestamp, timestamp);
+        }
+
+        broadcastChange(req, req.user.id, 'planned', 'updated');
+        return { statusCode: 200, body: { success: true, item: findPlannedItem(req.user.id, monthId, templateType, templateId) } };
+    });
+});
+
+// Полный сброс исключения к шаблону (идемпотентен и при отсутствии строки)
+router.delete('/months/:monthId/planned/:templateType/:templateId/override', (req, res) => {
+    return executeIdempotent(req, res, () => {
+        const ctx = resolvePlannedContext(req);
+        if (ctx.error) return ctx.error;
+        const { monthId, templateType, templateId } = ctx;
+
+        db.prepare('DELETE FROM planned_overrides WHERE user_id = ? AND template_type = ? AND template_id = ? AND month_id = ?')
+            .run(req.user.id, templateType, templateId, monthId);
+
+        broadcastChange(req, req.user.id, 'planned', 'updated');
+        return { statusCode: 200, body: { success: true, item: findPlannedItem(req.user.id, monthId, templateType, templateId) } };
+    });
+});
+
+// «Оплачено» (require_confirm) / досрочная оплата: материализует плановый платёж в реальную запись
+router.post('/months/:monthId/planned/:templateType/:templateId/confirm', (req, res) => {
+    return executeIdempotent(req, res, () => {
+        const ctx = resolvePlannedContext(req);
+        if (ctx.error) return ctx.error;
+        const { monthId, templateType, templateId, template } = ctx;
+
+        const override = db.prepare(
+            'SELECT * FROM planned_overrides WHERE user_id = ? AND template_type = ? AND template_id = ? AND month_id = ?'
+        ).get(req.user.id, templateType, templateId, monthId);
+        if (override?.is_skipped) {
+            return { statusCode: 409, body: { error: 'Payment is skipped for this month; unskip it first' } };
+        }
+        if (getAutoCreatedRecord(req.user.id, templateType, templateId, monthId)) {
+            return { statusCode: 409, body: { error: 'Payment already created for this month' } };
+        }
+
+        const month = getRowById('months', monthId);
+        const { amount, date } = req.body ?? {};
+        if (amount !== undefined && amount !== null && !(Number(amount) > 0)) {
+            return { statusCode: 400, body: { error: 'amount must be > 0' } };
+        }
+
+        let day;
+        if (date != null) {
+            const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date));
+            if (!match) return { statusCode: 400, body: { error: 'date must be YYYY-MM-DD' } };
+            if (Number(match[1]) !== month.year || Number(match[2]) !== month.month) {
+                return { statusCode: 400, body: { error: 'date must belong to the month' } };
+            }
+            day = Number(match[3]);
+            if (day < 1 || day > daysInMonth(month.year, month.month)) {
+                return { statusCode: 400, body: { error: 'date is out of range for the month' } };
+            }
+        } else {
+            const now = new Date();
+            const isCurrentMonth = month.year === now.getFullYear() && month.month === now.getMonth() + 1;
+            day = isCurrentMonth ? now.getDate() : (override?.override_day ?? template.auto_day);
+        }
+
+        const effectiveAmount = amount ?? override?.override_amount ?? template.fixed_amount;
+
+        try {
+            const { recordType, record } = materializePlannedRecord(req.user.id, month, templateType, template, {
+                amount: effectiveAmount,
+                day,
+            });
+            broadcastChange(req, req.user.id, recordType, 'created');
+            broadcastChange(req, req.user.id, 'planned', 'updated');
+            return { statusCode: 200, body: record };
+        } catch (e) {
+            // Гонка с автопостингом ensure: UNIQUE в auto_created_records
+            if (String(e?.code).startsWith('SQLITE_CONSTRAINT')) {
+                return { statusCode: 409, body: { error: 'Payment already created for this month' } };
+            }
+            throw e;
+        }
+    });
+});
+
 // Summary / Dashboard Data
 router.get('/months/:monthId/summary', (req, res) => {
     const monthId = req.params.monthId;
@@ -719,11 +911,18 @@ router.get('/months/:monthId/summary', (req, res) => {
     // Savings contributions (positive amounts in transactions linked to this month, EXCLUDING adjustments)
     const totalSavings = db.prepare('SELECT SUM(amount) as total FROM savings_transactions WHERE month_id = ? AND amount > 0 AND (is_adjustment = 0 OR is_adjustment IS NULL)').get(monthId).total || 0;
 
+    const balance = totalIncome - totalExpenses - totalSavings;
+    const { plannedExpenses, plannedIncomes } = computePlannedAggregates(getPlannedRecords(req.user.id, monthId));
+
     res.json({
         income: totalIncome,
         expenses: totalExpenses,
         savings: totalSavings,
-        balance: totalIncome - totalExpenses - totalSavings
+        balance,
+        plannedExpenses,
+        plannedIncomes,
+        forecastExpenses: totalExpenses + plannedExpenses,
+        forecastBalance: balance + plannedIncomes - plannedExpenses
     });
 });
 

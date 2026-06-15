@@ -163,6 +163,10 @@ function ensureSchemaUpToDate() {
     addColumnIfMissing('auth_refresh_sessions', 'is_persistent', 'INTEGER NOT NULL DEFAULT 0');
     addColumnIfMissing('auth_social_login_attempts', 'exchange_code', 'TEXT');
 
+    // Колонка используется кодом (summary, корректировки копилки), но в db_setup.js
+    // её нет — без этой миграции свежая установка падает на первом же запросе к ней
+    addColumnIfMissing('savings_transactions', 'is_adjustment', 'INTEGER DEFAULT 0');
+
     // Фиксированные (регулярные) категории и источники дохода
     addColumnIfMissing('categories', 'is_fixed', 'INTEGER DEFAULT 0');
     addColumnIfMissing('categories', 'fixed_amount', 'REAL');
@@ -170,6 +174,11 @@ function ensureSchemaUpToDate() {
     addColumnIfMissing('income_sources', 'is_fixed', 'INTEGER DEFAULT 0');
     addColumnIfMissing('income_sources', 'fixed_amount', 'REAL');
     addColumnIfMissing('income_sources', 'auto_day', 'INTEGER');
+
+    // Ручное подтверждение регулярного платежа: 1 — авто-постинг в дату не выполняется,
+    // плановый платёж ждёт явного подтверждения пользователем («Оплачено»)
+    addColumnIfMissing('categories', 'require_confirm', 'INTEGER DEFAULT 0');
+    addColumnIfMissing('income_sources', 'require_confirm', 'INTEGER DEFAULT 0');
 
     db.exec(`
         CREATE TABLE IF NOT EXISTS auto_created_records (
@@ -186,6 +195,31 @@ function ensureSchemaUpToDate() {
             FOREIGN KEY (month_id) REFERENCES months(id),
             UNIQUE(user_id, template_type, template_id, month_id)
         );
+    `);
+
+    // Исключения план-слоя: хранятся ТОЛЬКО отклонения от шаблона на конкретный месяц
+    // (пропуск, изменённая сумма/день). Виртуальные плановые платежи не материализуются.
+    // При деактивации шаблона (is_active=0 / is_fixed=0) строки становятся инертными
+    // и не удаляются — при реактивации правки месяца восстанавливаются.
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS planned_overrides (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            template_type TEXT NOT NULL,
+            template_id INTEGER NOT NULL,
+            month_id INTEGER NOT NULL,
+            override_amount REAL,
+            override_day INTEGER,
+            is_skipped INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (month_id) REFERENCES months(id),
+            UNIQUE(user_id, template_type, template_id, month_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_planned_overrides_month
+        ON planned_overrides(user_id, month_id);
     `);
 
     db.exec(`

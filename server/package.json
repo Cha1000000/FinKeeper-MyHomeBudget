@@ -1,12 +1,14 @@
 {
   "name": "server",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "smoke:health": "node ./scripts/smoke-health.js",
-    "test": "npm run smoke:health"
+    "smoke:planned": "node ./scripts/smoke-planned.js",
+    "test:planned": "node --test ./test/planned.test.js",
+    "test": "npm run smoke:health && npm run test:planned && npm run smoke:planned"
   },
   "keywords": [],
   "author": "",
