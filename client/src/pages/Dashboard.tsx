@@ -3,9 +3,10 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals, getCumulativeBalance, getBudgets } from '../api';
-import type { SavingsGoal, Expense } from '../api';
+import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight, Clock, CalendarClock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals, getCumulativeBalance, getBudgets, getPlannedRecords } from '../api';
+import type { SavingsGoal, Expense, PlannedResponse, PlannedItem } from '../api';
 import { formatCurrency } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -13,6 +14,7 @@ import { useDataChanged } from '../hooks/useWebSocket';
 import { useTheme } from '../context/ThemeContext';
 import PageState from '../components/PageState';
 import StatusBanner from '../components/StatusBanner';
+import Modal from '../components/Modal';
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#6366f1', '#14b8a6'];
 const DOT_COLOR_CLASSES = ['bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-pink-500', 'bg-amber-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-teal-500'];
@@ -56,6 +58,8 @@ const Dashboard: React.FC = () => {
     const [totalSavings, setTotalSavings] = useState<number>(0);
     const [cumulativeBalance, setCumulativeBalance] = useState<number>(0);
     const [totalLimit, setTotalLimit] = useState<number>(0);
+    const [planned, setPlanned] = useState<PlannedResponse | null>(null);
+    const [planModal, setPlanModal] = useState<'expenses' | 'incomes' | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { resolvedTheme } = useTheme();
@@ -64,6 +68,16 @@ const Dashboard: React.FC = () => {
     const totalVisibleExpense = allExpenses
         .filter(e => e.category_name !== 'Пополнение копилки')
         .reduce((sum, e) => sum + e.amount, 0);
+
+    // План-слой: суммы без скипнутых приходят с сервера, списки — для попапа
+    const plannedExpensesTotal = planned?.totals.plannedExpenses ?? 0;
+    const plannedIncomesTotal = planned?.totals.plannedIncomes ?? 0;
+    const hasPlannedExpenses = (planned?.expenses.length ?? 0) > 0;
+    const hasPlannedIncomes = (planned?.incomes.length ?? 0) > 0;
+    // Прогноз считаем от «видимых» цифр карточек: скрытые расходы копилки уменьшают
+    // свободные средства (totalAllExpenses), но savings отдельно не вычитаем — иначе двойной счёт
+    const forecastExpensesVisible = totalVisibleExpense + plannedExpensesTotal;
+    const forecastFree = (currentSummary?.income || 0) + plannedIncomesTotal - (totalAllExpenses + plannedExpensesTotal);
 
     const saveMonth = (date: Date) => {
         localStorage.setItem(DASHBOARD_MONTH_KEY, JSON.stringify({
@@ -105,11 +119,13 @@ const Dashboard: React.FC = () => {
             const summaryRes = await getMonthSummary(mRes.data.id);
             setCurrentSummary(summaryRes.data);
 
-            // 3. Category Breakdown (Pie Chart)
-            const [expRes, budgetsRes] = await Promise.all([
+            // 3. Category Breakdown (Pie Chart) + план-слой
+            const [expRes, budgetsRes, plannedRes] = await Promise.all([
                 getExpenses(mRes.data.id),
-                getBudgets(mRes.data.id)
+                getBudgets(mRes.data.id),
+                getPlannedRecords(mRes.data.id)
             ]);
+            setPlanned(plannedRes.data);
 
             // Group expenses by category (exclude hidden savings expenses)
             const catMap: Record<string, number> = {};
@@ -251,52 +267,50 @@ const Dashboard: React.FC = () => {
                 <div className="absolute -left-16 -top-16 w-48 h-48 bg-black/10 rounded-full blur-3xl"></div>
             </div>
 
-            {/* Stats Cards */}
+            {/* Stats Cards: ряд 1 — операционные цифры месяца, ряд 2 — итоги */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-5">
-                <div className="bg-[image:var(--color-stat-emerald-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-emerald-border)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.15)] transition-all">
-                    <div className="flex gap-4 items-center mb-4">
+                <div
+                    onClick={hasPlannedIncomes ? () => setPlanModal('incomes') : undefined}
+                    role={hasPlannedIncomes ? 'button' : undefined}
+                    title={hasPlannedIncomes ? 'Показать ожидаемые поступления' : undefined}
+                    className={`bg-[image:var(--color-stat-emerald-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-emerald-border)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.15)] transition-all ${hasPlannedIncomes ? 'cursor-pointer' : ''}`}
+                >
+                    <div className="flex gap-4 items-center">
                         <div className="p-3 bg-emerald-100/80 dark:bg-emerald-900/60 rounded-2xl text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-200/50 dark:border-emerald-800/50">
                             <TrendingUp className="w-5 h-5" />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-emerald-800/80 dark:text-emerald-300/80">Доходы</p>
                             <p className="text-2xl font-bold text-emerald-950 dark:text-emerald-100 tracking-tight mt-0.5">{formatCurrency(currentSummary?.income || 0)}</p>
+                            {plannedIncomesTotal > 0 && (
+                                <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700/70 dark:text-emerald-300/60 mt-1">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    ожидается: {formatCurrency(plannedIncomesTotal)}
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-[image:var(--color-stat-rose-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-rose-border)] hover:shadow-[0_12px_40px_rgba(244,63,94,0.15)] transition-all">
-                    <div className="flex gap-4 items-center mb-4">
+                <div
+                    onClick={hasPlannedExpenses ? () => setPlanModal('expenses') : undefined}
+                    role={hasPlannedExpenses ? 'button' : undefined}
+                    title={hasPlannedExpenses ? 'Показать запланированные платежи' : undefined}
+                    className={`bg-[image:var(--color-stat-rose-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-rose-border)] hover:shadow-[0_12px_40px_rgba(244,63,94,0.15)] transition-all ${hasPlannedExpenses ? 'cursor-pointer' : ''}`}
+                >
+                    <div className="flex gap-4 items-center">
                         <div className="p-3 bg-rose-100/80 dark:bg-rose-900/60 rounded-2xl text-rose-600 dark:text-rose-400 shadow-sm border border-rose-200/50 dark:border-rose-800/50">
                             <TrendingDown className="w-5 h-5" />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-rose-800/80 dark:text-rose-300/80">Расходы</p>
                             <p className="text-2xl font-bold text-rose-950 dark:text-rose-100 tracking-tight mt-0.5">{formatCurrency(totalVisibleExpense)}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-[image:var(--color-stat-cyan-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-cyan-border)] hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)] transition-all">
-                    <div className="flex gap-4 items-center mb-4">
-                        <div className="p-3 bg-cyan-100/80 dark:bg-cyan-900/60 rounded-2xl text-cyan-600 dark:text-cyan-400 shadow-sm border border-cyan-200/50 dark:border-cyan-800/50">
-                            <PiggyBank className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-cyan-800/80 dark:text-cyan-300/80">Накопления</p>
-                            <p className="text-2xl font-bold text-cyan-950 dark:text-cyan-100 tracking-tight mt-0.5">{formatCurrency(totalSavings)}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.15)] transition-all">
-                    <div className="flex flex-col justify-center h-full">
-                        <p className="text-sm font-medium text-blue-800/80 dark:text-blue-300/80 mb-1">% в копилку</p>
-                        <div className="flex items-baseline gap-2">
-                            <p className="text-2xl font-bold text-indigo-950 dark:text-indigo-100 tracking-tight">
-                                {currentSummary?.income ? ((currentSummary.savings / currentSummary.income) * 100).toFixed(1) : '0.0'}%
-                            </p>
-                            <span className="text-xs text-blue-500/80 dark:text-blue-400/80">от дохода</span>
+                            {plannedExpensesTotal > 0 && (
+                                <p className="flex items-center gap-1.5 text-xs font-medium text-rose-700/70 dark:text-rose-300/60 mt-1">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    ожидается: {formatCurrency(plannedExpensesTotal)}
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -310,6 +324,39 @@ const Dashboard: React.FC = () => {
                         <p className={`text-2xl font-bold tracking-tight ${Math.max(0, totalLimit - totalAllExpenses) >= 0 ? 'text-amber-950 dark:text-amber-100' : 'text-rose-600 dark:text-rose-400'}`}>
                             {formatCurrency(Math.max(0, totalLimit - totalAllExpenses))}
                         </p>
+                    </div>
+                </div>
+
+                <div className="bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.15)] transition-all">
+                    <div className="flex gap-4 items-center">
+                        <div className="p-3 bg-blue-100/80 dark:bg-blue-900/60 rounded-2xl text-blue-600 dark:text-blue-400 shadow-sm border border-blue-200/50 dark:border-blue-800/50">
+                            <CalendarClock className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-blue-800/80 dark:text-blue-300/80">Прогноз на месяц</p>
+                            <p className={`text-2xl font-bold tracking-tight mt-0.5 ${forecastFree >= 0 ? 'text-indigo-950 dark:text-indigo-100' : 'text-rose-600 dark:text-rose-400'}`}>
+                                {formatCurrency(forecastFree)}
+                                <span className="text-xs font-medium text-blue-500/80 dark:text-blue-400/80 ml-2">свободно</span>
+                            </p>
+                            <p className="text-xs font-medium text-blue-700/70 dark:text-blue-300/60 mt-1">
+                                расходы: {formatCurrency(forecastExpensesVisible)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-[image:var(--color-stat-cyan-bg)] backdrop-blur-md p-4 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-cyan-border)] hover:shadow-[0_12px_40px_rgba(6,182,212,0.15)] transition-all">
+                    <div className="flex gap-4 items-center">
+                        <div className="p-3 bg-cyan-100/80 dark:bg-cyan-900/60 rounded-2xl text-cyan-600 dark:text-cyan-400 shadow-sm border border-cyan-200/50 dark:border-cyan-800/50">
+                            <PiggyBank className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-cyan-800/80 dark:text-cyan-300/80">Накопления</p>
+                            <p className="text-2xl font-bold text-cyan-950 dark:text-cyan-100 tracking-tight mt-0.5">{formatCurrency(totalSavings)}</p>
+                            <p className="text-xs font-medium text-cyan-700/70 dark:text-cyan-300/60 mt-1">
+                                в копилку: {currentSummary?.income ? ((currentSummary.savings / currentSummary.income) * 100).toFixed(1) : '0.0'}% от дохода
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -461,6 +508,55 @@ const Dashboard: React.FC = () => {
                 </div>
 
             </div>
+
+            {/* Read-only попап списка плановых платежей/поступлений (управление — на экране Месяц) */}
+            <Modal
+                isOpen={planModal !== null}
+                onClose={() => setPlanModal(null)}
+                title={planModal === 'incomes' ? 'Ожидаемые поступления' : 'Запланированные платежи'}
+            >
+                <div className="space-y-1">
+                    {(planModal === 'incomes' ? planned?.incomes : planned?.expenses)?.map((item: PlannedItem) => (
+                        <div
+                            key={`${item.template_type}-${item.template_id}`}
+                            className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl hover:bg-[var(--color-surface-soft)] transition-colors"
+                        >
+                            <div className="flex items-center gap-3 min-w-0">
+                                <Clock className={`w-4 h-4 flex-shrink-0 ${item.is_overdue ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500'}`} />
+                                <div className="min-w-0">
+                                    <p className={`font-medium truncate text-slate-700 dark:text-[var(--color-text-main)] ${item.is_skipped ? 'line-through opacity-50' : ''}`}>
+                                        {item.name}
+                                    </p>
+                                    <p className={`text-xs ${item.is_overdue ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-slate-400 dark:text-[var(--color-text-muted)]'}`}>
+                                        {item.is_skipped
+                                            ? 'пропущен в этом месяце'
+                                            : item.is_overdue
+                                                ? `ждёт подтверждения (${item.due_day}-е)`
+                                                : `${planModal === 'incomes' ? 'ожидается' : 'спишется'} ${item.due_day}-го`}
+                                    </p>
+                                </div>
+                            </div>
+                            <span className={`font-semibold tabular-nums whitespace-nowrap text-slate-800 dark:text-[var(--color-text-main)] ${item.is_skipped ? 'line-through opacity-50' : ''}`}>
+                                {formatCurrency(item.amount)}
+                            </span>
+                        </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-3 mt-2 border-t border-[var(--color-border-default)]">
+                        <span className="text-sm text-slate-500 dark:text-[var(--color-text-muted)]">
+                            Итого: <span className="font-semibold text-slate-800 dark:text-[var(--color-text-main)]">
+                                {formatCurrency(planModal === 'incomes' ? plannedIncomesTotal : plannedExpensesTotal)}
+                            </span>
+                        </span>
+                        <Link
+                            to="/month"
+                            onClick={() => setPlanModal(null)}
+                            className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+                        >
+                            Управлять — на экране Месяц →
+                        </Link>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

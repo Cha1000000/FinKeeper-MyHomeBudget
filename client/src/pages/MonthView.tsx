@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Pencil, GripVertical, SlidersHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Pencil, GripVertical, SlidersHorizontal, Clock, MoreHorizontal, RotateCcw, Check } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -8,9 +8,10 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
     ensureMonth, getIncomes, getExpenses, getCategories, getBudgets, setBudget,
-    addIncome, addExpense, deleteIncome, deleteExpense, updateExpense, updateIncome, reorderCategories, getIncomeSources, addIncomeSource
+    addIncome, addExpense, deleteIncome, deleteExpense, updateExpense, updateIncome, reorderCategories, getIncomeSources, addIncomeSource,
+    getPlannedRecords, setPlannedOverride, resetPlannedOverride, confirmPlanned
 } from '../api';
-import type { Month, Income, Expense, Category, Budget, IncomeSource } from '../api';
+import type { Month, Income, Expense, Category, Budget, IncomeSource, PlannedResponse, PlannedItem } from '../api';
 import { formatCurrency, formatDate } from '../utils';
 import Modal from '../components/Modal';
 import { useDataChanged } from '../hooks/useWebSocket';
@@ -97,6 +98,143 @@ const SortableGroup: React.FC<SortableGroupProps> = ({ group, isExpanded, toggle
     );
 };
 
+const plannedItemKey = (item: PlannedItem) => `${item.template_type}:${item.template_id}`;
+
+interface PlannedSectionProps {
+    title: string;
+    kind: 'expense' | 'income';
+    items: PlannedItem[];
+    total: number;
+    isOpen: boolean;
+    onToggle: () => void;
+    openMenuKey: string | null;
+    setOpenMenuKey: (key: string | null) => void;
+    onConfirm: (item: PlannedItem) => void;
+    onSkip: (item: PlannedItem, skip: boolean) => void;
+    onOverride: (item: PlannedItem) => void;
+    onReset: (item: PlannedItem) => void;
+}
+
+// Секция виртуальных запланированных платежей/поступлений месяца
+const PlannedSection: React.FC<PlannedSectionProps> = ({ title, kind, items, total, isOpen, onToggle, openMenuKey, setOpenMenuKey, onConfirm, onSkip, onOverride, onReset }) => {
+    if (items.length === 0) return null;
+
+    return (
+        <div className="bg-slate-50/50 dark:bg-[var(--color-surface-soft)]/30 transition-colors">
+            <div
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50/90 dark:hover:bg-[#1a222d]/80 transition-colors"
+                onClick={onToggle}
+            >
+                <div className="flex items-center gap-3">
+                    <div className={`p-1.5 rounded-xl bg-[var(--color-surface)] shadow-sm border border-slate-100 dark:border-[var(--color-border-default)] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+                        <ChevronDown className="w-4 h-4 text-slate-500 dark:text-[var(--color-text-muted)]" />
+                    </div>
+                    <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                    <span className="font-bold text-slate-600 dark:text-[var(--color-text-muted)] tracking-tight">{title}</span>
+                </div>
+                <span className="font-bold tabular-nums tracking-tight text-slate-500 dark:text-slate-400">{formatCurrency(total)}</span>
+            </div>
+
+            {isOpen && (
+                <div className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60 border-t border-slate-100/60 dark:border-[var(--color-border-default)]/60">
+                    {items.map(item => {
+                        const key = plannedItemKey(item);
+                        const isMenuOpen = openMenuKey === key;
+                        const statusText = item.is_skipped
+                            ? 'пропущен в этом месяце'
+                            : item.is_overdue
+                                ? `ждёт подтверждения (${item.due_day}-е)`
+                                : `${kind === 'income' ? 'ожидается' : 'спишется'} ${item.due_day}-го`;
+
+                        return (
+                            <div key={key} className="flex items-center justify-between gap-3 py-2.5 pr-4 pl-12 hover:bg-slate-50/50 dark:hover:bg-[#1a222d] transition-colors">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <Clock className={`w-4 h-4 flex-shrink-0 ${item.is_overdue && !item.is_skipped ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600'}`} />
+                                    <div className="min-w-0">
+                                        <p className={`font-medium truncate text-slate-600 dark:text-slate-300 ${item.is_skipped ? 'line-through opacity-50' : ''}`}>
+                                            {item.name}
+                                        </p>
+                                        <p className={`text-xs ${item.is_overdue && !item.is_skipped ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-slate-400 dark:text-slate-500'}`}>
+                                            {statusText}
+                                            {item.is_overridden === 1 && !item.is_skipped && (
+                                                <span className="ml-2 text-blue-500/80 dark:text-blue-400/80">изменено на этот месяц</span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className={`font-semibold tabular-nums whitespace-nowrap text-slate-500 dark:text-slate-400 ${item.is_skipped ? 'line-through opacity-50' : ''}`}>
+                                        {formatCurrency(item.amount)}
+                                    </span>
+                                    {item.is_skipped ? (
+                                        <button
+                                            onClick={() => onSkip(item, false)}
+                                            className="flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                                            title="Вернуть платёж в план этого месяца"
+                                        >
+                                            <RotateCcw className="w-3.5 h-3.5" />
+                                            Вернуть
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => onConfirm(item)}
+                                                className="flex items-center gap-1.5 text-sm font-medium text-white bg-[var(--color-primary)] px-3 py-1.5 rounded-xl hover:opacity-90 transition-all shadow-sm"
+                                                title={kind === 'income'
+                                                    ? (item.require_confirm ? 'Подтвердить получение' : 'Записать досрочно')
+                                                    : (item.require_confirm ? 'Подтвердить оплату' : 'Оплатить досрочно')}
+                                            >
+                                                <Check className="w-3.5 h-3.5" />
+                                                {kind === 'income' ? 'Получено' : 'Оплачено'}
+                                            </button>
+                                            <div className="relative">
+                                                <button
+                                                    onClick={() => setOpenMenuKey(isMenuOpen ? null : key)}
+                                                    className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#1a222d] rounded-lg transition-colors"
+                                                    title="Действия"
+                                                >
+                                                    <MoreHorizontal className="w-4 h-4" />
+                                                </button>
+                                                {isMenuOpen && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-30" onClick={() => setOpenMenuKey(null)} />
+                                                        <div className="absolute right-0 top-full mt-1 z-40 w-56 bg-[var(--color-surface)] rounded-2xl shadow-[0_12px_40px_-8px_rgba(0,0,0,0.25)] border border-[var(--color-border-default)] py-1.5 overflow-hidden">
+                                                            <button
+                                                                onClick={() => { setOpenMenuKey(null); onOverride(item); }}
+                                                                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-[var(--color-text-main)] hover:bg-[var(--color-surface-soft)] transition-colors"
+                                                            >
+                                                                Изменить на этот месяц
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setOpenMenuKey(null); onSkip(item, true); }}
+                                                                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-[var(--color-text-main)] hover:bg-[var(--color-surface-soft)] transition-colors"
+                                                            >
+                                                                Пропустить в этом месяце
+                                                            </button>
+                                                            {item.is_overridden === 1 && (
+                                                                <button
+                                                                    onClick={() => { setOpenMenuKey(null); onReset(item); }}
+                                                                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-[var(--color-text-main)] hover:bg-[var(--color-surface-soft)] transition-colors"
+                                                                >
+                                                                    Сбросить изменения
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const MONTHVIEW_MONTH_KEY = 'monthview_selected_month';
 
 const getInitialMonthViewDate = (): Date => {
@@ -124,6 +262,15 @@ const MonthView: React.FC = () => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
     const [budgets, setBudgets] = useState<Budget[]>([]);
+
+    // План-слой
+    const [planned, setPlanned] = useState<PlannedResponse | null>(null);
+    const [plannedSectionOpen, setPlannedSectionOpen] = useState<{ expense: boolean, income: boolean }>({ expense: true, income: true });
+    const [plannedMenuKey, setPlannedMenuKey] = useState<string | null>(null);
+    const [overrideItem, setOverrideItem] = useState<PlannedItem | null>(null);
+    const [overrideForm, setOverrideForm] = useState({ amount: '', day: '' });
+    const [confirmItem, setConfirmItem] = useState<PlannedItem | null>(null);
+    const [confirmAmount, setConfirmAmount] = useState('');
 
     const [activeTab, setActiveTab] = useState<'income' | 'expense'>('expense');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -192,14 +339,16 @@ const MonthView: React.FC = () => {
             const mRes = await ensureMonth(year, month);
             setMonthData(mRes.data);
 
-            const [incRes, expRes, catRes, budRes, srcRes] = await Promise.all([
+            const [incRes, expRes, catRes, budRes, srcRes, plannedRes] = await Promise.all([
                 getIncomes(mRes.data.id),
                 getExpenses(mRes.data.id),
                 getCategories(),
                 getBudgets(mRes.data.id),
-                getIncomeSources()
+                getIncomeSources(),
+                getPlannedRecords(mRes.data.id)
             ]);
 
+            setPlanned(plannedRes.data);
             setIncomes(incRes.data);
             setAllExpenses(expRes.data);
             // Filter out hidden expenses (savings deposits) - category "Пополнение копилки"
@@ -222,7 +371,7 @@ const MonthView: React.FC = () => {
     }, [loadData]);
 
     // Refresh on WebSocket data changes
-    useDataChanged(['income', 'expense', 'category', 'budget', 'income_source', 'all'], () => { loadData(); });
+    useDataChanged(['income', 'expense', 'category', 'budget', 'income_source', 'planned', 'all'], () => { loadData(); });
 
     const handlePrevMonth = () => {
         const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
@@ -428,10 +577,74 @@ const MonthView: React.FC = () => {
         }
     };
 
+    // --- Действия план-слоя ---
+    const runPlannedAction = async (action: () => Promise<unknown>, fallbackMessage: string) => {
+        if (!monthData) return;
+        try {
+            setActionError(null);
+            await action();
+            await loadData();
+        } catch (e) {
+            console.error(e);
+            setActionError(getActionErrorMessage(e, fallbackMessage));
+        }
+    };
+
+    const handleSkipPlanned = (item: PlannedItem, skip: boolean) => runPlannedAction(
+        () => setPlannedOverride(monthData!.id, item.template_type, item.template_id, { is_skipped: skip ? 1 : 0 }),
+        skip ? 'Не удалось пропустить платёж. Попробуйте ещё раз.' : 'Не удалось вернуть платёж в план. Попробуйте ещё раз.'
+    );
+
+    const handleResetPlanned = (item: PlannedItem) => runPlannedAction(
+        () => resetPlannedOverride(monthData!.id, item.template_type, item.template_id),
+        'Не удалось сбросить изменения платежа. Попробуйте ещё раз.'
+    );
+
+    const openOverrideModal = (item: PlannedItem) => {
+        setOverrideForm({ amount: item.amount.toString(), day: item.due_day.toString() });
+        setOverrideItem(item);
+    };
+
+    const submitOverride = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!overrideItem) return;
+        const item = overrideItem;
+        const amount = parseFloat(overrideForm.amount);
+        const day = parseInt(overrideForm.day);
+        setOverrideItem(null);
+        await runPlannedAction(
+            () => setPlannedOverride(monthData!.id, item.template_type, item.template_id, {
+                // Совпадающие с шаблоном значения шлём как null — сервер удалит исключение, если всё дефолтное
+                override_amount: amount === item.original_amount ? null : amount,
+                override_day: isNaN(day) ? null : day,
+            }),
+            'Не удалось изменить платёж на этот месяц. Попробуйте ещё раз.'
+        );
+    };
+
+    const openConfirmModal = (item: PlannedItem) => {
+        setConfirmAmount(item.amount.toString());
+        setConfirmItem(item);
+    };
+
+    const submitConfirmPlanned = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!confirmItem) return;
+        const item = confirmItem;
+        const amount = parseFloat(confirmAmount);
+        setConfirmItem(null);
+        await runPlannedAction(
+            () => confirmPlanned(monthData!.id, item.template_type, item.template_id, isNaN(amount) || amount === item.amount ? undefined : { amount }),
+            'Не удалось подтвердить оплату. Попробуйте ещё раз.'
+        );
+    };
+
     const totalIncome = incomes.reduce((sum, item) => sum + item.amount, 0);
     const totalExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
     const totalAllExpenses = allExpenses.reduce((sum, item) => sum + item.amount, 0);
     const totalLimit = budgets.reduce((sum, item) => sum + item.limit_amount, 0);
+    const plannedExpensesTotal = planned?.totals.plannedExpenses ?? 0;
+    const plannedIncomesTotal = planned?.totals.plannedIncomes ?? 0;
 
     // Grouping Expenses with Budget Info
     const groupedExpenses = expenses.reduce((acc, item) => {
@@ -540,10 +753,22 @@ const MonthView: React.FC = () => {
                 <div className="bg-[image:var(--color-stat-emerald-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-emerald-border)] transition-colors">
                     <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mb-1">Доходы</p>
                     <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300 tracking-tight">{formatCurrency(totalIncome)}</p>
+                    {plannedIncomesTotal > 0 && (
+                        <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700/70 dark:text-emerald-300/60 mt-1.5">
+                            <Clock className="w-3.5 h-3.5" />
+                            ожидается: {formatCurrency(plannedIncomesTotal)}
+                        </p>
+                    )}
                 </div>
                 <div className="bg-[image:var(--color-stat-rose-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-rose-border)] transition-colors">
                     <p className="text-sm text-rose-600 dark:text-rose-400 font-medium mb-1">Расходы</p>
                     <p className="text-3xl font-bold text-rose-700 dark:text-rose-300 tracking-tight">{formatCurrency(totalExpense)}</p>
+                    {plannedExpensesTotal > 0 && (
+                        <p className="flex items-center gap-1.5 text-xs font-medium text-rose-700/70 dark:text-rose-300/60 mt-1.5">
+                            <Clock className="w-3.5 h-3.5" />
+                            ожидается: {formatCurrency(plannedExpensesTotal)}
+                        </p>
+                    )}
                 </div>
                 <div className="bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] cursor-pointer hover:shadow-md dark:hover:bg-blue-900/20 transition-all group" onClick={() => setIsBudgetModalOpen(true)}>
                     <div className="flex justify-between items-center mb-1">
@@ -597,6 +822,20 @@ const MonthView: React.FC = () => {
             <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
                 {activeTab === 'expense' ? (
                     <div className="divide-y divide-slate-100/60 dark:divide-[var(--color-border-default)]/60">
+                        <PlannedSection
+                            title="Запланированные платежи"
+                            kind="expense"
+                            items={planned?.expenses ?? []}
+                            total={plannedExpensesTotal}
+                            isOpen={plannedSectionOpen.expense}
+                            onToggle={() => setPlannedSectionOpen(prev => ({ ...prev, expense: !prev.expense }))}
+                            openMenuKey={plannedMenuKey}
+                            setOpenMenuKey={setPlannedMenuKey}
+                            onConfirm={openConfirmModal}
+                            onSkip={handleSkipPlanned}
+                            onOverride={openOverrideModal}
+                            onReset={handleResetPlanned}
+                        />
                         {expenses.length === 0 && (
                             <div className="p-6">
                                 <PageState
@@ -686,6 +925,21 @@ const MonthView: React.FC = () => {
                         </DndContext>
                     </div>
                 ) : (
+                    <>
+                    <PlannedSection
+                        title="Ожидаемые поступления"
+                        kind="income"
+                        items={planned?.incomes ?? []}
+                        total={plannedIncomesTotal}
+                        isOpen={plannedSectionOpen.income}
+                        onToggle={() => setPlannedSectionOpen(prev => ({ ...prev, income: !prev.income }))}
+                        openMenuKey={plannedMenuKey}
+                        setOpenMenuKey={setPlannedMenuKey}
+                        onConfirm={openConfirmModal}
+                        onSkip={handleSkipPlanned}
+                        onOverride={openOverrideModal}
+                        onReset={handleResetPlanned}
+                    />
                     <table className="w-full text-left">
                         <thead className="bg-slate-50/50 dark:bg-[var(--color-surface-soft)]/50 border-b border-slate-100/60 dark:border-[var(--color-border-default)]/60 transition-colors">
                             <tr>
@@ -751,6 +1005,7 @@ const MonthView: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                    </>
                 )}
             </div>
 
@@ -827,6 +1082,93 @@ const MonthView: React.FC = () => {
                     >
                         Сохранить
                     </button>
+                </form>
+            </Modal>
+
+            {/* Изменение планового платежа на этот месяц (override) */}
+            <Modal
+                isOpen={!!overrideItem}
+                onClose={() => setOverrideItem(null)}
+                title="Изменить на этот месяц"
+            >
+                <form onSubmit={submitOverride} className="space-y-4">
+                    <p className="text-sm text-gray-600 dark:text-[var(--color-text-muted)]">
+                        {overrideItem?.name}: изменения действуют только в этом месяце, само правило не меняется.
+                    </p>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">
+                            Сумма {overrideItem && <span className="text-xs text-slate-400">(по правилу: {formatCurrency(overrideItem.original_amount)})</span>}
+                        </label>
+                        <input
+                            type="number"
+                            required
+                            min="0.01"
+                            step="0.01"
+                            value={overrideForm.amount}
+                            onChange={e => setOverrideForm({ ...overrideForm, amount: e.target.value })}
+                            className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">День списания (1–31)</label>
+                        <input
+                            type="number"
+                            required
+                            min="1"
+                            max="31"
+                            value={overrideForm.day}
+                            onChange={e => setOverrideForm({ ...overrideForm, day: e.target.value })}
+                            className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
+                            placeholder="например, 15"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-colors mt-2"
+                    >
+                        Сохранить
+                    </button>
+                </form>
+            </Modal>
+
+            {/* Подтверждение оплаты/получения планового платежа */}
+            <Modal
+                isOpen={!!confirmItem}
+                onClose={() => setConfirmItem(null)}
+                title={confirmItem?.template_type === 'income_source' ? 'Подтвердить получение' : 'Подтвердить оплату'}
+            >
+                <form onSubmit={submitConfirmPlanned} className="space-y-4">
+                    <p className="text-gray-600 dark:text-[var(--color-text-muted)]">
+                        «{confirmItem?.name}» станет {confirmItem?.template_type === 'income_source' ? 'реальным доходом' : 'реальным расходом'} этого месяца.
+                    </p>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Сумма</label>
+                        <input
+                            type="number"
+                            required
+                            min="0.01"
+                            step="0.01"
+                            value={confirmAmount}
+                            onChange={e => setConfirmAmount(e.target.value)}
+                            className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
+                        />
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            type="submit"
+                            className="flex-1 bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-colors shadow-sm"
+                        >
+                            {confirmItem?.template_type === 'income_source' ? 'Получено' : 'Оплачено'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConfirmItem(null)}
+                            className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            Отмена
+                        </button>
+                    </div>
                 </form>
             </Modal>
 

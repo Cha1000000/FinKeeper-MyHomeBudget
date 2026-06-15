@@ -238,6 +238,8 @@ export interface BackupEntrySummary {
     expenses: number;
     budgets: number;
     savingsTransactions: number;
+    autoCreatedRecords?: number;
+    plannedOverrides?: number;
 }
 
 export interface BackupEntry {
@@ -290,6 +292,7 @@ export interface Category {
     is_fixed: number;
     fixed_amount: number | null;
     auto_day: number | null;
+    require_confirm: number;
 }
 
 export interface IncomeSource {
@@ -299,6 +302,7 @@ export interface IncomeSource {
     is_fixed: number;
     fixed_amount: number | null;
     auto_day: number | null;
+    require_confirm: number;
 }
 
 export interface Month {
@@ -379,8 +383,67 @@ export const deleteSavingsGoal = (id: number) => api.delete(`/savings_goals/${id
 export const addSavingsTransaction = (data: { goal_id: number, amount: number, date: string, month_id?: number }) => api.post('/savings_transactions', data);
 export const getSavingsTransactions = (goalId: number) => api.get<SavingsTransaction[]>(`/savings_transactions/${goalId}`);
 
+// План-слой: виртуальные запланированные платежи месяца (фиксированные
+// категории/источники, ещё не превращённые в реальные записи)
+export type PlannedTemplateType = 'category' | 'income_source';
+
+export interface PlannedItem {
+    template_type: PlannedTemplateType;
+    template_id: number;
+    name: string;
+    amount: number;
+    original_amount: number;
+    due_day: number;
+    due_date: string;
+    require_confirm: number;
+    is_skipped: number;
+    is_overridden: number;
+    is_overdue: number;
+}
+
+export interface PlannedTotals {
+    plannedExpenses: number;
+    plannedIncomes: number;
+}
+
+export interface PlannedResponse {
+    expenses: PlannedItem[];
+    incomes: PlannedItem[];
+    totals: PlannedTotals;
+}
+
+export interface PlannedOverrideUpdate {
+    is_skipped?: number;
+    override_amount?: number | null;
+    override_day?: number | null;
+}
+
+export interface PlannedMutationResponse {
+    success: boolean;
+    item: PlannedItem | null;
+}
+
+export interface MonthSummary {
+    income: number;
+    expenses: number;
+    savings: number;
+    balance: number;
+    plannedExpenses: number;
+    plannedIncomes: number;
+    forecastExpenses: number;
+    forecastBalance: number;
+}
+
+export const getPlannedRecords = (monthId: number) => api.get<PlannedResponse>(`/months/${monthId}/planned`);
+export const setPlannedOverride = (monthId: number, templateType: PlannedTemplateType, templateId: number, data: PlannedOverrideUpdate) =>
+    api.put<PlannedMutationResponse>(`/months/${monthId}/planned/${templateType}/${templateId}`, data);
+export const resetPlannedOverride = (monthId: number, templateType: PlannedTemplateType, templateId: number) =>
+    api.delete<PlannedMutationResponse>(`/months/${monthId}/planned/${templateType}/${templateId}/override`);
+export const confirmPlanned = (monthId: number, templateType: PlannedTemplateType, templateId: number, data?: { amount?: number, date?: string }) =>
+    api.post<Expense | Income>(`/months/${monthId}/planned/${templateType}/${templateId}/confirm`, data ?? {});
+
 export const getAnalyticsTrend = () => api.get<{ month: string, income: number, expense: number, savings: number }[]>('/analytics/trend');
-export const getMonthSummary = (monthId: number) => api.get<{ income: number, expenses: number, savings: number, balance: number }>(`/months/${monthId}/summary`);
+export const getMonthSummary = (monthId: number) => api.get<MonthSummary>(`/months/${monthId}/summary`);
 export const getCumulativeBalance = (year: number, month: number) => api.get<{ cumulativeBalance: number }>(`/analytics/cumulative-balance?year=${year}&month=${month}`);
 
 export default api;

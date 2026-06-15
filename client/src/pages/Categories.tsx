@@ -13,9 +13,10 @@ interface FixedFormData {
     name: string;
     fixedAmount: string;
     autoDay: string;
+    requireConfirm: boolean;
 }
 
-const emptyFixedForm: FixedFormData = { name: '', fixedAmount: '', autoDay: '' };
+const emptyFixedForm: FixedFormData = { name: '', fixedAmount: '', autoDay: '', requireConfirm: false };
 
 function formatCurrency(amount: number): string {
     return amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -161,6 +162,7 @@ const Categories: React.FC = () => {
             name: item.name,
             fixedAmount: item.fixed_amount != null ? String(item.fixed_amount) : '',
             autoDay: item.auto_day != null ? String(item.auto_day) : '',
+            requireConfirm: item.require_confirm === 1,
         });
         setIsFixedModalOpen(true);
     };
@@ -180,6 +182,7 @@ const Categories: React.FC = () => {
                     is_fixed: 1,
                     fixed_amount: amount,
                     auto_day: day,
+                    require_confirm: fixedForm.requireConfirm ? 1 : 0,
                 });
             } else {
                 await api.post(endpoint, {
@@ -187,6 +190,7 @@ const Categories: React.FC = () => {
                     is_fixed: 1,
                     fixed_amount: amount,
                     auto_day: day,
+                    require_confirm: fixedForm.requireConfirm ? 1 : 0,
                 });
             }
             setIsFixedModalOpen(false);
@@ -328,7 +332,16 @@ const Categories: React.FC = () => {
                         {fixedItems.map(item => (
                             <li key={item.id} className="p-4 px-6 hover:bg-[var(--color-surface-soft)] dark:hover:bg-[#1a222d] flex items-center justify-between group transition-colors">
                                 <div>
-                                    <span className="font-medium text-slate-700 dark:text-[var(--color-text-main)]">{item.name}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium text-slate-700 dark:text-[var(--color-text-main)]">{item.name}</span>
+                                        {item.require_confirm === 1 && (
+                                            <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-900/40 border border-amber-200/60 dark:border-amber-800/50 px-2 py-0.5 rounded-lg" title={activeTab === 'expenses'
+                                                ? 'Платёж не списывается автоматически — ждёт кнопки «Оплачено» на экране Месяц'
+                                                : 'Доход не записывается автоматически — ждёт кнопки «Получено» на экране Месяц'}>
+                                                ✋ вручную
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="text-sm text-slate-400 dark:text-[var(--color-text-muted)] mt-0.5">
                                         {item.fixed_amount != null ? formatCurrency(item.fixed_amount) : '—'} ₽ · {item.auto_day} числа
                                     </div>
@@ -498,6 +511,24 @@ const Categories: React.FC = () => {
                             placeholder="25"
                         />
                     </div>
+                    <label className="flex items-start gap-3 p-3 rounded-xl border border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] bg-[var(--color-surface-soft)]/50 cursor-pointer transition-colors">
+                        <input
+                            type="checkbox"
+                            checked={fixedForm.requireConfirm}
+                            onChange={(e) => setFixedForm(f => ({ ...f, requireConfirm: e.target.checked }))}
+                            className="mt-0.5 w-4 h-4 accent-[var(--color-primary)]"
+                        />
+                        <span>
+                            <span className="block text-sm font-medium text-slate-700 dark:text-[var(--color-text-main)]">
+                                {activeTab === 'expenses' ? 'Требует подтверждения оплаты' : 'Требует подтверждения получения'}
+                            </span>
+                            <span className="block text-xs text-slate-400 dark:text-[var(--color-text-muted)] mt-0.5">
+                                {activeTab === 'expenses'
+                                    ? 'Платёж не спишется автоматически, а будет ждать кнопки «Оплачено» на экране Месяц'
+                                    : 'Доход не запишется автоматически, а будет ждать кнопки «Получено» на экране Месяц'}
+                            </span>
+                        </span>
+                    </label>
                     <button
                         type="submit"
                         className="w-full bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-all shadow-sm hover:shadow-md mt-4"
