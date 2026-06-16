@@ -1,6 +1,13 @@
 package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -23,10 +31,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -599,125 +609,160 @@ private fun ExpenseGroupCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val semantic = AppTheme.semanticColors
-    
-    GlassyCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { expanded = !expanded },
-        shape = RoundedCornerShape(12.dp),
-        baseColor = if (group.isOverLimit) semantic.expenseCardBg else MaterialTheme.colorScheme.surface,
-        highlightColor = (if (group.isOverLimit) semantic.expenseColor else MaterialTheme.colorScheme.primary).copy(alpha = 0.1f)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+    val baseColor = if (group.isOverLimit) semantic.expenseCardBg else MaterialTheme.colorScheme.surface
+    val accentColor = if (group.isOverLimit) semantic.expenseColor else MaterialTheme.colorScheme.primary
+
+    // Поворот шеврона — анимация через transform (дёшево), вместо смены глифа.
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+        label = "chevronRotation",
+    )
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Заголовок — «стеклянная» карточка фикс. высоты. Дорогой градиент/обводка НЕ
+        // перерисовываются по растущей площади при раскрытии (строки вынесены ниже отдельным блоком).
+        GlassyCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            shape = if (expanded) RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp) else RoundedCornerShape(12.dp),
+            baseColor = baseColor,
+            highlightColor = accentColor.copy(alpha = 0.1f),
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = group.categoryName,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (group.limit > 0) {
+                            Text(
+                                text = "${formatCurrency(group.total)} / ${formatCurrency(group.limit)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     Text(
-                        text = group.categoryName,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        text = formatCurrency(group.total),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                     )
-                    if (group.limit > 0) {
-                        Text(
-                            text = "${formatCurrency(group.total)} / ${formatCurrency(group.limit)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Text(
+                        text = Strings.EXPAND_ICON,
+                        modifier = Modifier.padding(start = 8.dp).rotate(chevronRotation),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                Text(
-                    text = formatCurrency(group.total),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = if (expanded) Strings.COLLAPSE_ICON else Strings.EXPAND_ICON,
-                    modifier = Modifier.padding(start = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
 
-            if (group.limit > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
-                ProgressBar(
-                    progress = (group.total / group.limit).toFloat(),
-                    color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    height = 3,
-                )
+                if (group.limit > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    ProgressBar(
+                        progress = (group.total / group.limit).toFloat(),
+                        color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        height = 3,
+                    )
+                }
             }
+        }
 
-            AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 8.dp)) {
-                    TextButton(
-                        onClick = onAddExpenseInCategory,
-                        modifier = Modifier.fillMaxWidth(),
+        // Раскрывающийся блок строк — сплошной фон (без дорогого градиента), лёгкие строки.
+        // Анимация: fade (opacity) + expand/shrink с предсказуемым tween — плавно и не медленно.
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn(animationSpec = tween(160)) +
+                expandVertically(animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing)),
+            exit = shrinkVertically(animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)) +
+                fadeOut(animationSpec = tween(140)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                    .background(baseColor)
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 8.dp),
+            ) {
+                TextButton(
+                    onClick = onAddExpenseInCategory,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = Strings.ADD_EXPENSE_FOR_CATEGORY.replace("%1\$s", group.categoryName),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+                group.items.forEach { expense ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = Strings.ADD_EXPENSE_FOR_CATEGORY.replace("%1\$s", group.categoryName),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-
-                    group.items.forEach { expense ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = formatCurrency(expense.amount),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (!expense.comment.isNullOrBlank()) {
                                 Text(
-                                    text = formatCurrency(expense.amount),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                if (!expense.comment.isNullOrBlank()) {
-                                    Text(
-                                        text = expense.comment,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                Text(
-                                    text = formatDate(expense.date),
-                                    style = MaterialTheme.typography.labelSmall,
+                                    text = expense.comment,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                                TextButton(
-                                    onClick = { onEditExpense(expense.id, expense.amount, expense.comment) },
-                                    modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
-                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                                ) {
-                                    Text(Strings.EDIT_ICON, style = MaterialTheme.typography.bodyLarge)
-                                }
-                                TextButton(
-                                    onClick = { onDeleteExpense(expense.id) },
-                                    modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
-                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                                ) {
-                                    Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge)
-                                }
-                            }
+                            Text(
+                                text = formatDate(expense.date),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
-                        if (expense != group.items.last()) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        // Лёгкие кнопки-иконки вместо Material TextButton — дешевле компоновка/измерение.
+                        RowGlyphButton(glyph = Strings.EDIT_ICON, tint = MaterialTheme.colorScheme.primary) {
+                            onEditExpense(expense.id, expense.amount, expense.comment)
                         }
+                        RowGlyphButton(glyph = Strings.DELETE_ICON, tint = MaterialTheme.colorScheme.error) {
+                            onDeleteExpense(expense.id)
+                        }
+                    }
+                    if (expense != group.items.last()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                     }
                 }
             }
         }
+    }
+}
+
+/** Лёгкая «кнопка-иконка» из глифа: без оверхеда Material TextButton (ripple/min-target/colors). */
+@Composable
+private fun RowGlyphButton(
+    glyph: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = glyph, style = MaterialTheme.typography.bodyLarge, color = tint)
     }
 }
 
