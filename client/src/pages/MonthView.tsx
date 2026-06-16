@@ -12,7 +12,7 @@ import {
     getPlannedRecords, setPlannedOverride, resetPlannedOverride, confirmPlanned
 } from '../api';
 import type { Month, Income, Expense, Category, Budget, IncomeSource, PlannedResponse, PlannedItem } from '../api';
-import { formatCurrency, formatDate } from '../utils';
+import { formatCurrency, formatDate, evalAmount, isAmountExpression } from '../utils';
 import Modal from '../components/Modal';
 import { useDataChanged } from '../hooks/useWebSocket';
 import PageState from '../components/PageState';
@@ -390,31 +390,38 @@ const MonthView: React.FC = () => {
         if (!monthData) return;
         setActionError(null);
 
+        // Сумма может быть арифметическим выражением (=523+1275+104).
+        const amountValue = evalAmount(formData.amount);
+        if (amountValue === null || amountValue <= 0) {
+            setActionError('Некорректное выражение в поле «Сумма».');
+            return;
+        }
+
         try {
             if (activeTab === 'income') {
                 const sourceName = formData.source.trim();
-                
+
                 // Check if source is new (not found in incomeSources)
                 const existingSource = incomeSources.find(s => s.name.toLowerCase() === sourceName.toLowerCase());
-                
+
                 if (!existingSource && sourceName) {
                     // New source - show confirmation
                     setNewSourceName(sourceName);
                     setShowNewSourceConfirm(true);
                     return;
                 }
-                
+
                 await addIncome({
                     month_id: monthData.id,
                     source: sourceName || existingSource?.name || '',
-                    amount: parseFloat(formData.amount),
+                    amount: amountValue,
                     date: new Date().toISOString()
                 });
             } else {
                 await addExpense({
                     month_id: monthData.id,
                     category_id: parseInt(formData.categoryId),
-                    amount: parseFloat(formData.amount),
+                    amount: amountValue,
                     date: new Date().toISOString(),
                     comment: formData.comment
                 });
@@ -442,9 +449,9 @@ const MonthView: React.FC = () => {
     };
 
     const saveAmount = async (id: number, type: 'income' | 'expense') => {
-        const amount = parseFloat(editingAmount);
-        
-        if (isNaN(amount)) {
+        const amount = evalAmount(editingAmount);
+
+        if (amount === null || amount <= 0) {
             setEditingId(null);
             return;
         }
@@ -521,7 +528,7 @@ const MonthView: React.FC = () => {
             await addIncome({
                 month_id: monthData.id,
                 source: newSourceName,
-                amount: parseFloat(formData.amount),
+                amount: evalAmount(formData.amount) ?? 0,
                 date: new Date().toISOString()
             });
             
@@ -609,8 +616,12 @@ const MonthView: React.FC = () => {
         e.preventDefault();
         if (!overrideItem) return;
         const item = overrideItem;
-        const amount = parseFloat(overrideForm.amount);
+        const amount = evalAmount(overrideForm.amount);
         const day = parseInt(overrideForm.day);
+        if (amount === null || amount <= 0) {
+            setActionError('Некорректное выражение в поле «Сумма».');
+            return;
+        }
         setOverrideItem(null);
         await runPlannedAction(
             () => setPlannedOverride(monthData!.id, item.template_type, item.template_id, {
@@ -631,10 +642,10 @@ const MonthView: React.FC = () => {
         e.preventDefault();
         if (!confirmItem) return;
         const item = confirmItem;
-        const amount = parseFloat(confirmAmount);
+        const amount = evalAmount(confirmAmount);
         setConfirmItem(null);
         await runPlannedAction(
-            () => confirmPlanned(monthData!.id, item.template_type, item.template_id, isNaN(amount) || amount === item.amount ? undefined : { amount }),
+            () => confirmPlanned(monthData!.id, item.template_type, item.template_id, amount === null || amount <= 0 || amount === item.amount ? undefined : { amount }),
             'Не удалось подтвердить оплату. Попробуйте ещё раз.'
         );
     };
@@ -873,7 +884,8 @@ const MonthView: React.FC = () => {
                                                     <td className="p-4 text-sm font-medium text-right w-32">
                                                         {editingId === item.id && activeTab === 'expense' ? (
                                                             <input
-                                                                type="number"
+                                                                type="text"
+                                                                inputMode="text"
                                                                 value={editingAmount}
                                                                 onChange={(e) => setEditingAmount(e.target.value)}
                                                                 onBlur={() => handleBlur(item.id, 'expense')}
@@ -970,7 +982,8 @@ const MonthView: React.FC = () => {
                                     <td className="p-4 font-medium text-right text-emerald-600 dark:text-emerald-400">
                                         {editingId === item.id && activeTab === 'income' ? (
                                             <input
-                                                type="number"
+                                                type="text"
+                                                inputMode="text"
                                                 value={editingAmount}
                                                 onChange={(e) => setEditingAmount(e.target.value)}
                                                 onBlur={() => handleBlur(item.id, 'income')}
@@ -1019,13 +1032,25 @@ const MonthView: React.FC = () => {
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Сумма</label>
                         <input
-                            type="number"
+                            type="text"
+                            inputMode="text"
+                            autoComplete="off"
                             required
                             value={formData.amount}
                             onChange={e => setFormData({ ...formData, amount: e.target.value })}
                             className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
                             placeholder="0.00"
                         />
+                        {isAmountExpression(formData.amount) && (() => {
+                            const preview = evalAmount(formData.amount);
+                            return preview !== null && preview > 0 ? (
+                                <p className="text-sm font-medium text-[var(--color-primary)] tabular-nums">
+                                    = {new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(preview)} ₽
+                                </p>
+                            ) : (
+                                <p className="text-xs text-rose-500">Некорректное выражение</p>
+                            );
+                        })()}
                     </div>
 
                     {activeTab === 'income' ? (
@@ -1100,10 +1125,10 @@ const MonthView: React.FC = () => {
                             Сумма {overrideItem && <span className="text-xs text-slate-400">(по правилу: {formatCurrency(overrideItem.original_amount)})</span>}
                         </label>
                         <input
-                            type="number"
+                            type="text"
+                            inputMode="text"
+                            autoComplete="off"
                             required
-                            min="0.01"
-                            step="0.01"
                             value={overrideForm.amount}
                             onChange={e => setOverrideForm({ ...overrideForm, amount: e.target.value })}
                             className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
@@ -1145,10 +1170,10 @@ const MonthView: React.FC = () => {
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Сумма</label>
                         <input
-                            type="number"
+                            type="text"
+                            inputMode="text"
+                            autoComplete="off"
                             required
-                            min="0.01"
-                            step="0.01"
                             value={confirmAmount}
                             onChange={e => setConfirmAmount(e.target.value)}
                             className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
