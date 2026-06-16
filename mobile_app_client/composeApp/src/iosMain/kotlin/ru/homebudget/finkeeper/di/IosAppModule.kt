@@ -9,6 +9,8 @@ import ru.homebudget.finkeeper.data.remote.IosSocialAuthLauncher
 import ru.homebudget.finkeeper.data.remote.IosSecureTokenStorage
 import ru.homebudget.finkeeper.data.remote.SecureTokenStorage
 import ru.homebudget.finkeeper.data.remote.SocialAuthLauncher
+import ru.homebudget.finkeeper.data.update.AppUpdateChecker
+import ru.homebudget.finkeeper.data.update.IosUpdateChecker
 
 /**
  * iOS модуль Koin DI
@@ -18,6 +20,7 @@ val iosAppModule =
     module {
         single<SecureTokenStorage> { IosSecureTokenStorage() }
         single<SocialAuthLauncher> { IosSocialAuthLauncher() }
+        single<AppUpdateChecker> { IosUpdateChecker() }
 
         // Database Driver для iOS
         single {

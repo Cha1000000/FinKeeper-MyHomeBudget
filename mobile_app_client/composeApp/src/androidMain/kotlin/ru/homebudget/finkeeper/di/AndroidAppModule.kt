@@ -11,6 +11,8 @@ import ru.homebudget.finkeeper.data.remote.AndroidSocialAuthLauncher
 import ru.homebudget.finkeeper.data.remote.AndroidSecureTokenStorage
 import ru.homebudget.finkeeper.data.remote.SecureTokenStorage
 import ru.homebudget.finkeeper.data.remote.SocialAuthLauncher
+import ru.homebudget.finkeeper.data.update.AppUpdateChecker
+import ru.homebudget.finkeeper.data.update.RuStoreUpdateChecker
 
 /**
  * Android модуль Koin DI
@@ -20,6 +22,7 @@ val androidAppModule =
     module {
         single<SecureTokenStorage> { AndroidSecureTokenStorage(get()) }
         single<SocialAuthLauncher> { AndroidSocialAuthLauncher(get()) }
+        single<AppUpdateChecker> { RuStoreUpdateChecker(get(), get()) }
 
         // Database Driver для Android
         single<SqlDriver> {

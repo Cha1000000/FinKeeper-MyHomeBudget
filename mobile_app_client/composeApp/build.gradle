@@ -9,7 +9,7 @@ buildscript {
         multiplatform_settings_version = '1.2.0'
         koin_version = '3.5.6'
         sqldelight_version = '2.0.2'
-        app_version = '2.2.0'
+        app_version = '2.2.1'
     }
 }
 
@@ -110,6 +110,9 @@ kotlin {
                 implementation "app.cash.sqldelight:android-driver:$sqldelight_version"
                 implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
                 implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
+
+                // RuStore In-app Update SDK (оповещение о новой версии в RuStore)
+                implementation 'ru.rustore.sdk:appupdate:10.2.0'
             }
         }
         iosMain {
@@ -153,7 +156,7 @@ android {
         applicationId "ru.homebudget.finkeeper"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
+        versionCode = 8
         versionName = app_version
     }
 

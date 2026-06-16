@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.data.remote.TokenStorage
+import ru.homebudget.finkeeper.data.update.AppUpdateChecker
+import ru.homebudget.finkeeper.data.update.AppUpdateStatus
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.GlassyCard
@@ -59,6 +61,7 @@ import ru.homebudget.finkeeper.ui.screens.DashboardScreen
 import ru.homebudget.finkeeper.ui.screens.MonthViewScreen
 import ru.homebudget.finkeeper.ui.screens.SavingsScreen
 import ru.homebudget.finkeeper.ui.screens.SettingsScreen
+import ru.homebudget.finkeeper.ui.onboarding.AppUpdatePromptState
 import ru.homebudget.finkeeper.ui.onboarding.SecurityOnboardingPromptState
 import ru.homebudget.finkeeper.ui.theme.AppSemanticColors
 import ru.homebudget.finkeeper.ui.theme.AppTheme
@@ -97,11 +100,16 @@ fun AppNavigation(
 ) {
     val tokenStorage = koinInject<TokenStorage>()
     val securityOnboardingPromptState = remember { SecurityOnboardingPromptState(tokenStorage) }
+    val appUpdateChecker = koinInject<AppUpdateChecker>()
+    val appUpdatePromptState = remember { AppUpdatePromptState() }
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
     var showSecurityOnboardingPrompt by remember { mutableStateOf(false) }
     var securityPromptShownThisSession by remember { mutableStateOf(false) }
     var securityPromptSessionUserId by remember { mutableStateOf<Int?>(null) }
+    var showAppUpdatePrompt by remember { mutableStateOf(false) }
+    var appUpdateAvailable by remember { mutableStateOf<AppUpdateStatus.Available?>(null) }
+    var appUpdateShownThisSession by remember { mutableStateOf(false) }
 
     val authState by authViewModel.state.collectAsState()
     val dashboardState by dashboardViewModel.state.collectAsState()
@@ -150,6 +158,19 @@ fun AppNavigation(
         }
     }
 
+    // Проверка доступности новой версии — один раз за сессию (не зависит от авторизации).
+    LaunchedEffect(Unit) {
+        val status = appUpdateChecker.check()
+        if (status is AppUpdateStatus.Available &&
+            appUpdatePromptState.shouldShow(status, appUpdateShownThisSession)
+        ) {
+            appUpdatePromptState.markShown()
+            appUpdateShownThisSession = true
+            appUpdateAvailable = status
+            showAppUpdatePrompt = true
+        }
+    }
+
     val screenContent: @Composable () -> Unit = {
         Box(modifier = Modifier.padding(horizontal = desktopPadding)) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -165,6 +186,22 @@ fun AppNavigation(
                             showSecurityOnboardingPrompt = false
                         },
                     )
+                }
+
+                if (showAppUpdatePrompt) {
+                    appUpdateAvailable?.let { update ->
+                        AppUpdatePromptCard(
+                            versionLabel = update.versionLabel,
+                            onUpdate = {
+                                appUpdateChecker.startUpdate()
+                                showAppUpdatePrompt = false
+                            },
+                            onDismiss = {
+                                appUpdatePromptState.dismiss(update.versionToken)
+                                showAppUpdatePrompt = false
+                            },
+                        )
+                    }
                 }
 
                 when (currentScreen) {
@@ -456,6 +493,66 @@ private fun SecurityOnboardingPromptCard(
                     onClick = onOpenSettings,
                     modifier = Modifier.weight(1.35f).height(48.dp),
                     containerColor = Color(0xFFF59E0B),
+                    contentColor = Color.White,
+                    style = GlassyButtonStyle.Glassy,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppUpdatePromptCard(
+    versionLabel: String,
+    onUpdate: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val title = if (versionLabel.isNotBlank()) {
+        "${Strings.APP_UPDATE_TITLE} $versionLabel"
+    } else {
+        Strings.APP_UPDATE_TITLE
+    }
+    val message = if (isDesktop) Strings.APP_UPDATE_MESSAGE_DESKTOP else Strings.APP_UPDATE_MESSAGE
+    val actionText = if (isDesktop) Strings.APP_UPDATE_ACTION_DESKTOP else Strings.APP_UPDATE_ACTION_ANDROID
+
+    GlassyCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        baseColor = Color(0xFFE6F0FF),
+        highlightColor = Color(0xFF2563EB).copy(alpha = 0.22f),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color(0xFF1E3A8A),
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF1D4ED8),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AppButton(
+                    text = Strings.LATER,
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    containerColor = Color.White.copy(alpha = 0.82f),
+                    contentColor = Color(0xFF1E40AF),
+                    style = GlassyButtonStyle.Glassy,
+                )
+                AppButton(
+                    text = actionText,
+                    onClick = onUpdate,
+                    modifier = Modifier.weight(1.35f).height(48.dp),
+                    containerColor = Color(0xFF2563EB),
                     contentColor = Color.White,
                     style = GlassyButtonStyle.Glassy,
                 )

@@ -195,6 +195,13 @@ object Strings {
     const val SECURITY_ONBOARDING_TITLE = "Добавьте email для восстановления доступа"
     const val SECURITY_ONBOARDING_MESSAGE = "Сейчас аккаунт не защищён: без подтверждённого email самостоятельное восстановление доступа недоступно. Подключите email в настройках, чтобы не потерять доступ к данным."
     const val SECURITY_ONBOARDING_ACTION = "Перейти в настройки"
+
+    // === Оповещение о новой версии (App update) ===
+    const val APP_UPDATE_TITLE = "Доступна новая версия"
+    const val APP_UPDATE_MESSAGE = "Вышла новая версия FinKeeper24 в RuStore. Обновитесь, чтобы получить свежие улучшения и исправления."
+    const val APP_UPDATE_MESSAGE_DESKTOP = "Вышла новая версия FinKeeper24. Скачайте её с официального сайта, чтобы получить свежие улучшения и исправления."
+    const val APP_UPDATE_ACTION_ANDROID = "Обновить"
+    const val APP_UPDATE_ACTION_DESKTOP = "Скачать"
     const val RECOVERY_EMAIL_LABEL = "Email для восстановления доступа"
     const val EMAIL_CONFIRMED_HELPER = "Этот email уже подтверждён и может использоваться для восстановления доступа."
     const val EMAIL_UNCONFIRMED_HELPER = "После сохранения email его нужно подтвердить, чтобы восстановление доступа стало доступно."
