@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -227,6 +228,56 @@ fun AppTextField(
             unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
         ),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        singleLine = singleLine,
+        enabled = enabled,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+/**
+ * Вариант [AppTextField] на основе [TextFieldValue] — когда нужно управлять позицией курсора
+ * (например, вставка операторов в поле суммы по нажатию кнопок). Стиль идентичен строковой версии.
+ */
+@Composable
+fun AppTextField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Next,
+    onImeAction: () -> Unit = {},
+    singleLine: Boolean = true,
+    enabled: Boolean = true,
+    placeholder: String? = null,
+) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val containerColor = if (isDark)
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+    else
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = if (placeholder != null) {{ Text(placeholder) }} else null,
+        modifier = modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction = imeAction
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = { onImeAction() },
+            onNext = { onImeAction() }
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = containerColor,
+            unfocusedContainerColor = containerColor,
+            disabledContainerColor = containerColor.copy(alpha = 0.2f),
+            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+        ),
         singleLine = singleLine,
         enabled = enabled,
         shape = RoundedCornerShape(16.dp)

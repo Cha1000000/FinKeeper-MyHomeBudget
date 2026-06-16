@@ -202,6 +202,9 @@ object Strings {
     const val APP_UPDATE_MESSAGE_DESKTOP = "Вышла новая версия FinKeeper24. Скачайте её с официального сайта, чтобы получить свежие улучшения и исправления."
     const val APP_UPDATE_ACTION_ANDROID = "Обновить"
     const val APP_UPDATE_ACTION_DESKTOP = "Скачать"
+
+    // === Поле суммы как выражение (калькулятор) ===
+    const val AMOUNT_EXPRESSION_INVALID = "Некорректное выражение"
     const val RECOVERY_EMAIL_LABEL = "Email для восстановления доступа"
     const val EMAIL_CONFIRMED_HELPER = "Этот email уже подтверждён и может использоваться для восстановления доступа."
     const val EMAIL_UNCONFIRMED_HELPER = "После сохранения email его нужно подтвердить, чтобы восстановление доступа стало доступно."

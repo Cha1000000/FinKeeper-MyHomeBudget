@@ -49,7 +49,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.Strings
@@ -69,7 +72,9 @@ import ru.homebudget.finkeeper.ui.components.SummaryCard
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.GroupedExpense
 import ru.homebudget.finkeeper.ui.viewmodel.MonthViewState
+import ru.homebudget.finkeeper.util.evalAmount
 import ru.homebudget.finkeeper.util.formatCurrency
+import ru.homebudget.finkeeper.util.isAmountExpression
 import ru.homebudget.finkeeper.util.formatDate
 import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.util.monthName
@@ -793,6 +798,19 @@ private fun AddEntryDialog(
     var customSource by remember { mutableStateOf("") }
     var useCustomSource by remember { mutableStateOf(false) }
 
+    // Сумма может быть арифметическим выражением (=523+1275+104). null — выражение невалидно.
+    val parsedAmount: Double? = evalAmount(amount)
+    val submit: () -> Unit = submit@{
+        val amountVal = parsedAmount ?: return@submit
+        if (amountVal <= 0) return@submit
+        if (isExpense) {
+            onAddExpense(selectedCategoryId, amountVal, comment.ifBlank { null })
+        } else {
+            val src = if (useCustomSource) customSource else selectedSource
+            if (src.isNotBlank()) onAddIncome(src, amountVal)
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isExpense) Strings.ADD_EXPENSE else Strings.ADD_INCOME) },
@@ -888,11 +906,11 @@ private fun AddEntryDialog(
                     }
                 }
 
-                AppTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = Strings.AMOUNT,
-                    keyboardType = KeyboardType.Decimal,
+                AmountInputWithExpression(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    parsed = parsedAmount,
+                    onSubmit = submit,
                 )
 
                 if (isExpense) {
@@ -906,16 +924,8 @@ private fun AddEntryDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
-                    if (isExpense) {
-                        onAddExpense(selectedCategoryId, amountVal, comment.ifBlank { null })
-                    } else {
-                        val src = if (useCustomSource) customSource else selectedSource
-                        if (src.isNotBlank()) onAddIncome(src, amountVal)
-                    }
-                },
-                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0,
+                onClick = submit,
+                enabled = parsedAmount != null && parsedAmount > 0,
             ) {
                 Text(Strings.ADD)
             }
@@ -924,6 +934,144 @@ private fun AddEntryDialog(
             TextButton(onClick = onDismiss) { Text(Strings.CANCEL) }
         },
     )
+}
+
+/**
+ * Поле ввода суммы с поддержкой арифметических выражений (Excel-стиль):
+ * на мобиле — ряд операторов НАД полем (клавиатура не перекрывает), под полем — live-превью.
+ * На десктопе ряд операторов не нужен (есть физическая клавиатура), остаётся только превью под полем.
+ * Внутренний отступ 6dp (вдвое меньше межблочного 12dp).
+ */
+@Composable
+private fun AmountInputWithExpression(
+    amount: String,
+    onAmountChange: (String) -> Unit,
+    parsed: Double?,
+    onSubmit: () -> Unit,
+) {
+    // Поле работает на TextFieldValue, чтобы управлять позицией курсора: при вставке
+    // оператора кнопкой он добавляется в позицию курсора, а курсор сдвигается за него.
+    var fieldValue by remember { mutableStateOf(TextFieldValue(amount, TextRange(amount.length))) }
+    // Синхронизация при внешнем изменении amount (например, программный сброс формы).
+    if (fieldValue.text != amount) {
+        fieldValue = TextFieldValue(amount, TextRange(amount.length))
+    }
+
+    fun applyText(newText: String, cursor: Int) {
+        fieldValue = TextFieldValue(newText, TextRange(cursor))
+        onAmountChange(newText)
+    }
+
+    fun insert(op: String) {
+        val sel = fieldValue.selection
+        val text = fieldValue.text
+        val newText = text.substring(0, sel.start) + op + text.substring(sel.end)
+        applyText(newText, sel.start + op.length)
+    }
+
+    fun backspace() {
+        val sel = fieldValue.selection
+        val text = fieldValue.text
+        when {
+            sel.start != sel.end -> applyText(text.substring(0, sel.start) + text.substring(sel.end), sel.start)
+            sel.start > 0 -> applyText(text.substring(0, sel.start - 1) + text.substring(sel.start), sel.start - 1)
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (!isDesktop) {
+            AmountOperatorRow(
+                onInsert = { insert(it) },
+                onBackspace = { backspace() },
+            )
+        }
+        AppTextField(
+            value = fieldValue,
+            onValueChange = {
+                fieldValue = it
+                onAmountChange(it.text)
+            },
+            label = Strings.AMOUNT,
+            keyboardType = KeyboardType.Decimal,
+            imeAction = ImeAction.Done,
+            onImeAction = onSubmit,
+        )
+        AmountExpressionPreview(amount = amount, parsed = parsed)
+    }
+}
+
+/**
+ * Ряд кнопок-операторов для ввода выражений на мобильной клавиатуре (нет +, −, ×, ÷ на Decimal).
+ */
+@Composable
+private fun AmountOperatorRow(
+    onInsert: (String) -> Unit,
+    onBackspace: () -> Unit,
+) {
+    val operators = listOf(
+        "+" to "+",
+        "−" to "-",
+        "×" to "*",
+        "÷" to "/",
+        "(" to "(",
+        ")" to ")",
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        operators.forEach { (label, value) ->
+            OperatorChip(label = label, modifier = Modifier.weight(1f)) { onInsert(value) }
+        }
+        OperatorChip(label = "⌫", modifier = Modifier.weight(1f), onClick = onBackspace)
+    }
+}
+
+/**
+ * Live-превью вычисленного результата выражения (Excel-стиль). Показывается, только если
+ * ввод похож на выражение.
+ */
+@Composable
+private fun AmountExpressionPreview(
+    amount: String,
+    parsed: Double?,
+) {
+    if (!isAmountExpression(amount)) return
+
+    if (parsed != null && parsed > 0) {
+        Text(
+            text = "= ${formatCurrency(parsed)}",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    } else {
+        Text(
+            text = Strings.AMOUNT_EXPRESSION_INVALID,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
+@Composable
+private fun OperatorChip(
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = modifier.height(40.dp).clickable { onClick() },
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.titleMedium)
+        }
+    }
 }
 
 @Composable
@@ -988,6 +1136,13 @@ private fun AddExpenseForCategoryDialog(
     var amount by remember { mutableStateOf("") }
     var comment by remember { mutableStateOf("") }
 
+    val parsedAmount: Double? = evalAmount(amount)
+    val submit: () -> Unit = submit@{
+        val amountVal = parsedAmount ?: return@submit
+        if (amountVal <= 0) return@submit
+        onAdd(amountVal, comment.ifBlank { null })
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("${Strings.ADD_EXPENSE} в \"$categoryName\"") },
@@ -996,11 +1151,11 @@ private fun AddExpenseForCategoryDialog(
                 modifier = Modifier.then(if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                AppTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = Strings.AMOUNT,
-                    keyboardType = KeyboardType.Decimal,
+                AmountInputWithExpression(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    parsed = parsedAmount,
+                    onSubmit = submit,
                 )
                 AppTextField(
                     value = comment,
@@ -1011,11 +1166,8 @@ private fun AddExpenseForCategoryDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
-                    onAdd(amountVal, comment.ifBlank { null })
-                },
-                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0,
+                onClick = submit,
+                enabled = parsedAmount != null && parsedAmount > 0,
             ) {
                 Text(Strings.ADD)
             }
@@ -1064,10 +1216,10 @@ private fun EditEntryDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
+                    val amountVal = evalAmount(amount) ?: return@TextButton
                     onSave(amountVal, if (isIncome) null else comment.ifBlank { null })
                 },
-                enabled = amount.toDoubleOrNull() != null && amount.toDoubleOrNull()!! > 0,
+                enabled = evalAmount(amount)?.let { it > 0 } == true,
             ) {
                 Text(Strings.SAVE)
             }
@@ -1120,10 +1272,10 @@ private fun ConfirmPlannedDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
+                    val amountVal = evalAmount(amount) ?: return@TextButton
                     onConfirm(if (amountVal == item.amount) null else amountVal)
                 },
-                enabled = (amount.toDoubleOrNull() ?: 0.0) > 0,
+                enabled = (evalAmount(amount) ?: 0.0) > 0,
             ) {
                 Text(if (isIncome) Strings.PLANNED_RECEIVE_BUTTON else Strings.PLANNED_PAY_BUTTON)
             }
@@ -1173,11 +1325,11 @@ private fun OverridePlannedDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val amountVal = amount.toDoubleOrNull() ?: return@TextButton
+                    val amountVal = evalAmount(amount) ?: return@TextButton
                     val dayVal = day.toIntOrNull() ?: return@TextButton
                     onSave(amountVal, dayVal)
                 },
-                enabled = (amount.toDoubleOrNull() ?: 0.0) > 0 && (day.toIntOrNull() ?: 0) in 1..31,
+                enabled = (evalAmount(amount) ?: 0.0) > 0 && (day.toIntOrNull() ?: 0) in 1..31,
             ) {
                 Text(Strings.SAVE)
             }
