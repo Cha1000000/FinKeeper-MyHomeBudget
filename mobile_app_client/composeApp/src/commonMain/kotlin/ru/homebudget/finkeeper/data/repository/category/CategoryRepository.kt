@@ -156,6 +156,22 @@ class CategoryRepository(
     ): Result<RemoteCategory> =
         withContext(Dispatchers.Default) {
             try {
+                val existingByName = categoryDao.getByName(userId, name)
+                if (existingByName != null) {
+                    val result = RemoteCategory(
+                        id = existingByName.id.toInt(),
+                        userId = existingByName.userId.toInt(),
+                        name = existingByName.name,
+                        sortOrder = existingByName.sortOrder.toInt(),
+                        isActive = existingByName.isActive.toInt(),
+                        isFixed = existingByName.isFixed.toInt(),
+                        fixedAmount = existingByName.fixedAmount?.let { it.toDouble() / 100.0 },
+                        autoDay = existingByName.autoDay?.toInt(),
+                        requireConfirm = existingByName.requireConfirm.toInt(),
+                    )
+                    return@withContext Result.success(result)
+                }
+
                 // Сначала сохраняем локально
                 val maxSortOrder = categoryDao.getMaxSortOrder(userId) ?: 0L
                 val now = Clock.System.now().toString()
@@ -352,23 +368,43 @@ class CategoryRepository(
                     } else {
                         val remoteCreatedAt = remote.createdAt ?: remote.updatedAt ?: Clock.System.now().toString()
                         val remoteUpdatedAt = remote.updatedAt ?: remote.createdAt ?: remoteCreatedAt
-                        categoryDao.insert(
-                            userId = userId,
-                            name = remote.name,
-                            type = "expense",
-                            icon = null,
-                            color = null,
-                            sortOrder = remote.sortOrder.toLong(),
-                            isActive = remote.isActive.toLong(),
-                            isFixed = remote.isFixed.toLong(),
-                            fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
-                            autoDay = remote.autoDay?.toLong(),
-                            requireConfirm = remote.requireConfirm.toLong(),
-                            createdAt = remoteCreatedAt,
-                            updatedAt = remoteUpdatedAt,
-                            serverId = remote.id.toString(),
-                            syncStatus = SyncStatus.SYNCED.value,
-                        )
+                        val byName = categoryDao.getByName(userId, remote.name)
+                        if (byName != null) {
+                            categoryDao.update(
+                                id = byName.id,
+                                name = remote.name,
+                                type = byName.type,
+                                icon = byName.icon,
+                                color = byName.color,
+                                sortOrder = remote.sortOrder.toLong(),
+                                isActive = remote.isActive.toLong(),
+                                isFixed = remote.isFixed.toLong(),
+                                fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+                                autoDay = remote.autoDay?.toLong(),
+                                requireConfirm = remote.requireConfirm.toLong(),
+                                updatedAt = remoteUpdatedAt,
+                                serverId = remote.id.toString(),
+                                syncStatus = SyncStatus.SYNCED.value,
+                            )
+                        } else {
+                            categoryDao.insert(
+                                userId = userId,
+                                name = remote.name,
+                                type = "expense",
+                                icon = null,
+                                color = null,
+                                sortOrder = remote.sortOrder.toLong(),
+                                isActive = remote.isActive.toLong(),
+                                isFixed = remote.isFixed.toLong(),
+                                fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+                                autoDay = remote.autoDay?.toLong(),
+                                requireConfirm = remote.requireConfirm.toLong(),
+                                createdAt = remoteCreatedAt,
+                                updatedAt = remoteUpdatedAt,
+                                serverId = remote.id.toString(),
+                                syncStatus = SyncStatus.SYNCED.value,
+                            )
+                        }
                     }
                 }
 

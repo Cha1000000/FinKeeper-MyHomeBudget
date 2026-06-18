@@ -240,6 +240,16 @@ class CategoryDao(
     }
 
     /**
+     * Get category by user ID and name
+     */
+    fun getByName(userId: Long, name: String): Category? {
+        // executeAsList().firstOrNull(), а не executeAsOneOrNull(): у пострадавших от бага дублей
+        // юзеров локально может быть >1 строки с одинаковым (user_id, name) — executeAsOneOrNull
+        // в этом случае бросает исключение. Дедуп таких строк делает runAdditiveMigrations.
+        return queries.getCategoryByName(userId, name).executeAsList().firstOrNull()?.let { toCategory(it) }
+    }
+
+    /**
      * Получение фиксированных категорий пользователя
      */
     fun getFixedByUser(userId: Long): List<Category> {

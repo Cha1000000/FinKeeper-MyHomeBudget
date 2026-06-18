@@ -110,6 +110,21 @@ class IncomeSourceRepository(
     ): Result<RemoteIncomeSource> =
         withContext(Dispatchers.Default) {
             try {
+                val existingByName = incomeSourceDao.getByName(userId, name)
+                if (existingByName != null) {
+                    val result = RemoteIncomeSource(
+                        id = existingByName.id.toInt(),
+                        userId = existingByName.userId.toInt(),
+                        name = existingByName.name,
+                        isActive = existingByName.isActive.toInt(),
+                        isFixed = existingByName.isFixed.toInt(),
+                        fixedAmount = existingByName.fixedAmount?.let { it.toDouble() / 100.0 },
+                        autoDay = existingByName.autoDay?.toInt(),
+                        requireConfirm = existingByName.requireConfirm.toInt(),
+                    )
+                    return@withContext Result.success(result)
+                }
+
                 val maxSortOrder = incomeSourceDao.getMaxSortOrder(userId)
                 val localId =
                     incomeSourceDao.insert(
@@ -286,20 +301,37 @@ class IncomeSourceRepository(
                             syncStatus = SyncStatus.SYNCED.value,
                         )
                     } else {
-                        incomeSourceDao.insert(
-                            userId = userId,
-                            name = remote.name,
-                            sortOrder = remote.sortOrder.toLong(),
-                            isActive = remote.isActive.toLong(),
-                            isFixed = remote.isFixed.toLong(),
-                            fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
-                            autoDay = remote.autoDay?.toLong(),
-                            requireConfirm = remote.requireConfirm.toLong(),
-                            createdAt = remote.createdAt,
-                            updatedAt = remote.updatedAt,
-                            serverId = remote.id.toString(),
-                            syncStatus = SyncStatus.SYNCED.value,
-                        )
+                        val byName = incomeSourceDao.getByName(userId, remote.name)
+                        if (byName != null) {
+                            incomeSourceDao.update(
+                                id = byName.id,
+                                name = remote.name,
+                                sortOrder = remote.sortOrder.toLong(),
+                                isActive = remote.isActive.toLong(),
+                                isFixed = remote.isFixed.toLong(),
+                                fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+                                autoDay = remote.autoDay?.toLong(),
+                                requireConfirm = remote.requireConfirm.toLong(),
+                                updatedAt = remote.updatedAt ?: byName.updatedAt,
+                                serverId = remote.id.toString(),
+                                syncStatus = SyncStatus.SYNCED.value,
+                            )
+                        } else {
+                            incomeSourceDao.insert(
+                                userId = userId,
+                                name = remote.name,
+                                sortOrder = remote.sortOrder.toLong(),
+                                isActive = remote.isActive.toLong(),
+                                isFixed = remote.isFixed.toLong(),
+                                fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
+                                autoDay = remote.autoDay?.toLong(),
+                                requireConfirm = remote.requireConfirm.toLong(),
+                                createdAt = remote.createdAt,
+                                updatedAt = remote.updatedAt,
+                                serverId = remote.id.toString(),
+                                syncStatus = SyncStatus.SYNCED.value,
+                            )
+                        }
                     }
                 }
 

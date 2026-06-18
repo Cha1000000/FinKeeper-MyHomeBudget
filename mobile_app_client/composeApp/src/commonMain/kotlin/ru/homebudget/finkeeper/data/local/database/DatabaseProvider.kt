@@ -79,4 +79,85 @@ private fun runAdditiveMigrations(driver: SqlDriver) {
             // Колонка/таблица уже существует — это нормально, идём дальше.
         }
     }
+
+    // v2.2.1 — схлопывание локальных дублей категорий/источников по (user_id, name) c
+    // перепривязкой ссылок (расходы/доходы/бюджеты/план) и UNIQUE-индексы против повторного
+    // появления. Для свежих БД индексы уже есть из схемы (.sq), здесь — путь для существующих
+    // установок (см. [[kmp-db-migrations]]).
+    dedupeUserScopedLocal(
+        driver,
+        buildDedupeStatements(
+            table = "categories",
+            indexName = "idx_categories_user_name",
+            refs = listOf(
+                DedupRef("expenses", "category_id"),
+                DedupRef("budgets", "category_id", unique = true),
+                DedupRef("planned_overrides", "template_id", where = "template_type = 'category'", unique = true),
+                DedupRef("auto_created_records", "template_id", where = "template_type = 'category'", unique = true),
+            ),
+        ),
+    )
+    dedupeUserScopedLocal(
+        driver,
+        buildDedupeStatements(
+            table = "income_sources",
+            indexName = "idx_income_sources_user_name",
+            refs = listOf(
+                DedupRef("incomes", "income_source_id"),
+                DedupRef("planned_overrides", "template_id", where = "template_type = 'income_source'", unique = true),
+                DedupRef("auto_created_records", "template_id", where = "template_type = 'income_source'", unique = true),
+            ),
+        ),
+    )
+}
+
+private data class DedupRef(
+    val table: String,
+    val column: String,
+    val where: String? = null,
+    val unique: Boolean = false,
+)
+
+/**
+ * Строит упорядоченный список SQL для схлопывания дублей в [table] по (user_id, name):
+ * 1) перепривязка ссылок с дублей на «канонический» (минимальный id) ряд;
+ * 2) у уникальных ссылок — удаление конфликтных остатков;
+ * 3) удаление самих дублей; 4) создание UNIQUE-индекса.
+ * Только корреляционные подзапросы (без UPDATE..FROM / оконных) — работает и на старом SQLite (Android minSdk 24).
+ */
+private fun buildDedupeStatements(table: String, indexName: String, refs: List<DedupRef>): List<String> {
+    val dupIds =
+        "SELECT x.id FROM $table x " +
+            "WHERE x.id > (SELECT MIN(y.id) FROM $table y WHERE y.user_id = x.user_id AND y.name = x.name)"
+    val stmts = mutableListOf<String>()
+    for (ref in refs) {
+        val canonical =
+            "(SELECT MIN(y.id) FROM $table y " +
+                "WHERE y.user_id = (SELECT user_id FROM $table WHERE id = ${ref.table}.${ref.column}) " +
+                "AND y.name = (SELECT name FROM $table WHERE id = ${ref.table}.${ref.column}))"
+        val extra = ref.where?.let { " AND $it" } ?: ""
+        val verb = if (ref.unique) "UPDATE OR IGNORE" else "UPDATE"
+        stmts += "$verb ${ref.table} SET ${ref.column} = $canonical WHERE ${ref.column} IN ($dupIds)$extra"
+        if (ref.unique) {
+            stmts += "DELETE FROM ${ref.table} WHERE ${ref.column} IN ($dupIds)$extra"
+        }
+    }
+    stmts += "DELETE FROM $table WHERE id IN ($dupIds)"
+    stmts += "CREATE UNIQUE INDEX IF NOT EXISTS $indexName ON $table(user_id, name)"
+    return stmts
+}
+
+/**
+ * Выполняет шаги дедупа по порядку. При ошибке (например, перепривязка не удалась) ПРЕРЫВАЕТ
+ * последовательность для этой таблицы, чтобы НЕ дойти до удаления дублей и не осиротить/каскадно
+ * удалить данные. Повторный запуск безопасен (на чистой БД шаги — no-op).
+ */
+private fun dedupeUserScopedLocal(driver: SqlDriver, statements: List<String>) {
+    for (sql in statements) {
+        try {
+            driver.execute(null, sql, 0)
+        } catch (_: Exception) {
+            return
+        }
+    }
 }

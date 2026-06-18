@@ -169,6 +169,15 @@ class IncomeSourceDao(
     }
 
     /**
+     * Получение по имени пользователя и названию
+     */
+    fun getByName(userId: Long, name: String): IncomeSource? {
+        // executeAsList().firstOrNull(), а не executeAsOneOrNull(): у пострадавших от бага дублей
+        // юзеров локально может быть >1 строки с одинаковым (user_id, name). Дедуп — в runAdditiveMigrations.
+        return queries.getIncomeSourceByName(userId, name).executeAsList().firstOrNull()?.let { toIncomeSource(it) }
+    }
+
+    /**
      * Получение фиксированных источников дохода пользователя
      */
     fun getFixedByUser(userId: Long): List<IncomeSource> {

@@ -905,7 +905,7 @@ private fun AddEntryDialog(
                         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                     ) {
                         LazyColumn(modifier = Modifier.padding(4.dp)) {
-                            items(incomeSources, key = { it.name }) { src ->
+                            items(incomeSources, key = { it.id }) { src ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
