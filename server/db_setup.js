@@ -1,3 +1,13 @@
+// ВАЖНО: это БУТСТРАП ПОЛНОЙ БАЗОВОЙ СХЕМЫ для СВЕЖЕЙ БД (создаёт все базовые таблицы:
+// users, categories, income_sources, months, incomes, expenses, budgets, savings_*).
+// Запускается ОДИН РАЗ при инициализации БД (node db_setup.js) и как фикстура во всех
+// серверных тестах (smoke-*, planned.test). НА ПРОДЕ ПРИ РЕСТАРТЕ НЕ ВЫПОЛНЯЕТСЯ —
+// start_prod.sh делает только `node index.js`.
+//
+// >>> Миграции для УЖЕ СУЩЕСТВУЮЩИХ БД (новые колонки/таблицы/индексы, дедуп и т.п.) клади
+//     в server/db/connection.js → ensureSchemaUpToDate() — она вызывается на импорте при
+//     КАЖДОМ старте сервера. Сюда (db_setup.js) такие миграции класть БЕСПОЛЕЗНО: на боевую
+//     БД они не попадут. (См. историю фикса дублей категорий.) <<<
 const Database = require('better-sqlite3');
 const path = require('path');
 const logger = require('./logger');
@@ -222,7 +232,16 @@ CREATE TABLE IF NOT EXISTS deleted_records (
 
 db.exec(schema);
 
+// UNIQUE-индексы для свежих установок (на пустой БД дублей нет). Для существующих БД
+// схлопывание дублей с перепривязкой ссылок и создание этих индексов выполняет
+// ensureSchemaUpToDate() в db/connection.js (прод-путь миграций).
 db.exec(`
+CREATE UNIQUE INDEX IF NOT EXISTS idx_income_sources_user_name
+ON income_sources(user_id, name);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_user_name
+ON categories(user_id, name);
+
 CREATE INDEX IF NOT EXISTS idx_auth_email_verification_tokens_user_id
 ON auth_email_verification_tokens(user_id);
 

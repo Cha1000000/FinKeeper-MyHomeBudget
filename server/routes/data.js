@@ -78,12 +78,26 @@ router.post('/categories', (req, res) => {
         const nextOrder = (result.maxOrder || 0) + 1;
         const timestamp = nowIso();
 
-        const info = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_fixed, fixed_amount, auto_day, require_confirm, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-            req.user.id, name, nextOrder, isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, requireConfirm, timestamp, timestamp
-        );
-        const body = getRowById('categories', info.lastInsertRowid);
-        broadcastChange(req, req.user.id, 'category', 'created');
-        return { statusCode: 200, body };
+        const existing = db.prepare('SELECT * FROM categories WHERE user_id = ? AND name = ?').get(req.user.id, name);
+        if (existing) {
+            return { statusCode: 200, body: existing };
+        }
+
+        try {
+            const info = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_fixed, fixed_amount, auto_day, require_confirm, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+                req.user.id, name, nextOrder, isFixed, isFixed ? fixed_amount : null, isFixed ? auto_day : null, requireConfirm, timestamp, timestamp
+            );
+            const body = getRowById('categories', info.lastInsertRowid);
+            broadcastChange(req, req.user.id, 'category', 'created');
+            return { statusCode: 200, body };
+        } catch (err) {
+            // Гонка: параллельный запрос уже создал категорию с этим именем (UNIQUE) — вернём её.
+            if (String(err.code || '').startsWith('SQLITE_CONSTRAINT')) {
+                const row = db.prepare('SELECT * FROM categories WHERE user_id = ? AND name = ?').get(req.user.id, name);
+                if (row) return { statusCode: 200, body: row };
+            }
+            return { statusCode: 500, body: { error: err.message } };
+        }
     });
 });
 
@@ -177,6 +191,11 @@ router.post('/income_sources', (req, res) => {
         const requireConfirm = isFixed && Number(require_confirm) === 1 ? 1 : 0;
 
         try {
+            const existing = db.prepare('SELECT * FROM income_sources WHERE user_id = ? AND name = ?').get(req.user.id, name);
+            if (existing) {
+                return { statusCode: 200, body: existing };
+            }
+
             const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM income_sources WHERE user_id = ?').get(req.user.id);
             const nextOrder = (result.maxOrder || 0) + 1;
             const timestamp = nowIso();
@@ -187,6 +206,11 @@ router.post('/income_sources', (req, res) => {
             broadcastChange(req, req.user.id, 'income_source', 'created');
             return { statusCode: 200, body };
         } catch (err) {
+            // Гонка: параллельный запрос уже создал источник с этим именем (UNIQUE) — вернём его.
+            if (String(err.code || '').startsWith('SQLITE_CONSTRAINT')) {
+                const row = db.prepare('SELECT * FROM income_sources WHERE user_id = ? AND name = ?').get(req.user.id, name);
+                if (row) return { statusCode: 200, body: row };
+            }
             return { statusCode: 500, body: { error: err.message } };
         }
     });

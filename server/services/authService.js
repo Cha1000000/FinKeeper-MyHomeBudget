@@ -307,10 +307,10 @@ function refreshAuthSession(req, res, user, session) {
 }
 
 function seedUserDefaults(userId, timestamp) {
-    const insertCat = db.prepare('INSERT INTO categories (user_id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)');
+    const insertCat = db.prepare('INSERT OR IGNORE INTO categories (user_id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)');
     initialCategories.forEach((cat, index) => insertCat.run(userId, cat, index + 1, timestamp, timestamp));
 
-    const insertSource = db.prepare('INSERT INTO income_sources (user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)');
+    const insertSource = db.prepare('INSERT OR IGNORE INTO income_sources (user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)');
     initialIncomeSources.forEach(source => insertSource.run(userId, source, timestamp, timestamp));
 
     const insertGoal = db.prepare('INSERT INTO savings_goals (user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)');

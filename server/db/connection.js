@@ -53,6 +53,66 @@ function backfillTimestampColumns(tableName) {
     };
 }
 
+/**
+ * Схлопывание дублей в user-scoped справочнике (categories / income_sources) по (user_id, name):
+ * оставляем строку с минимальным id, ссылки на дубли ПЕРЕПРИВЯЗЫВАЕМ на оставляемую строку
+ * (чтобы не осиротить расходы/доходы/планы), затем дубли удаляем.
+ *
+ * references: [{ table, column, where?, unique? }]
+ *  - unique: true — у целевой таблицы есть UNIQUE по (…, column, …); перепривязка делается через
+ *    UPDATE OR IGNORE, конфликтные строки (дубликаты записи оставляемой категории) затем удаляются.
+ */
+function dedupeUserScopedTable(tableName, references) {
+    if (!hasTable(tableName)) {
+        return;
+    }
+
+    const groups = db.prepare(
+        `SELECT user_id, name, MIN(id) AS keepId, COUNT(*) AS cnt
+         FROM ${tableName}
+         GROUP BY user_id, name
+         HAVING cnt > 1`
+    ).all();
+
+    if (groups.length === 0) {
+        return;
+    }
+
+    const dedupe = db.transaction(() => {
+        for (const group of groups) {
+            const dupIds = db.prepare(
+                `SELECT id FROM ${tableName} WHERE user_id = ? AND name = ? AND id <> ?`
+            ).all(group.user_id, group.name, group.keepId).map(row => row.id);
+            if (dupIds.length === 0) {
+                continue;
+            }
+            const placeholders = dupIds.map(() => '?').join(',');
+
+            for (const ref of references) {
+                if (!hasColumn(ref.table, ref.column)) {
+                    continue;
+                }
+                const extra = ref.where ? ` AND ${ref.where}` : '';
+                const verb = ref.unique ? 'UPDATE OR IGNORE' : 'UPDATE';
+                db.prepare(
+                    `${verb} ${ref.table} SET ${ref.column} = ? WHERE ${ref.column} IN (${placeholders})${extra}`
+                ).run(group.keepId, ...dupIds);
+                if (ref.unique) {
+                    // Строки, которые не удалось перепривязать из-за конфликта UNIQUE — это
+                    // дубликаты записи оставляемой категории/источника; удаляем их.
+                    db.prepare(
+                        `DELETE FROM ${ref.table} WHERE ${ref.column} IN (${placeholders})${extra}`
+                    ).run(...dupIds);
+                }
+            }
+
+            db.prepare(`DELETE FROM ${tableName} WHERE id IN (${placeholders})`).run(...dupIds);
+        }
+    });
+    dedupe();
+    logger.info('schema_dedupe_done', { tableName, groups: groups.length });
+}
+
 function ensureSchemaUpToDate() {
     logger.info('schema_ensure_start', { dbPath });
     db.exec(`
@@ -242,6 +302,40 @@ function ensureSchemaUpToDate() {
         CREATE INDEX IF NOT EXISTS idx_auth_social_login_attempts_status
         ON auth_social_login_attempts(status);
     `);
+
+    // Дедуп категорий/источников по (user_id, name) с перепривязкой ссылок и UNIQUE-индексы,
+    // предотвращающие повторное появление дублей (баг гонки синка/регистрации).
+    // Дедуп строго ДО создания UNIQUE-индекса — иначе индекс упадёт на существующих дублях.
+    //
+    // Весь блок обёрнут в try/catch: ensureSchemaUpToDate() выполняется на импорте, и любая
+    // непредвиденная ошибка здесь иначе уронила бы СТАРТ сервера для всех. Дедуп атомарен
+    // (внутри db.transaction — при сбое откатывается без частичной порчи), поэтому при ошибке
+    // безопаснее залогировать и продолжить: данные целы, а новые дубли всё равно отсекаются
+    // на уровне роутов (SELECT-before-INSERT + обработка UNIQUE). Индекс довыполнится при
+    // следующем рестарте, когда причина устранена.
+    try {
+        dedupeUserScopedTable('categories', [
+            { table: 'expenses', column: 'category_id' },
+            { table: 'budgets', column: 'category_id' },
+            { table: 'auto_created_records', column: 'template_id', where: "template_type = 'category'", unique: true },
+            { table: 'planned_overrides', column: 'template_id', where: "template_type = 'category'", unique: true },
+        ]);
+        dedupeUserScopedTable('income_sources', [
+            // incomes ссылается на источник по тексту (source), FK по id нет — доходы не осиротеют.
+            { table: 'auto_created_records', column: 'template_id', where: "template_type = 'income_source'", unique: true },
+            { table: 'planned_overrides', column: 'template_id', where: "template_type = 'income_source'", unique: true },
+        ]);
+
+        db.exec(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_user_name
+            ON categories(user_id, name);
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_income_sources_user_name
+            ON income_sources(user_id, name);
+        `);
+    } catch (error) {
+        logger.error('schema_dedupe_failed', { error: error.message });
+    }
 
     const syncTables = [
         'categories',
