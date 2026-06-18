@@ -18,3 +18,11 @@ server/backend.log
 server_debug.log
 
 .claude/
+
+# MCP / AI agent logs & databases
+mcp_audit.db
+mcp_security.log
+
+# zsh / p10k / oh-my-zsh cache (literal ~ directories from path expansion bugs)
+**/~/.cache/
+~/.cache/
