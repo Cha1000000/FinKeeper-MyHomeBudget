@@ -52,3 +52,27 @@ Gradle Plugin Portal, VK artifactory), без alpha/beta/rc.
 - `network_security_config.xml` разрешает HTTP и в релизе — отдельная задача безопасности.
 - Deprecation Gradle 10 и `AlertDialog` → `BasicAlertDialog` — после бампов, по результатам.
 - Пуш — в конце, после проверки Володей.
+
+## Итог (2026-09-22)
+
+Все зависимости — на актуальных стабильных версиях. Отклонения от порядка:
+- compileSdk 35 → 36 (activity 1.13 / core 1.18) → 37 (Compose 1.12 / lifecycle 2.11); targetSdk = 35.
+- Шаги 7 (datetime → 0.8.0) и 8 (reorderable → 3.1.0) вынужденно вошли в шаг 3: CMP Material3
+  тянет datetime 0.7+ (удалены kotlinx.datetime.Clock/Instant → kotlin.time), reorderable 2.3.3
+  падал на удалённом animateItemPlacement. Оба бага ловятся только запуском, не тестами.
+- По ходу найдены и исправлены: сироты после удаления категорий/источников (`ec05bcd`),
+  неатомарная desktop-миграция на файловом драйвере (`e7f1467`).
+
+## Кандидаты на отдельные задачи
+
+- KMP-плагин + `com.android.application` объявлен устаревшим с AGP 9 — вынести Android-приложение
+  в отдельный модуль, общий код — `com.android.kotlin.multiplatform.library` (до AGP 10).
+- `gradle.properties`: устаревшие флаги отказа от новых фич AGP (`android.builtInKotlin=false`,
+  `android.newDsl=false` и др.) — будут удалены в AGP 10; + deprecation Gradle 10.
+- `security-crypto` (EncryptedSharedPreferences/MasterKey) объявлен устаревшим Google —
+  перенести хранение токена (DataStore + Tink/Keystore).
+- targetSdk 35 → 36+ (требования сторов) — отдельное решение с проверкой поведения.
+- `network_security_config.xml` разрешает HTTP и в релизе.
+- ~~`koin-androidx-compose` не используется~~ — удалён (`de083a4`).
+- Адрес репозитория RuStore SDK заменён на `nexus-external.rustore.ru` (старый отключается 01.10.2026) — `dec4014`.
+- Deprecation в коде: `TabRow`, `AlertDialog`, `quadraticBezierTo`, `painterResource(String)`.
