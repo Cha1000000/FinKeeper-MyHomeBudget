@@ -356,8 +356,11 @@ class ApiClient(
 
     // ── Categories ──
 
+    // Нужны и неактивные категории (в т.ч. скрытая «Пополнение копилки»): без них
+    // синхронизация выбрасывает их расходы, и локальные суммы расходятся с сервером.
+    // Из UI неактивные отсекаются фильтром isActive.
     suspend fun getCategories(): List<Category> {
-        val response = client.get("$baseUrl/categories")
+        val response = client.get("$baseUrl/categories?include_inactive=1")
         checkResponse(response)
         return response.body()
     }
