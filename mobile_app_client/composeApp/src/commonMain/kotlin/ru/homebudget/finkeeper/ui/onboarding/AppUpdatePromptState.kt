@@ -1,7 +1,7 @@
 package ru.homebudget.finkeeper.ui.onboarding
 
 import com.russhwolf.settings.Settings
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import ru.homebudget.finkeeper.data.update.AppUpdateStatus
 
 /**

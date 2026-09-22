@@ -205,7 +205,7 @@ class MonthDao(
         )
 
     private fun getCurrentTimestamp(): String =
-        kotlinx.datetime.Clock.System
+        kotlin.time.Clock.System
             .now()
             .toString()
 }

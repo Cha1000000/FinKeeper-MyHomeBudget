@@ -236,7 +236,7 @@ class IncomeDao(
     }
 
     private fun getCurrentTimestamp(): String {
-        return kotlinx.datetime.Clock.System.now().toString()
+        return kotlin.time.Clock.System.now().toString()
     }
 }
 

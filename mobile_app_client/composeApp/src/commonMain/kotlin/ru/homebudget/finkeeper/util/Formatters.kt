@@ -1,7 +1,8 @@
 package ru.homebudget.finkeeper.util
 
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.datetime.*
+import kotlin.time.Instant
 
 fun formatCurrency(amount: Double): String {
     val rounded = kotlin.math.round(amount).toLong()

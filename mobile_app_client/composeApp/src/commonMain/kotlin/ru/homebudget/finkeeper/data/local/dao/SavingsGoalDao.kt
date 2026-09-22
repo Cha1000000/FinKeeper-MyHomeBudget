@@ -174,7 +174,7 @@ class SavingsGoalDao(private val database: FinKeeperDatabase) {
     }
     
     private fun getCurrentDateTime(): String {
-        val now = kotlinx.datetime.Clock.System.now()
+        val now = kotlin.time.Clock.System.now()
         return now.toString()
     }
 }

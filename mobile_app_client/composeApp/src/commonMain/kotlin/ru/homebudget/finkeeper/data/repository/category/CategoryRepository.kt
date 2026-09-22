@@ -4,7 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import ru.homebudget.finkeeper.data.local.dao.CategoryDao
