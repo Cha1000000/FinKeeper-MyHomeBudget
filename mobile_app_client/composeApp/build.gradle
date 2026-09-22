@@ -306,3 +306,20 @@ compose.desktop {
         }
     }
 }
+
+// jpackage вшивает в имя Linux-пакета номер релиза по умолчанию: finkeeper24_2.2.3-1_amd64.deb,
+// finkeeper24-2.2.3-1.x86_64.rpm. Ссылки лендинга, PKGBUILD и publish-aur.yml ждут прежний формат
+// без релиза — переименовываем сразу после упаковки (и локально, и в CI)
+tasks.matching { it.name in ['packageDeb', 'packageRpm', 'packageReleaseDeb', 'packageReleaseRpm'] }.configureEach { task ->
+    def outDir = task.destinationDir
+    task.doLast {
+        outDir.get().asFile.listFiles()?.each { f ->
+            def renamed = f.name
+                .replaceFirst(/^(.+_[^_]+)-\d+(_[^_]+\.deb)$/, '$1$2')
+                .replaceFirst(/^(.+)-\d+(\.[^.]+\.rpm)$/, '$1$2')
+            if (renamed != f.name && !f.renameTo(new File(f.parentFile, renamed))) {
+                throw new GradleException("Не удалось переименовать ${f.name} → ${renamed}")
+            }
+        }
+    }
+}
