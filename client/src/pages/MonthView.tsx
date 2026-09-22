@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Pencil, GripVertical, SlidersHorizontal, Clock, MoreHorizontal, RotateCcw, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, ChevronDown, Pencil, GripVertical, SlidersHorizontal, Clock, MoreHorizontal, RotateCcw, Check, Info } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -275,6 +275,26 @@ const MonthView: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'income' | 'expense'>('expense');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+    const [isLimitInfoOpen, setIsLimitInfoOpen] = useState(false);
+    const limitInfoRef = useRef<HTMLDivElement>(null);
+
+    // Клик мимо ловим на document: у плашки backdrop-blur, и fixed-слой внутри неё
+    // накрыл бы только саму плашку, а не весь экран
+    useEffect(() => {
+        if (!isLimitInfoOpen) return;
+        const onPointerDown = (e: PointerEvent) => {
+            if (!limitInfoRef.current?.contains(e.target as Node)) setIsLimitInfoOpen(false);
+        };
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setIsLimitInfoOpen(false);
+        };
+        document.addEventListener('pointerdown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [isLimitInfoOpen]);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -781,9 +801,53 @@ const MonthView: React.FC = () => {
                         </p>
                     )}
                 </div>
-                <div className="bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] cursor-pointer hover:shadow-md dark:hover:bg-blue-900/20 transition-all group" onClick={() => setIsBudgetModalOpen(true)}>
+                <div className={`relative ${isLimitInfoOpen ? 'z-30' : ''} bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] cursor-pointer hover:shadow-md dark:hover:bg-blue-900/20 transition-all group`} onClick={() => setIsBudgetModalOpen(true)}>
                     <div className="flex justify-between items-center mb-1">
-                        <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Лимит трат на месяц</p>
+                        <div className="flex items-center gap-1">
+                            <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Лимит трат на месяц</p>
+                            <div ref={limitInfoRef} onClick={(e) => e.stopPropagation()} className="cursor-default">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsLimitInfoOpen(open => !open)}
+                                    aria-label="Как считается лимит"
+                                    aria-expanded={isLimitInfoOpen}
+                                    className="p-1 -m-0.5 rounded-full text-blue-500/70 dark:text-blue-400/70 hover:text-blue-600 hover:bg-blue-100/80 dark:hover:text-blue-300 dark:hover:bg-blue-900/50 transition-colors cursor-pointer"
+                                >
+                                    <Info className="w-4 h-4" />
+                                </button>
+                                {isLimitInfoOpen && (
+                                    <div
+                                        role="dialog"
+                                        aria-label="Как считается лимит"
+                                        className="absolute left-3 right-3 top-12 z-40 bg-[var(--color-surface)] rounded-2xl shadow-[0_12px_40px_-8px_rgba(0,0,0,0.25)] border border-[var(--color-border-default)] p-4 text-left"
+                                    >
+                                        <p className="flex items-center gap-1.5 text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+                                            <Info className="w-4 h-4" />
+                                            Как считается лимит
+                                        </p>
+                                        <p className="text-sm leading-relaxed text-slate-600 dark:text-[var(--color-text-muted)]">
+                                            Пополнения копилок тоже тратят лимит месяца: деньги откладываются из того же бюджета, поэтому сумма пополнения вычитается из остатка.
+                                        </p>
+                                        {totalAllExpenses - totalExpense > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-[var(--color-border-default)] space-y-1.5 text-sm tabular-nums">
+                                                <div className="flex justify-between gap-3 text-slate-600 dark:text-[var(--color-text-muted)]">
+                                                    <span>Расходы</span>
+                                                    <span>{formatCurrency(totalExpense)}</span>
+                                                </div>
+                                                <div className="flex justify-between gap-3 text-slate-600 dark:text-[var(--color-text-muted)]">
+                                                    <span>Пополнения копилок</span>
+                                                    <span>{formatCurrency(totalAllExpenses - totalExpense)}</span>
+                                                </div>
+                                                <div className="flex justify-between gap-3 pt-1.5 border-t border-dashed border-[var(--color-border-default)] font-semibold text-slate-800 dark:text-[var(--color-text-main)]">
+                                                    <span>Использовано лимита</span>
+                                                    <span>{formatCurrency(totalAllExpenses)}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                         <span className="text-xs text-blue-500 dark:text-blue-300 font-bold bg-blue-100/80 dark:bg-blue-900/60 px-2 py-0.5 rounded-lg border border-blue-200/50 dark:border-blue-700/50 transition-colors">
                             {Math.min((totalAllExpenses / (totalLimit || 1)) * 100, 100).toFixed(0)}%
                         </span>

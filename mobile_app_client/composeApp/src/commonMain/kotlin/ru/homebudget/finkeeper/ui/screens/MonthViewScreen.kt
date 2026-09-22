@@ -65,6 +65,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Icon
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.DesktopAddButton
@@ -232,8 +245,16 @@ fun MonthViewScreen(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(Strings.SPENDING_LIMIT, style = MaterialTheme.typography.titleSmall, color = semantic.warningColor)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(Strings.SPENDING_LIMIT, style = MaterialTheme.typography.titleSmall, color = semantic.warningColor)
+                            LimitInfoButton(
+                                expenses = state.totalExpense,
+                                allExpenses = state.totalAllExpenses,
+                                accentColor = semantic.warningColor,
+                            )
+                        }
                         Text(
                             "${formatCurrency(state.totalAllExpenses)} / ${formatCurrency(state.totalLimit)}",
                             style = MaterialTheme.typography.labelMedium,
@@ -1116,6 +1137,127 @@ private fun OperatorChip(
         Box(contentAlignment = Alignment.Center) {
             Text(label, style = MaterialTheme.typography.titleMedium)
         }
+    }
+}
+
+// Значок «i» на плашке лимита: по нажатию — пузырь с пояснением, что пополнения копилок
+// тоже расходуют лимит месяца (они приходят скрытыми расходами «Пополнение копилки»)
+@Composable
+private fun LimitInfoButton(
+    expenses: Double,
+    allExpenses: Double,
+    accentColor: Color,
+) {
+    var showInfo by remember { mutableStateOf(false) }
+    val marginPx = with(LocalDensity.current) { 12.dp.roundToPx() }
+    val positionProvider = remember(marginPx) { BelowAnchorClampedPositionProvider(marginPx) }
+
+    Box {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .clickable { showInfo = !showInfo },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = Strings.LIMIT_INFO_TITLE,
+                tint = accentColor.copy(alpha = 0.7f),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        if (showInfo) {
+            Popup(
+                popupPositionProvider = positionProvider,
+                onDismissRequest = { showInfo = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                LimitInfoContent(expenses = expenses, allExpenses = allExpenses, accentColor = accentColor)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LimitInfoContent(
+    expenses: Double,
+    allExpenses: Double,
+    accentColor: Color,
+) {
+    val savings = allExpenses - expenses
+    Surface(
+        modifier = Modifier.widthIn(max = 300.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f)),
+        shadowElevation = 8.dp,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.size(6.dp))
+                Text(Strings.LIMIT_INFO_TITLE, style = MaterialTheme.typography.titleSmall, color = accentColor)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = Strings.LIMIT_INFO_TEXT,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (savings > 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = accentColor.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(8.dp))
+                LimitInfoRow(Strings.LIMIT_INFO_EXPENSES, expenses)
+                LimitInfoRow(Strings.LIMIT_INFO_SAVINGS, savings)
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 6.dp),
+                    color = accentColor.copy(alpha = 0.2f),
+                )
+                LimitInfoRow(Strings.LIMIT_INFO_USED, allExpenses, emphasized = true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LimitInfoRow(label: String, amount: Double, emphasized: Boolean = false) {
+    val color = if (emphasized) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+    val weight = if (emphasized) FontWeight.SemiBold else FontWeight.Normal
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = color, fontWeight = weight)
+        Spacer(modifier = Modifier.size(12.dp))
+        Text(formatCurrency(amount), style = MaterialTheme.typography.bodyMedium, color = color, fontWeight = weight)
+    }
+}
+
+// Пузырь под значком; по горизонтали прижимается к краям окна, чтобы не уехать
+// за экран на узком телефоне; если снизу не влезает — открывается над значком
+private class BelowAnchorClampedPositionProvider(private val marginPx: Int) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val maxX = (windowSize.width - popupContentSize.width - marginPx).coerceAtLeast(marginPx)
+        val x = anchorBounds.left.coerceIn(marginPx, maxX)
+        val fitsBelow = anchorBounds.bottom + popupContentSize.height <= windowSize.height - marginPx
+        val y = if (fitsBelow) {
+            anchorBounds.bottom
+        } else {
+            (anchorBounds.top - popupContentSize.height).coerceAtLeast(marginPx)
+        }
+        return IntOffset(x, y)
     }
 }
 
