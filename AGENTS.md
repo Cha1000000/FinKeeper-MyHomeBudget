@@ -67,6 +67,15 @@ node index.js        # Start server on port 3002
 node db_setup.js     # Initialize/recreate database schema
 ```
 
+### Landing (lending/)
+
+```bash
+cd lending/
+./deploy.sh --bump X.Y.Z   # version in downloads.html, latest.json, App.tsx badge
+./deploy.sh                # checks → local build → upload dist → live checks (see lending/README.md)
+./deploy.sh --rollback     # restore previous dist
+```
+
 ### Mobile/Desktop (KMP)
 
 See `mobile_app_client/AGENTS.md` for detailed KMP commands.

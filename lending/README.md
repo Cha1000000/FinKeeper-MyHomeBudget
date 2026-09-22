@@ -72,3 +72,29 @@ lending/
 * **Web-версию:** https://app.finkeeper24.ru
 * **Страницу загрузок:** `/downloads.html` (Desktop и Mobile версии)
 * **Документы:** `/privacy.html` и `/terms.html`
+
+## Выкладка на finkeeper24.ru
+
+Одной командой из `lending/` (нужен SSH-доступ к серверу, `rsync`, Node):
+
+```bash
+./deploy.sh --bump 2.2.4   # новая версия в downloads.html, latest.json и бейдже App.tsx
+git commit -am "chore(lending): версия 2.2.4"
+./deploy.sh --check        # только проверки
+./deploy.sh                # проверки → сборка → выкладка → проверка живого сайта
+./deploy.sh --rollback     # вернуть предыдущую выложенную версию (повторный — обратно)
+```
+
+Перед выкладкой скрипт останавливается, если:
+* версия расходится между `downloads.html`, `latest.json`, бейджем `App.tsx` и `app_version`
+  в `mobile_app_client/composeApp/build.gradle` (`latest.json` — оповещение desktop о новой версии);
+* хоть одна ссылка со страницы загрузок не отвечает 200 — **сначала залей пакеты** в
+  `/var/www/finkeeper24.ru/html/downloads/`;
+* в `lending/` есть незакоммиченные изменения (`--allow-dirty` — обойти).
+
+Сборка идёт у тебя, на сервер уходит только `dist` (через `dist.new` с подменой; прежняя версия
+остаётся как `dist.prev`). Папку `downloads` скрипт не трогает. Сервер/путь/адрес сайта можно
+переопределить: `DEPLOY_HOST`, `DEPLOY_ROOT`, `SITE_URL`.
+
+Порядок релиза desktop: пакеты из GitHub Actions → залить в `downloads/` → `./deploy.sh --bump X.Y.Z`
+→ коммит → `./deploy.sh` → запустить `publish-aur.yml`.
