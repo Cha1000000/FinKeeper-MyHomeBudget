@@ -90,7 +90,6 @@ kotlin {
                 implementation libs.androidx.compose.ui.tooling.preview
                 implementation libs.ktor.client.okhttp
                 implementation libs.koin.android
-                implementation libs.koin.androidx.compose
                 implementation libs.sqldelight.android
                 implementation libs.androidx.lifecycle.viewmodel.compose
                 implementation libs.androidx.lifecycle.runtime.compose
