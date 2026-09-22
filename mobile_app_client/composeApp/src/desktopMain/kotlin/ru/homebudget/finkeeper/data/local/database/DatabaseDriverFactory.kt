@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.local.database
 
+import app.cash.sqldelight.TransacterImpl
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
@@ -281,7 +282,7 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
     migrateSavingsTransactionsMonthColumn(driver)
 }
 
-internal fun migrateSavingsTransactionsMonthColumn(driver: SqlDriver) {
+internal fun migrateSavingsTransactionsMonthColumn(driver: SqlDriver): Boolean {
     // Миграция: month_id должен стоять 4-й колонкой (SQLDelight читает колонки по позиции,
     // а ALTER TABLE ADD COLUMN добавляет в конец). Пересобираем таблицу, только если это не так.
     // Раньше пересборка шла на каждом запуске и теряла month_id — неотправленные пополнения
@@ -320,22 +321,25 @@ internal fun migrateSavingsTransactionsMonthColumn(driver: SqlDriver) {
                 "CREATE INDEX IF NOT EXISTS idx_savings_transactions_goal ON savings_transactions(savings_goal_id)",
             )
             // Одной транзакцией: при сбое на любом шаге (или падении процесса) SQLite откатит
-            // и DROP, и RENAME — таблица с данными останется прежней
-            driver.execute(null, "BEGIN IMMEDIATE", 0, null)
+            // и DROP, и RENAME — таблица с данными останется прежней. Именно транзакция
+            // SQLDelight: файловый JdbcSqliteDriver берёт соединение на каждый execute,
+            // и ручной BEGIN/COMMIT транзакцию не открывает
             try {
-                for (sql in migrationStatements) {
-                    driver.execute(null, sql.trimIndent(), 0, null)
+                object : TransacterImpl(driver) {}.transaction {
+                    for (sql in migrationStatements) {
+                        driver.execute(null, sql.trimIndent(), 0, null)
+                    }
                 }
-                driver.execute(null, "COMMIT", 0, null)
                 DesktopSyncLog.log("DB", "Table savings_transactions migrated successfully")
+                return true
             } catch (e: Exception) {
-                runCatching { driver.execute(null, "ROLLBACK", 0, null) }
                 DesktopSyncLog.log("DB", "Migration rolled back: ${e.message}")
             }
         }
     } catch (e: Exception) {
         DesktopSyncLog.log("DB", "Migration error: ${e.message}")
     }
+    return false
 }
 
 // Имена колонок таблицы в порядке их объявления (пустой список — таблицы нет)

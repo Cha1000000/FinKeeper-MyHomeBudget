@@ -70,6 +70,23 @@ class SavingsTransactionsMigrationTest {
         assertEquals(listOf<Long?>(7), driver.queryLongs("SELECT month_id FROM savings_transactions"))
     }
 
+    // Как в продакшене: файловая БД. Драйвер берёт соединение на каждый execute, поэтому
+    // ручной BEGIN/COMMIT транзакцию не открывает — нужна транзакция самого SQLDelight
+    @Test
+    fun oldLayout_onFileDatabase_isMigratedInOneTransaction() {
+        val file = Files.createTempFile("finkeeper-mig", ".db").toFile().apply { deleteOnExit() }
+        val driver = JdbcSqliteDriver("jdbc:sqlite:${file.absolutePath}")
+        driver.exec("CREATE TABLE savings_transactions ($baseColumns, $tailColumns)")
+        driver.exec("ALTER TABLE savings_transactions ADD COLUMN month_id INTEGER")
+        driver.insertRow(withMonth = true)
+
+        val committed = migrateSavingsTransactionsMonthColumn(driver)
+
+        assertEquals(true, committed)
+        assertEquals("month_id", driver.columns()[3])
+        assertEquals(listOf<Long?>(7), driver.queryLongs("SELECT month_id FROM savings_transactions"))
+    }
+
     @Test
     fun correctLayout_isNotRebuiltAndKeepsMonthIdAcrossLaunches() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
