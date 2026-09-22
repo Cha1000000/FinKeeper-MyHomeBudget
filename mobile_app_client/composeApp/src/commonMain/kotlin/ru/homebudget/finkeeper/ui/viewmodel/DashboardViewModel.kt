@@ -22,6 +22,9 @@ import ru.homebudget.finkeeper.data.repository.month.MonthRepository
 import ru.homebudget.finkeeper.data.repository.planned.PlannedRepository
 import ru.homebudget.finkeeper.data.repository.onSuccess
 import ru.homebudget.finkeeper.data.repository.savings.SavingsGoalRepository
+import ru.homebudget.finkeeper.data.repository.savings.SavingsTransactionRepository
+import ru.homebudget.finkeeper.data.planned.toAutoExpense
+import ru.homebudget.finkeeper.data.planned.withoutDownloadedRecords
 import ru.homebudget.finkeeper.util.RetryConfig
 import ru.homebudget.finkeeper.util.withRetry
 
@@ -68,6 +71,7 @@ class DashboardViewModel(
     private val apiClient: ApiClient,
     private val tokenStorage: TokenStorage,
     private val syncManager: SyncManager,
+    private val savingsTransactionRepository: SavingsTransactionRepository,
 ) : ViewModel() {
     private val currentUserId: Long get() = tokenStorage.userId
     private val _state = MutableStateFlow(DashboardState())
@@ -162,10 +166,13 @@ class DashboardViewModel(
             var isOffline = false
             var summary: MonthSummary? = null
             var trend: List<TrendItem> = emptyList()
+            var ensured = false
 
             try {
                 categoryRepository.syncWithServer(currentUserId)
                 savingsGoalRepository.syncWithServer(currentUserId)
+                // До скачивания: сервер создаст регулярные записи, у которых наступил день
+                ensured = monthRepository.ensureOnServer(monthData.localId)
                 if (monthData.serverId != null) {
                     expenseRepository.syncWithServer(currentUserId, monthData.localId)
                     incomeRepository.syncWithServer(currentUserId, monthData.localId)
@@ -213,9 +220,25 @@ class DashboardViewModel(
 
             val totalSavings = savingsGoals.sumOf { it.currentAmount }
 
+            // План-слой: локальное вычисление (оффлайн)
+            val planned = plannedRepository.getPlanned(monthData.localId)
+                .withoutDownloadedRecords(expenses, incomes)
+            // Регулярные записи, у которых наступил день, а сервер их ещё не создал (или они не
+            // пришли): их нет ни в summary, ни в локальных записях — учитываем как факт
+            val autoExpenses = planned.autoAppliedExpenses.map { it.toAutoExpense(monthData.localId) }
+            // Если ensure прошёл, сервер уже создал все наступившие записи и они есть в summary —
+            // прибавлять виртуальные к серверным итогам нельзя (двойной счёт)
+            val addAutoToTotals = summary == null || !ensured
+            val autoIncomesTotal = if (addAutoToTotals) planned.autoAppliedIncomes.sumOf { it.amountCents } / 100.0 else 0.0
+            val autoExpensesTotal = if (addAutoToTotals) autoExpenses.sumOf { it.amount } else 0.0
+
             // Используем серверные данные если есть, иначе локальные
-            val totalIncome = summary?.income ?: incomes.sumOf { it.amount }
-            val totalAllExpense = summary?.expenses ?: expenses.sumOf { it.amount }
+            val totalIncome = (summary?.income ?: incomes.sumOf { it.amount }) + autoIncomesTotal
+            // + ещё не выгруженные пополнения копилок (их нет ни в summary, ни в локальных
+            // расходах: скрытый расход создаст сервер после выгрузки)
+            val totalAllExpense = (summary?.expenses ?: expenses.sumOf { it.amount }) +
+                savingsTransactionRepository.getUnsyncedDepositsTotal(currentUserId, monthData.localId) +
+                autoExpensesTotal
             val totalLimit = budgets.sumOf { it.limitAmount }
 
             // Всего активов = кумулятивный баланс до выбранного месяца включительно
@@ -236,19 +259,18 @@ class DashboardViewModel(
 
             // Фильтруем по имени категории, не по ID
             val piggyBankCategoryId = categories.find { it.name == PIGGY_BANK_CATEGORY_NAME }?.id
-            val visibleExpenses = if (piggyBankCategoryId != null) {
+            val realVisibleExpenses = if (piggyBankCategoryId != null) {
                 expenses.filter { it.categoryId != piggyBankCategoryId }
             } else {
                 expenses
             }
+            val visibleExpenses = realVisibleExpenses + autoExpenses
             val totalVisibleExpense = visibleExpenses.sumOf { it.amount }
             val available = maxOf(0.0, totalLimit - totalAllExpense)
             val breakdown = buildExpenseBreakdown(visibleExpenses, categories)
 
-            // План-слой: локальное вычисление (оффлайн). Прогноз — из видимых цифр:
-            // скрытые расходы копилки уменьшают свободное (totalAllExpense), savings
-            // отдельно не вычитаем — иначе двойной счёт (как в веб-клиенте)
-            val planned = plannedRepository.getPlanned(monthData.localId)
+            // Прогноз — из видимых цифр: скрытые расходы копилки уменьшают свободное
+            // (totalAllExpense), savings отдельно не вычитаем — иначе двойной счёт (как в веб-клиенте)
             val plannedExpensesTotal = planned.plannedExpensesCents / 100.0
             val plannedIncomesTotal = planned.plannedIncomesCents / 100.0
             val forecastExpenses = totalVisibleExpense + plannedExpensesTotal

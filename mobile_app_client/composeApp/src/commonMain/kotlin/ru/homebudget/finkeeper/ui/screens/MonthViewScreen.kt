@@ -133,6 +133,7 @@ fun MonthViewScreen(
     var showAddExpenseForCategory by remember { mutableStateOf<Int?>(null) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var deleteIncomeId by remember { mutableStateOf<Int?>(null) }
+    var autoAppliedInfo by remember { mutableStateOf<String?>(null) }
     var deleteExpenseId by remember { mutableStateOf<Int?>(null) }
     var editingEntry by remember { mutableStateOf<EditingEntry?>(null) }
     var confirmPlannedItem by remember { mutableStateOf<PlannedUiItem?>(null) }
@@ -383,6 +384,10 @@ fun MonthViewScreen(
                                     onDeleteExpense = { deleteExpenseId = it },
                                     onEditExpense = { id, amount, comment -> editingEntry = EditingEntry(id, amount, comment, isIncome = false) },
                                     onAddExpenseInCategory = { showAddExpenseForCategory = group.categoryId },
+                                    autoAppliedIds = state.autoAppliedExpenseIds,
+                                    onAutoAppliedClick = {
+                                        autoAppliedInfo = Strings.AUTO_APPLIED_TEXT_EXPENSE.replace("%s", group.categoryName)
+                                    },
                                     modifier = Modifier
                                         .longPressDraggableHandle(
                                             onDragStopped = {
@@ -441,12 +446,18 @@ fun MonthViewScreen(
                         item { EmptyState(Strings.NO_INCOMES_THIS_MONTH) }
                     } else {
                         items(state.incomesWithSources, key = { it.id }) { income ->
+                            val isAutoApplied = income.id in state.autoAppliedIncomeIds
+                            val showAutoInfo = { autoAppliedInfo = Strings.AUTO_APPLIED_TEXT_INCOME.replace("%s", income.sourceName) }
                             IncomeItemCard(
                                 source = income.sourceName,
                                 amount = formatCurrency(income.amount),
                                 date = formatDate(income.date),
-                                onEdit = { editingEntry = EditingEntry(income.id, income.amount, null, isIncome = true) },
-                                onDelete = { deleteIncomeId = income.id },
+                                isAutoApplied = isAutoApplied,
+                                onEdit = {
+                                    if (isAutoApplied) showAutoInfo()
+                                    else editingEntry = EditingEntry(income.id, income.amount, null, isIncome = true)
+                                },
+                                onDelete = { if (isAutoApplied) showAutoInfo() else deleteIncomeId = income.id },
                             )
                         }
                     }
@@ -598,6 +609,17 @@ fun MonthViewScreen(
         )
     }
 
+    autoAppliedInfo?.let { text ->
+        AlertDialog(
+            onDismissRequest = { autoAppliedInfo = null },
+            title = { Text(Strings.AUTO_APPLIED_TITLE) },
+            text = { Text(text) },
+            confirmButton = {
+                TextButton(onClick = { autoAppliedInfo = null }) { Text(Strings.AUTO_APPLIED_OK) }
+            },
+        )
+    }
+
     // Confirm new income source dialog from ViewModel state
     if (state.showSourceConfirm) {
         ConfirmDialog(
@@ -625,6 +647,8 @@ private fun ExpenseGroupCard(
     onDeleteExpense: (Int) -> Unit,
     onEditExpense: (Int, Double, String?) -> Unit,
     onAddExpenseInCategory: () -> Unit,
+    autoAppliedIds: Set<Int>,
+    onAutoAppliedClick: () -> Unit,
     modifier: Modifier = Modifier,
     elevation: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
@@ -726,6 +750,7 @@ private fun ExpenseGroupCard(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
                 group.items.forEach { expense ->
+                    val isAutoApplied = expense.id in autoAppliedIds
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -751,13 +776,21 @@ private fun ExpenseGroupCard(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            if (isAutoApplied) {
+                                Text(
+                                    text = Strings.AUTO_APPLIED_LABEL,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
                         // Лёгкие кнопки-иконки вместо Material TextButton — дешевле компоновка/измерение.
+                        // У записи, отмеченной автоматически, строки в БД ещё нет — вместо правки пояснение
                         RowGlyphButton(glyph = Strings.EDIT_ICON, tint = MaterialTheme.colorScheme.primary) {
-                            onEditExpense(expense.id, expense.amount, expense.comment)
+                            if (isAutoApplied) onAutoAppliedClick() else onEditExpense(expense.id, expense.amount, expense.comment)
                         }
                         RowGlyphButton(glyph = Strings.DELETE_ICON, tint = MaterialTheme.colorScheme.error) {
-                            onDeleteExpense(expense.id)
+                            if (isAutoApplied) onAutoAppliedClick() else onDeleteExpense(expense.id)
                         }
                     }
                     if (expense != group.items.last()) {
@@ -792,6 +825,7 @@ private fun IncomeItemCard(
     source: String,
     amount: String,
     date: String,
+    isAutoApplied: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -819,6 +853,13 @@ private fun IncomeItemCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (isAutoApplied) {
+                    Text(
+                        text = Strings.AUTO_APPLIED_LABEL,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
             Text(
                 text = amount,

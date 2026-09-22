@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.repository.month
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -103,6 +104,27 @@ class MonthRepository(
                 }
             } catch (e: Exception) {
                 Result.error(e)
+            }
+        }
+
+    /**
+     * `ensure` месяца на сервере при каждой онлайн-загрузке (как делает веб): именно он
+     * создаёт регулярные записи, у которых наступил день. Без него у пользователя только KMP
+     * они не появлялись бы вовсе. Идемпотентно; без сети — тихо false.
+     */
+    suspend fun ensureOnServer(monthLocalId: Long): Boolean =
+        withContext(Dispatchers.Default) {
+            val month = monthDao.getById(monthLocalId) ?: return@withContext false
+            try {
+                val remote = apiClient.ensureMonth(month.year.toInt(), month.month.toInt())
+                if (month.serverId != remote.id.toString()) {
+                    monthDao.updateServerId(month.id, remote.id.toString())
+                }
+                true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false
             }
         }
 

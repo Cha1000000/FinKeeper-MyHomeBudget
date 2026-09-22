@@ -150,4 +150,80 @@ class PlannedCalculatorTest {
         val result = calc(listOf(t1, t2))
         assertEquals(listOf(15, 25), result.expenses.map { it.dueDay })
     }
+
+    // === autoApplied: наступившие регулярные записи, ещё не пришедшие с сервера ===
+
+    @Test
+    fun `наступивший обычный платёж без материализации отмечается автоматически`() {
+        val result = calc(listOf(mortgage(autoDay = 5)))
+        assertTrue(result.expenses.isEmpty())
+        val item = result.autoAppliedExpenses.single()
+        assertEquals(45000_00L, item.amountCents)
+        assertEquals(LocalDate(2026, 6, 5), item.dueDate)
+    }
+
+    @Test
+    fun `платёж с днём сегодня тоже отмечается автоматически`() {
+        val result = calc(listOf(mortgage(autoDay = 11)))
+        assertEquals(1, result.autoAppliedExpenses.size)
+    }
+
+    @Test
+    fun `материализованный платёж не отмечается автоматически`() {
+        val result = calc(listOf(mortgage(autoDay = 5)), materialized = setOf(plannedKey(TEMPLATE_TYPE_CATEGORY, 1L)))
+        assertTrue(result.autoAppliedExpenses.isEmpty())
+        assertTrue(result.expenses.isEmpty())
+    }
+
+    @Test
+    fun `ненаступивший платёж остаётся в плане, а не отмечается`() {
+        val result = calc(listOf(mortgage(autoDay = 20)))
+        assertTrue(result.autoAppliedExpenses.isEmpty())
+        assertEquals(1, result.expenses.size)
+    }
+
+    @Test
+    fun `требующий подтверждения и пропущенный не отмечаются автоматически`() {
+        val confirm = calc(listOf(mortgage(autoDay = 5, requireConfirm = true)))
+        assertTrue(confirm.autoAppliedExpenses.isEmpty())
+        val skipped = calc(
+            listOf(mortgage(autoDay = 5)),
+            overrides = mapOf(plannedKey(TEMPLATE_TYPE_CATEGORY, 1L) to PlannedOverrideData(isSkipped = true)),
+        )
+        assertTrue(skipped.autoAppliedExpenses.isEmpty())
+    }
+
+    @Test
+    fun `отмеченный автоматически учитывает override суммы и дня`() {
+        val result = calc(
+            listOf(mortgage(autoDay = 5)),
+            overrides = mapOf(plannedKey(TEMPLATE_TYPE_CATEGORY, 1L) to PlannedOverrideData(overrideAmountCents = 40000_00L, overrideDay = 8)),
+        )
+        val item = result.autoAppliedExpenses.single()
+        assertEquals(40000_00L, item.amountCents)
+        assertEquals(8, item.dueDay)
+    }
+
+    @Test
+    fun `прошлый месяц — все обычные шаблоны без материализации отмечены`() {
+        val result = calc(listOf(mortgage(autoDay = 28), salary(autoDay = 25)), month = 5)
+        assertEquals(1, result.autoAppliedExpenses.size)
+        assertEquals(1, result.autoAppliedIncomes.size)
+        assertTrue(result.expenses.isEmpty())
+        assertTrue(result.incomes.isEmpty())
+    }
+
+    @Test
+    fun `будущий месяц ничего не отмечает`() {
+        val result = calc(listOf(mortgage(autoDay = 1), salary(autoDay = 1)), month = 7)
+        assertTrue(result.autoAppliedExpenses.isEmpty())
+        assertTrue(result.autoAppliedIncomes.isEmpty())
+    }
+
+    @Test
+    fun `наступившее поступление отмечается как доход`() {
+        val result = calc(listOf(salary(autoDay = 10)))
+        assertEquals(150000_00L, result.autoAppliedIncomes.single().amountCents)
+        assertTrue(result.autoAppliedExpenses.isEmpty())
+    }
 }

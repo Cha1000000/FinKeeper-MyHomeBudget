@@ -21,6 +21,10 @@ import ru.homebudget.finkeeper.data.repository.month.MonthData
 import ru.homebudget.finkeeper.data.repository.month.MonthRepository
 import ru.homebudget.finkeeper.data.repository.onSuccess
 import ru.homebudget.finkeeper.data.repository.planned.PlannedRepository
+import ru.homebudget.finkeeper.data.repository.savings.SavingsTransactionRepository
+import ru.homebudget.finkeeper.data.planned.toAutoExpense
+import ru.homebudget.finkeeper.data.planned.toAutoIncome
+import ru.homebudget.finkeeper.data.planned.withoutDownloadedRecords
 import ru.homebudget.finkeeper.data.planned.PlannedItem
 import ru.homebudget.finkeeper.data.planned.PlannedResult
 import ru.homebudget.finkeeper.util.currentIsoDate
@@ -89,6 +93,10 @@ data class MonthViewState(
     val plannedIncomes: List<PlannedUiItem> = emptyList(),
     val plannedExpensesTotal: Double = 0.0,
     val plannedIncomesTotal: Double = 0.0,
+    // id записей, «отмеченных автоматически» (ещё не пришли с сервера): у них нет строки в БД,
+    // поэтому экран вместо изменения/удаления показывает пояснение
+    val autoAppliedExpenseIds: Set<Int> = emptySet(),
+    val autoAppliedIncomeIds: Set<Int> = emptySet(),
     val activeTab: Int = 0, // 0 = expenses, 1 = incomes
     val error: String? = null,
     val isOffline: Boolean = false,
@@ -108,6 +116,7 @@ class MonthViewModel(
     private val plannedRepository: PlannedRepository,
     private val tokenStorage: TokenStorage,
     private val syncManager: SyncManager,
+    private val savingsTransactionRepository: SavingsTransactionRepository,
 ) : ViewModel() {
     private val currentUserId: Long get() = tokenStorage.userId
     private val _state = MutableStateFlow(MonthViewState())
@@ -212,6 +221,8 @@ class MonthViewModel(
                 try {
                     categoryRepository.syncWithServer(currentUserId)
                     incomeSourceRepository.syncWithServer(currentUserId)
+                    // До скачивания: сервер создаст регулярные записи, у которых наступил день
+                    monthRepository.ensureOnServer(monthData.localId)
                     if (monthData.serverId != null) {
                         incomeRepository.syncWithServer(currentUserId, monthData.localId)
                         expenseRepository.syncWithServer(currentUserId, monthData.localId)
@@ -263,6 +274,17 @@ class MonthViewModel(
                     incomeSources = sourceList
                 }
 
+            // Виртуальный план-слой: вычисляется локально, работает оффлайн
+            val planned: PlannedResult = plannedRepository.getPlanned(monthData.localId)
+                .withoutDownloadedRecords(allExpenses, incomes)
+
+            // Регулярные записи, у которых наступил день, а с сервера они ещё не пришли —
+            // учитываем как факт (тем же видом, что создаст сервер), чтобы суммы не скакали
+            val autoExpenses = planned.autoAppliedExpenses.map { it.toAutoExpense(monthData.localId) }
+            val autoIncomes = planned.autoAppliedIncomes.map { it.toAutoIncome(monthData.localId) }
+            allExpenses = allExpenses + autoExpenses
+            incomes = incomes + autoIncomes
+
             // Фильтруем расходы - исключаем категорию "Пополнение копилки"
             val piggyBankCategoryId = categories.find { it.name == "Пополнение копилки" }?.id
             val visibleExpenses =
@@ -292,13 +314,13 @@ class MonthViewModel(
 
             val totalIncome = incomes.sumOf { it.amount }
             val totalExpense = visibleExpenses.sumOf { it.amount }
-            val totalAllExpenses = allExpenses.sumOf { it.amount }
+            // + ещё не выгруженные пополнения копилок: их скрытый расход создаст сервер позже,
+            // а остаток лимита должен уменьшиться сразу, как и онлайн
+            val totalAllExpenses = allExpenses.sumOf { it.amount } +
+                savingsTransactionRepository.getUnsyncedDepositsTotal(currentUserId, monthData.localId)
             val totalLimit = budgets.sumOf { it.limitAmount }
 
             val grouped = buildGroupedExpenses(visibleExpenses, categories, budgets)
-
-            // Виртуальный план-слой: вычисляется локально, работает оффлайн
-            val planned: PlannedResult = plannedRepository.getPlanned(monthData.localId)
 
             _state.value =
                 _state.value.copy(
@@ -319,6 +341,8 @@ class MonthViewModel(
                     plannedIncomes = planned.incomes.map { it.toUi() },
                     plannedExpensesTotal = planned.plannedExpensesCents / 100.0,
                     plannedIncomesTotal = planned.plannedIncomesCents / 100.0,
+                    autoAppliedExpenseIds = autoExpenses.map { it.id }.toSet(),
+                    autoAppliedIncomeIds = autoIncomes.map { it.id }.toSet(),
                     isOffline = isOffline,
                 )
         } catch (e: Exception) {

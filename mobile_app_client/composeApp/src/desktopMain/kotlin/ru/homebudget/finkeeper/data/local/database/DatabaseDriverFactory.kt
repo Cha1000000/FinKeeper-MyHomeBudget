@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.local.database
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import java.io.File
@@ -276,22 +277,20 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
             DesktopSyncLog.log("DB", "ensureSchema failed for: ${sql.take(60)}... error=${e.message}")
         }
     }
-    
-    // Migration: recreate savings_transactions table with month_id in correct position
-    // SQLite ALTER TABLE ADD COLUMN adds to the end, but SQLDelight expects specific order
-    // We always recreate the table to ensure correct schema
+
+    migrateSavingsTransactionsMonthColumn(driver)
+}
+
+internal fun migrateSavingsTransactionsMonthColumn(driver: SqlDriver) {
+    // Миграция: month_id должен стоять 4-й колонкой (SQLDelight читает колонки по позиции,
+    // а ALTER TABLE ADD COLUMN добавляет в конец). Пересобираем таблицу, только если это не так.
+    // Раньше пересборка шла на каждом запуске и теряла month_id — неотправленные пополнения
+    // уходили на сервер без месяца, и скрытый расход копилки не создавался.
     try {
-        // Check if old table exists and needs migration
-        val needsMigration = try {
-            driver.execute(null, "SELECT month_id FROM savings_transactions LIMIT 1", 0, null)
-            // Column exists - check if we need to recreate for correct order
-            // We'll recreate anyway to be safe
-            true
-        } catch (e: Exception) {
-            // Column doesn't exist - need to add it
-            true
-        }
-        
+        val columns = tableColumns(driver, "savings_transactions")
+        val needsMigration = columns.isNotEmpty() && columns.getOrNull(3) != "month_id"
+        val monthIdSource = if ("month_id" in columns) "month_id" else "NULL"
+
         if (needsMigration) {
             DesktopSyncLog.log("DB", "Migrating savings_transactions table...")
             val migrationStatements = listOf(
@@ -313,24 +312,44 @@ private fun ensureSchemaUpToDate(driver: SqlDriver) {
                     FOREIGN KEY (savings_goal_id) REFERENCES savings_goals(id) ON DELETE CASCADE,
                     FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE SET NULL
                 )""",
-                """INSERT OR IGNORE INTO savings_transactions_new (id, user_id, savings_goal_id, amount, type, description, date, created_at, updated_at, server_id, sync_status)
-                   SELECT id, user_id, savings_goal_id, amount, type, description, date, created_at, updated_at, server_id, sync_status 
+                """INSERT OR IGNORE INTO savings_transactions_new (id, user_id, savings_goal_id, month_id, amount, type, description, date, created_at, updated_at, server_id, sync_status)
+                   SELECT id, user_id, savings_goal_id, $monthIdSource, amount, type, description, date, created_at, updated_at, server_id, sync_status
                    FROM savings_transactions""",
                 "DROP TABLE savings_transactions",
                 "ALTER TABLE savings_transactions_new RENAME TO savings_transactions",
                 "CREATE INDEX IF NOT EXISTS idx_savings_transactions_goal ON savings_transactions(savings_goal_id)",
             )
-            for (sql in migrationStatements) {
-                try {
+            // Одной транзакцией: при сбое на любом шаге (или падении процесса) SQLite откатит
+            // и DROP, и RENAME — таблица с данными останется прежней
+            driver.execute(null, "BEGIN IMMEDIATE", 0, null)
+            try {
+                for (sql in migrationStatements) {
                     driver.execute(null, sql.trimIndent(), 0, null)
-                } catch (e: Exception) {
-                    DesktopSyncLog.log("DB", "Migration step failed: ${sql.take(50)}... error=${e.message}")
                 }
+                driver.execute(null, "COMMIT", 0, null)
+                DesktopSyncLog.log("DB", "Table savings_transactions migrated successfully")
+            } catch (e: Exception) {
+                runCatching { driver.execute(null, "ROLLBACK", 0, null) }
+                DesktopSyncLog.log("DB", "Migration rolled back: ${e.message}")
             }
-            DesktopSyncLog.log("DB", "Table savings_transactions migrated successfully")
         }
     } catch (e: Exception) {
         DesktopSyncLog.log("DB", "Migration error: ${e.message}")
     }
 }
+
+// Имена колонок таблицы в порядке их объявления (пустой список — таблицы нет)
+private fun tableColumns(driver: SqlDriver, table: String): List<String> =
+    driver.executeQuery(
+        identifier = null,
+        sql = "PRAGMA table_info($table)",
+        mapper = { cursor ->
+            val names = mutableListOf<String>()
+            while (cursor.next().value) {
+                cursor.getString(1)?.let(names::add)
+            }
+            QueryResult.Value(names)
+        },
+        parameters = 0,
+    ).value
 

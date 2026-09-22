@@ -235,9 +235,11 @@ class SyncManager(
                 syncQueueDao.retryRetriableFailed(MAX_AUTO_RETRY_COUNT)
                 val pendingItems = syncQueueDao.getPendingItems(limit = 50)
                 println("[SYNC] syncAll upload: ${pendingItems.size} pending items")
+                val depositMonthIds = depositMonthIds(pendingItems)
                 for (item in pendingItems) {
                     syncItemToServer(item)
                 }
+                pullHiddenSavingsExpenses(depositMonthIds)
 
                 // Очистка завершённых элементов
                 syncQueueDao.clearCompleted()
@@ -278,6 +280,8 @@ class SyncManager(
             // Синхронизируем данные за месяц (если указан)
             monthId?.let { id ->
                 monthRepository.syncWithServer(currentUserId)
+                // До скачивания: сервер создаст регулярные записи, у которых наступил день
+                monthRepository.ensureOnServer(id)
                 incomeRepository.syncWithServer(currentUserId, id)
                 expenseRepository.syncWithServer(currentUserId, id)
                 budgetRepository.syncWithServer(currentUserId, id)
@@ -1041,10 +1045,7 @@ class SyncManager(
                 val goalServerId = resolveSavingsGoalServerId(transaction.savingsGoalId)
                     ?: throw IllegalStateException("Cannot sync savings transaction: goal serverId is null for goalId=${transaction.savingsGoalId}")
 
-                // Resolve month serverId for proper expense creation on server
-                val monthServerId = transaction.monthId?.let { localMonthId ->
-                    monthDao.getById(localMonthId)?.serverId?.toIntOrNull()
-                }
+                val monthServerId = resolveSavingsTransactionMonthServerId(transaction)
 
                 println("[SYNC] syncSavingsTransactionToServer: INSERT goalServerId=$goalServerId, monthServerId=$monthServerId, amount=${transaction.amount}")
                 val serverTransaction = apiClient.addSavingsTransaction(
@@ -1066,10 +1067,7 @@ class SyncManager(
                     transaction.serverId?.toIntOrNull()
                         ?: throw IllegalStateException("Cannot sync savings transaction update: transaction serverId is null for entityId=${item.entityId}")
 
-                // Resolve month serverId for proper expense creation on server
-                val monthServerId = transaction.monthId?.let { localMonthId ->
-                    monthDao.getById(localMonthId)?.serverId?.toIntOrNull()
-                }
+                val monthServerId = resolveSavingsTransactionMonthServerId(transaction)
 
                 val remote =
                     apiClient.updateSavingsTransaction(
@@ -1086,6 +1084,19 @@ class SyncManager(
                 applySavingsTransactionServerSnapshot(item, transaction.id, remote)
             }
         }
+    }
+
+    // Без month_id сервер не создаёт скрытый расход «Пополнение копилки», и лимит месяца
+    // не уменьшится никогда. Месяц, созданный офлайн, регистрируем на сервере; если не вышло —
+    // бросаем, чтобы очередь повторила позже, а не отправила пополнение без месяца.
+    private suspend fun resolveSavingsTransactionMonthServerId(
+        transaction: ru.homebudget.finkeeper.data.local.dao.SavingsTransaction,
+    ): Int? {
+        val monthLocalId = transaction.monthId ?: return null
+        // Снятию месяц на сервере не нужен (скрытый расход не создаётся) — не блокируем его очередь
+        if (transaction.amount <= 0) return monthDao.getById(monthLocalId)?.serverId?.toIntOrNull()
+        return resolveMonthServerId(monthLocalId)?.toIntOrNull()
+            ?: throw IllegalStateException("Cannot sync savings transaction: month serverId is null for monthId=$monthLocalId")
     }
 
     /**
@@ -1128,6 +1139,25 @@ class SyncManager(
      * Вызывается автоматически после enqueueSync для немедленной отправки изменений.
      * Использует отдельную корутину с задержкой, чтобы не конфликтовать с syncAll().
      */
+    // Месяцы пополнений копилок, которые сейчас уйдут на сервер (снятия не нужны:
+    // для них сервер скрытый расход не создаёт)
+    private fun depositMonthIds(items: List<SyncQueueItem>): Set<Long> =
+        items
+            .filter { it.entityType == EntityType.SAVINGS_TRANSACTION.value && it.operation != SyncOperation.DELETE.value }
+            .mapNotNull { savingsTransactionDao.getById(it.entityId) }
+            .filter { it.amount > 0 }
+            .mapNotNull { it.monthId }
+            .toSet()
+
+    // После выгрузки пополнение перестаёт считаться «невыгруженным», а его скрытый расход
+    // создан сервером, но ещё не скачан — без этой догрузки остаток лимита на экране
+    // подскочил бы обратно до следующей синхронизации
+    private suspend fun pullHiddenSavingsExpenses(monthIds: Set<Long>) {
+        for (monthId in monthIds) {
+            expenseRepository.syncWithServer(currentUserId, monthId)
+        }
+    }
+
     private fun scheduleProcessQueue() {
         scope.launch {
             // Небольшая задержка, чтобы дать завершиться текущей транзакции
@@ -1169,10 +1199,12 @@ class SyncManager(
                 syncQueueDao.retryRetriableFailed(MAX_AUTO_RETRY_COUNT)
                 val pendingItems = syncQueueDao.getPendingItems(limit = 50)
                 println("[SYNC] scheduleProcessQueue: ${pendingItems.size} pending items")
+                val depositMonthIds = depositMonthIds(pendingItems)
                 for (item in pendingItems) {
                     println("[SYNC] processing item: id=${item.id}, type=${item.entityType}, entityId=${item.entityId}, op=${item.operation}, status=${item.status}")
                     syncItemToServer(item)
                 }
+                pullHiddenSavingsExpenses(depositMonthIds)
                 syncQueueDao.clearCompleted()
                 updatePendingCount()
                 

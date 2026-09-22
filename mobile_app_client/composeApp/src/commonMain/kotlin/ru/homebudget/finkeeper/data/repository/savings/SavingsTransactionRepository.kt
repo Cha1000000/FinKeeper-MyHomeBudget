@@ -32,6 +32,12 @@ class SavingsTransactionRepository(
     private val currentUserId: Long get() = tokenStorage.userId
     private val syncManager: SyncManager by lazy { get() }
 
+    /** Сумма ещё не выгруженных пополнений копилок за месяц (см. [unsyncedDepositsTotal]) */
+    suspend fun getUnsyncedDepositsTotal(userId: Long, monthLocalId: Long): Double =
+        withContext(Dispatchers.Default) {
+            unsyncedDepositsTotal(savingsTransactionDao.getAllByUser(userId), monthLocalId)
+        }
+
     /**
      * Получение всех транзакций для цели
      */
