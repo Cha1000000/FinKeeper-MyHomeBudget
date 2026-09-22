@@ -1139,19 +1139,52 @@ private fun BudgetDialog(
         onDismissRequest = onDismiss,
         title = { Text(Strings.BUDGET_SETTINGS) },
         text = {
+            val semantic = AppTheme.semanticColors
+            // Сумма всех введённых лимитов — обновляется на лету при вводе.
+            val totalLimit = budgetValues.values.sumOf { it.toDoubleOrNull() ?: 0.0 }
             Column(
-                modifier = Modifier
-                    .then(if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier,
             ) {
-                categories.forEach { cat ->
-                    AppTextField(
-                        value = budgetValues[cat.id] ?: "",
-                        onValueChange = { budgetValues[cat.id] = it },
-                        label = cat.name,
-                        keyboardType = KeyboardType.Decimal,
-                    )
+                // Зафиксированная сверху плашка «Общий лимит на месяц» — не уезжает при прокрутке.
+                GlassyCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    baseColor = semantic.savingsCardBg,
+                    highlightColor = semantic.savingsColor.copy(alpha = 0.2f),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = Strings.TOTAL_MONTH_LIMIT,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = semantic.savingsColor,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = formatCurrency(totalLimit),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = semantic.savingsColor,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                // Скроллится только список полей ввода лимитов по категориям.
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    categories.forEach { cat ->
+                        AppTextField(
+                            value = budgetValues[cat.id] ?: "",
+                            onValueChange = { budgetValues[cat.id] = it },
+                            label = cat.name,
+                            keyboardType = KeyboardType.Decimal,
+                        )
+                    }
                 }
             }
         },

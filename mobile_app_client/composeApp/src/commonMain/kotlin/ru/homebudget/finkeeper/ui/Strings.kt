@@ -82,6 +82,7 @@ object Strings {
     const val EXPENSES_TAB = "Расходы"
     const val INCOMES_TAB = "Доходы"
     const val SPENDING_LIMIT = "Лимит трат"
+    const val TOTAL_MONTH_LIMIT = "Общий лимит на месяц"
     const val REMAINDER = "Остаток:"
     const val EXPENSES_BY_CATEGORIES = "Категории расходов"
     const val BUDGET = "Лимиты"

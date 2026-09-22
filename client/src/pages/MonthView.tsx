@@ -1203,11 +1203,12 @@ const MonthView: React.FC = () => {
                 onClose={() => setIsBudgetModalOpen(false)}
                 title="Настройка бюджета (лимитов)"
             >
+                {/* Зафиксированная плашка с общим лимитом — вне скролла, не уезжает при прокрутке */}
+                <div className="bg-gradient-to-r from-blue-100/60 to-indigo-100/40 dark:from-blue-900/40 dark:to-indigo-900/20 backdrop-blur-md p-2 rounded-2xl mb-4 shadow-sm border border-[var(--color-stat-blue-border)] text-center transition-colors">
+                    <p className="text-sm font-medium text-blue-800/80 dark:text-blue-300/80 mb-1">Общий лимит на месяц</p>
+                    <p className="text-xl font-bold tracking-tight text-blue-900 dark:text-blue-100">{formatCurrency(totalLimit)}</p>
+                </div>
                 <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-3 -mr-3">
-                    <div className="bg-gradient-to-r from-blue-100/60 to-indigo-100/40 dark:from-blue-900/40 dark:to-indigo-900/20 backdrop-blur-md p-2 rounded-2xl mb-6 shadow-sm border border-[var(--color-stat-blue-border)] text-center transition-colors">
-                        <p className="text-sm font-medium text-blue-800/80 dark:text-blue-300/80 mb-1">Общий лимит на месяц</p>
-                        <p className="text-xl font-bold tracking-tight text-blue-900 dark:text-blue-100">{formatCurrency(totalLimit)}</p>
-                    </div>
                     {categories.map(cat => {
                         const budget = budgets.find(b => b.category_id === cat.id);
                         const limit = budget ? budget.limit_amount : 0;
