@@ -16,8 +16,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // RuStore SDK (in-app updates) — внешний артефактори VK
-        maven { url = uri("https://artifactory-external.vkpartner.ru/artifactory/maven") }
+        // RuStore SDK (in-app updates) — репозиторий RuStore (старый artifactory VK отключён с 01.10.2026)
+        maven { url = uri("https://nexus-external.rustore.ru/repository/maven-rustore-exposed") }
     }
 }
 
