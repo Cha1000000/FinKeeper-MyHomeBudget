@@ -418,7 +418,9 @@ class ApiClient(
     // ── Income Sources ──
 
     suspend fun getIncomeSources(): List<IncomeSource> {
-        val response = client.get("$baseUrl/income_sources")
+        // С неактивными (как категории): удалённый источник остаётся локально, и его доходы
+        // сохраняют название. Из UI неактивные отсекаются фильтром isActive.
+        val response = client.get("$baseUrl/income_sources?include_inactive=1")
         checkResponse(response)
         return response.body()
     }

@@ -264,13 +264,18 @@ class ExpenseRepository(
                             continue
                         }
 
-                        if (existing != null && !shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
-                            continue
-                        }
-
                         // remote.categoryId — серверный ID, находим локальный
                         val localCategory = allCategories
                             .find { it.serverId == remote.categoryId.toString() }
+
+                        // Неизменённую запись пропускаем, только если она ссылается на верную
+                        // категорию: раньше удалённая категория пересоздавалась под новым id,
+                        // и расходы оставались «сиротами» — так они перепривязываются
+                        // (если категория локально не найдена — ведём себя как раньше, не трогаем)
+                        val linkedCorrectly = localCategory == null || existing?.categoryId == localCategory.id
+                        if (existing != null && linkedCorrectly && !shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
+                            continue
+                        }
                         // Категории синхронизируются вместе с неактивными, так что сюда
                         // попадаем только при рассинхроне — такой расход пропускаем
                         if (localCategory == null) {

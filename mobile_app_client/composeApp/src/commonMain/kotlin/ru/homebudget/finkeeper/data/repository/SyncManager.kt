@@ -339,7 +339,24 @@ class SyncManager(
                     val hasDependentActiveQueue = hasActiveCategoryDependents(local.id)
                     if (!hasOwnActiveQueue && !hasDependentActiveQueue && local.syncStatus == SyncStatus.SYNCED.value) {
                         println("[SYNC][TOMBSTONE] apply category serverId=${deletedRecord.entityId} -> localId=${local.id}")
-                        categoryDao.deleteById(local.id)
+                        // Сервер удаляет мягко — и мы тоже: при физическом удалении категория
+                        // возвращалась синхронизацией под новым id, а её расходы теряли связь с ней
+                        categoryDao.update(
+                            id = local.id,
+                            name = local.name,
+                            type = local.type,
+                            icon = local.icon,
+                            color = local.color,
+                            sortOrder = local.sortOrder,
+                            isActive = 0L,
+                            isFixed = local.isFixed,
+                            fixedAmount = local.fixedAmount,
+                            autoDay = local.autoDay,
+                            requireConfirm = local.requireConfirm,
+                            updatedAt = deletedRecord.deletedAt,
+                            serverId = local.serverId,
+                            syncStatus = SyncStatus.SYNCED.value,
+                        )
                     } else {
                         println("[SYNC][TOMBSTONE] skip category serverId=${deletedRecord.entityId} -> localId=${local.id}, syncStatus=${local.syncStatus}, ownActive=$hasOwnActiveQueue, dependentActive=$hasDependentActiveQueue")
                     }
@@ -352,7 +369,20 @@ class SyncManager(
                     val hasDependentActiveQueue = hasActiveIncomeSourceDependents(local.id)
                     if (!hasOwnActiveQueue && !hasDependentActiveQueue && local.syncStatus == SyncStatus.SYNCED.value) {
                         println("[SYNC][TOMBSTONE] apply income_source serverId=${deletedRecord.entityId} -> localId=${local.id}")
-                        incomeSourceDao.deleteById(local.id)
+                        // Мягкое удаление, как на сервере: доходы источника сохраняют связь с ним
+                        incomeSourceDao.update(
+                            id = local.id,
+                            name = local.name,
+                            sortOrder = local.sortOrder,
+                            isActive = 0L,
+                            isFixed = local.isFixed,
+                            fixedAmount = local.fixedAmount,
+                            autoDay = local.autoDay,
+                            requireConfirm = local.requireConfirm,
+                            updatedAt = deletedRecord.deletedAt,
+                            serverId = local.serverId,
+                            syncStatus = SyncStatus.SYNCED.value,
+                        )
                     } else {
                         println("[SYNC][TOMBSTONE] skip income_source serverId=${deletedRecord.entityId} -> localId=${local.id}, syncStatus=${local.syncStatus}, ownActive=$hasOwnActiveQueue, dependentActive=$hasDependentActiveQueue")
                     }

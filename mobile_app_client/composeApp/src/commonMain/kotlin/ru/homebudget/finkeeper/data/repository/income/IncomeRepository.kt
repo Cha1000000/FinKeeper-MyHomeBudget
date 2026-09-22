@@ -247,7 +247,11 @@ class IncomeRepository(
                             continue
                         }
 
-                        if (existing != null && !shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
+                        // Доход, ссылающийся на несуществующий локальный источник (раньше удалённый
+                        // источник стирался локально), пересопоставляем по имени даже без изменений
+                        val orphaned = existing != null && existing.incomeSourceId != 0L &&
+                            allSources.none { it.id == existing.incomeSourceId }
+                        if (existing != null && !orphaned && !shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
                             continue
                         }
 
