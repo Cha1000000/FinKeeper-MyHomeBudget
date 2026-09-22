@@ -1,25 +1,16 @@
 buildscript {
     ext {
-        kotlin_version = '2.2.10'
-        compose_version = '1.6.10'
-        ktor_version = '3.0.3'
-        kotlinx_serialization_version = '1.7.1'
-        kotlinx_coroutines_version = '1.9.0'
-        kotlinx_datetime_version = '0.6.1'
-        multiplatform_settings_version = '1.2.0'
-        koin_version = '3.5.6'
-        sqldelight_version = '2.0.2'
         app_version = '2.2.3'
     }
 }
 
 plugins {
-    id 'org.jetbrains.kotlin.multiplatform' version '2.2.10'
-    id 'com.android.application'
-    id 'org.jetbrains.compose'
-    id 'org.jetbrains.kotlin.plugin.compose' version '2.2.10'
-    id 'org.jetbrains.kotlin.plugin.serialization' version '2.2.10'
-    id 'app.cash.sqldelight' version '2.0.2'
+    alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.androidApplication)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinx.serialization)
+    alias(libs.plugins.sqldelight)
 }
 
 sqldelight {
@@ -66,83 +57,76 @@ kotlin {
                 implementation compose.components.resources
                 implementation compose.components.uiToolingPreview
 
-                // Ktor
-                implementation "io.ktor:ktor-client-core:$ktor_version"
-                implementation "io.ktor:ktor-client-content-negotiation:$ktor_version"
-                implementation "io.ktor:ktor-serialization-kotlinx-json:$ktor_version"
-                implementation "io.ktor:ktor-client-auth:$ktor_version"
-                implementation "io.ktor:ktor-client-logging:$ktor_version"
-                implementation "io.ktor:ktor-client-websockets:$ktor_version"
+                implementation libs.ktor.client.core
+                implementation libs.ktor.client.content.negotiation
+                implementation libs.ktor.serialization.kotlinx.json
+                implementation libs.ktor.client.auth
+                implementation libs.ktor.client.logging
+                implementation libs.ktor.client.websockets
 
-                // Kotlinx
-                implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinx_serialization_version"
-                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_coroutines_version"
-                implementation "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_datetime_version"
+                implementation libs.kotlinx.serialization.json
+                implementation libs.kotlinx.coroutines.core
+                implementation libs.kotlinx.datetime
 
-                // Multiplatform Settings
-                implementation "com.russhwolf:multiplatform-settings-no-arg:$multiplatform_settings_version"
+                implementation libs.multiplatform.settings.asProvider()
 
-                // Koin - core and compose for multiplatform
-                implementation "io.insert-koin:koin-core:$koin_version"
-                implementation "io.insert-koin:koin-compose:1.2.0-Beta4"
+                implementation libs.koin.core
+                implementation libs.koin.compose
 
-                // SQLDelight
-                implementation "app.cash.sqldelight:runtime:$sqldelight_version"
-                implementation "app.cash.sqldelight:coroutines-extensions:$sqldelight_version"
-                implementation "app.cash.sqldelight:primitive-adapters:$sqldelight_version"
+                implementation libs.sqldelight.runtime
+                implementation libs.sqldelight.coroutines
+                implementation libs.sqldelight.primitive.adapters
 
-                // Lifecycle ViewModel for commonMain (multiplatform)
-                implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel:2.8.4"
-                implementation "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4"
+                implementation libs.jetbrains.lifecycle.viewmodel.asProvider()
+                implementation libs.jetbrains.lifecycle.viewmodel.compose
 
-                // Reorderable
-                implementation "sh.calvin.reorderable:reorderable:2.3.3"
+                implementation libs.reorderable
             }
         }
         androidMain {
             dependencies {
-                implementation 'androidx.activity:activity-compose:1.9.3'
-                implementation 'androidx.security:security-crypto-ktx:1.1.0-alpha06'
-                implementation 'androidx.compose.ui:ui-tooling-preview:1.6.8'
-                implementation "io.ktor:ktor-client-okhttp:$ktor_version"
-                implementation "io.insert-koin:koin-android:$koin_version"
-                implementation "io.insert-koin:koin-androidx-compose:$koin_version"
-                implementation "app.cash.sqldelight:android-driver:$sqldelight_version"
-                implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
-                implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
+                implementation libs.androidx.activity.compose
+                implementation libs.androidx.security.crypto
+                implementation libs.androidx.compose.ui.tooling.preview
+                implementation libs.ktor.client.okhttp
+                implementation libs.koin.android
+                implementation libs.koin.androidx.compose
+                implementation libs.sqldelight.android
+                implementation libs.androidx.lifecycle.viewmodel.compose
+                implementation libs.androidx.lifecycle.runtime.compose
 
                 // RuStore In-app Update SDK (оповещение о новой версии в RuStore)
-                implementation 'ru.rustore.sdk:appupdate:10.2.0'
+                implementation libs.rustore.appupdate
             }
         }
         iosMain {
             dependencies {
-                implementation "io.ktor:ktor-client-darwin:$ktor_version"
-                implementation "app.cash.sqldelight:native-driver:$sqldelight_version"
+                implementation libs.ktor.client.darwin
+                implementation libs.sqldelight.native
             }
         }
         desktopMain {
             dependencies {
                 implementation compose.desktop.currentOs
-                implementation "com.microsoft:credential-secure-storage:1.0.0"
-                implementation "io.ktor:ktor-client-cio:$ktor_version"
-                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-swing:$kotlinx_coroutines_version"
-                implementation "app.cash.sqldelight:sqlite-driver:$sqldelight_version"
+                implementation libs.credential.secure.storage
+                implementation libs.ktor.client.cio
+                implementation libs.kotlinx.coroutines.swing
+                implementation libs.sqldelight.sqlite
             }
         }
         desktopTest {
             dependencies {
-                implementation 'org.jetbrains.kotlin:kotlin-test'
-                implementation "app.cash.sqldelight:sqlite-driver:$sqldelight_version"
+                implementation libs.kotlin.test
+                implementation libs.sqldelight.sqlite
             }
         }
         commonTest {
             dependencies {
-                implementation 'org.jetbrains.kotlin:kotlin-test'
-                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$kotlinx_coroutines_version"
-                implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinx_serialization_version"
-                implementation "org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_datetime_version"
-                implementation "com.russhwolf:multiplatform-settings-test:$multiplatform_settings_version"
+                implementation libs.kotlin.test
+                implementation libs.kotlinx.coroutines.test
+                implementation libs.kotlinx.serialization.json
+                implementation libs.kotlinx.datetime
+                implementation libs.multiplatform.settings.test
             }
         }
     }
@@ -150,12 +134,12 @@ kotlin {
 
 android {
     namespace 'ru.homebudget.finkeeper'
-    compileSdk = 35
+    compileSdk = libs.versions.android.compileSdk.get().toInteger()
 
     defaultConfig {
         applicationId "ru.homebudget.finkeeper"
-        minSdk = 24
-        targetSdk = 35
+        minSdk = libs.versions.android.minSdk.get().toInteger()
+        targetSdk = libs.versions.android.targetSdk.get().toInteger()
         versionCode = 10
         versionName = app_version
     }
