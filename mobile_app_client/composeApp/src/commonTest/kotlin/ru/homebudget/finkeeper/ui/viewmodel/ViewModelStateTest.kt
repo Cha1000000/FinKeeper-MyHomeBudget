@@ -85,7 +85,9 @@ class ViewModelStateTest {
         assertEquals(0.0, state.totalSavings)
         assertEquals(0.0, state.savingsPercent)
         assertEquals(0.0, state.available)
-        assertEquals(0.0, state.totalAssets)
+        // Без ответа сервера «Всего активов» неизвестно, а не ноль
+        assertNull(state.totalAssets)
+        assertNull(state.availableWithoutSavings)
         assertTrue(state.trendData.isEmpty())
         assertTrue(state.expenseBreakdown.isEmpty())
         assertNull(state.error)

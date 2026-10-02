@@ -8,7 +8,6 @@ import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import ru.homebudget.finkeeper.data.local.dao.MonthDao
-import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
@@ -133,24 +132,18 @@ class MonthRepository(
         }
 
     /**
-     * То же, что [ensureOnServer], но сетевые сбои (нет связи, таймаут) пробрасываются, чтобы
-     * вызывающий отличил «сервер не ответил» от «сервер ответил ошибкой» (она даёт `false`).
+     * То же, что [ensureOnServer], но ошибки пробрасываются: шаг серверной фазы отличит «сервер
+     * не ответил» (сетевой сбой) от «сервер ответил ошибкой» и не выдаст пропущенную загрузку
+     * месяца за успешную. `false` — месяца нет в локальной БД.
      */
     suspend fun ensureOnServerChecked(monthLocalId: Long): Boolean =
         withContext(Dispatchers.Default) {
             val month = monthDao.getById(monthLocalId) ?: return@withContext false
-            try {
-                val remote = apiClient.ensureMonth(month.year.toInt(), month.month.toInt())
-                if (month.serverId != remote.id.toString()) {
-                    monthDao.updateServerId(month.id, remote.id.toString())
-                }
-                true
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                if (e.isConnectivityFailure()) throw e
-                false
+            val remote = apiClient.ensureMonth(month.year.toInt(), month.month.toInt())
+            if (month.serverId != remote.id.toString()) {
+                monthDao.updateServerId(month.id, remote.id.toString())
             }
+            true
         }
 
     /**

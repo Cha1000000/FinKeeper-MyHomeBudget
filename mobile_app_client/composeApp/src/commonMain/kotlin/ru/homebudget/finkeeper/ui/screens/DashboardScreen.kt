@@ -24,6 +24,7 @@ import ru.homebudget.finkeeper.ui.components.ExpensePieChart
 import ru.homebudget.finkeeper.ui.components.FinancialDynamicsChart
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
+import ru.homebudget.finkeeper.ui.components.ScreenErrorBanner
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.components.SummaryCard
@@ -39,7 +40,8 @@ fun DashboardScreen(
     state: DashboardState,
     onRefresh: () -> Unit,
     onPrevMonth: () -> Unit,
-    onNextMonth: () -> Unit
+    onNextMonth: () -> Unit,
+    onDismissError: () -> Unit,
 ) {
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -68,6 +70,10 @@ fun DashboardScreen(
 
         if (state.isOffline) {
             item { ServerUnreachableBanner(onRetry = onRefresh, isRetrying = state.isSyncing) }
+        }
+
+        state.error?.let { error ->
+            item { ScreenErrorBanner(message = error, onDismiss = onDismissError) }
         }
 
         // Month navigation header
@@ -125,7 +131,7 @@ fun DashboardScreen(
                         color = assetsTextColor,
                     )
                     Text(
-                        text = formatCurrency(state.totalAssets),
+                        text = state.totalAssets?.let(::formatCurrency) ?: Strings.NO_VALUE,
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
@@ -166,7 +172,7 @@ fun DashboardScreen(
                         backgroundColor = semantic.tealCardBg,
                         contentColor = semantic.tealColor,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
-                        subtitle = Strings.SAVINGS_PERCENT_SUBTITLE.replace("%s", "${kotlin.math.round(state.savingsPercent).toInt()}%"),
+                        subtitle = Strings.SAVINGS_PERCENT_SUBTITLE.replace("%s", formatSavingsPercent(state.savingsPercent)),
                     )
                 }
             }
@@ -187,7 +193,7 @@ fun DashboardScreen(
                     )
                     SummaryCard(
                         title = Strings.AVAILABLE_WITHOUT_SAVINGS,
-                        value = formatCurrency(state.availableWithoutSavings),
+                        value = state.availableWithoutSavings?.let(::formatCurrency) ?: Strings.NO_VALUE,
                         backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -236,7 +242,7 @@ fun DashboardScreen(
                         backgroundColor = semantic.tealCardBg,
                         contentColor = semantic.tealColor,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
-                        subtitle = Strings.SAVINGS_PERCENT_SUBTITLE.replace("%s", "${kotlin.math.round(state.savingsPercent).toInt()}%"),
+                        subtitle = Strings.SAVINGS_PERCENT_SUBTITLE.replace("%s", formatSavingsPercent(state.savingsPercent)),
                     )
                     SummaryCard(
                         title = Strings.AVAILABLE,
@@ -253,7 +259,7 @@ fun DashboardScreen(
             item {
                 SummaryCard(
                     title = Strings.AVAILABLE_WITHOUT_SAVINGS,
-                    value = formatCurrency(state.availableWithoutSavings),
+                    value = state.availableWithoutSavings?.let(::formatCurrency) ?: Strings.NO_VALUE,
                     backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.fillMaxWidth(),
@@ -307,3 +313,6 @@ fun DashboardScreen(
         }
     }
 }
+
+private fun formatSavingsPercent(percent: Double?): String =
+    percent?.let { "${kotlin.math.round(it).toInt()}%" } ?: Strings.NO_VALUE

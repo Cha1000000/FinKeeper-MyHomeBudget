@@ -16,13 +16,23 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import ru.homebudget.finkeeper.data.model.*
+import ru.homebudget.finkeeper.data.network.GATEWAY_FAILURE_STATUS_CODES
 import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.ui.Strings
 
+/** Таймауты HTTP; отдельный тип — чтобы тесты могли проверить «молчащий» сервер за секунды. */
+data class ApiTimeouts(
+    val requestMillis: Long = 30_000,
+    val connectMillis: Long = 10_000,
+    // Без явного значения CIO (десктоп) ждёт молчащий сервер до requestTimeout, OkHttp — 10 с
+    val socketMillis: Long = 15_000,
+)
+
 class ApiClient(
     private val tokenStorage: TokenStorage,
     private val serverLinkState: ServerLinkState = ServerLinkState(),
+    private val timeouts: ApiTimeouts = ApiTimeouts(),
 ) {
     private val refreshMutex = Mutex()
     private val json =
@@ -41,10 +51,9 @@ class ApiClient(
                 level = LogLevel.NONE
             }
             install(HttpTimeout) {
-                requestTimeoutMillis = 30_000
-                connectTimeoutMillis = 10_000
-                // Без явного значения CIO (десктоп) ждёт молчащий сервер до requestTimeout, OkHttp — 10 с
-                socketTimeoutMillis = 15_000
+                requestTimeoutMillis = timeouts.requestMillis
+                connectTimeoutMillis = timeouts.connectMillis
+                socketTimeoutMillis = timeouts.socketMillis
             }
             defaultRequest {
                 contentType(ContentType.Application.Json)
@@ -69,16 +78,21 @@ class ApiClient(
             }
         }
 
-    /** Любой ответ сервера — он доступен; сетевая неудача — нет (для индикатора в UI). */
-    private suspend fun Sender.executeTracked(request: HttpRequestBuilder): HttpClientCall =
-        try {
-            execute(request).also { serverLinkState.reportReachable() }
+    /** Ответ сервера — он доступен (кроме 502/503/504 от прокси); сетевая неудача — нет. */
+    private suspend fun Sender.executeTracked(request: HttpRequestBuilder): HttpClientCall {
+        val requestId = serverLinkState.beginRequest()
+        return try {
+            execute(request).also { call ->
+                val status = call.response.status.value
+                serverLinkState.reportResult(requestId, reachable = status !in GATEWAY_FAILURE_STATUS_CODES)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (e.isConnectivityFailure()) serverLinkState.reportUnreachable()
+            if (e.isConnectivityFailure()) serverLinkState.reportResult(requestId, reachable = false)
             throw e
         }
+    }
 
     private val baseUrl: String get() = tokenStorage.serverUrl + "/api"
 
@@ -144,16 +158,17 @@ class ApiClient(
 
             try {
                 refreshAuth().accessToken
-            } catch (e: ApiException) {
-                // Only clear session on auth errors (401/403)
-                if (e.statusCode == 401 || e.statusCode == 403) {
-                    tokenStorage.clear(AuthSessionEvent.SessionExpired)
-                }
-                null
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
-                // Do not clear session on network errors or other exceptions
+            } catch (e: Exception) {
+                // Сервер недоступен — отдаём сетевую ошибку, а не исходный 401: иначе вызывающий
+                // примет её за ответ сервера и не прекратит запросы к «зависшему» серверу
+                if (e.isConnectivityFailure()) throw e
+                println("[AUTH] token refresh failed: ${e::class.simpleName}: ${e.message}")
+                // Сессию сбрасываем только по 401/403 на refresh, не по прочим ошибкам
+                if (e is ApiException && (e.statusCode == 401 || e.statusCode == 403)) {
+                    tokenStorage.clear(AuthSessionEvent.SessionExpired)
+                }
                 null
             }
         }

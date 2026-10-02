@@ -26,12 +26,14 @@ import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.EmptyState
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
+import ru.homebudget.finkeeper.ui.components.ScreenErrorBanner
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesState
 import ru.homebudget.finkeeper.data.model.Category
 import ru.homebudget.finkeeper.data.model.IncomeSource
+import ru.homebudget.finkeeper.util.formatAmountForInput
 import ru.homebudget.finkeeper.util.formatCurrency
 import ru.homebudget.finkeeper.util.isDesktop
 import sh.calvin.reorderable.ReorderableItem
@@ -63,6 +65,7 @@ fun CategoriesScreen(
     onAddFixedIncomeSource: (String, Double, Int, Boolean) -> Unit,
     onUpdateFixedIncomeSource: (Int, String?, Double?, Int?, Boolean?) -> Unit,
     onDeactivateFixedIncomeSource: (Int) -> Unit,
+    onDismissError: () -> Unit,
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingId by remember { mutableStateOf<Int?>(null) }
@@ -123,6 +126,14 @@ fun CategoriesScreen(
             ServerUnreachableBanner(
                 onRetry = onRefresh,
                 isRetrying = state.isSyncing,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+
+        state.error?.let { error ->
+            ScreenErrorBanner(
+                message = error,
+                onDismiss = onDismissError,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
@@ -745,7 +756,7 @@ private fun AddFixedDialog(
     var requireConfirm by remember { mutableStateOf(initialRequireConfirm) }
     var name by remember { mutableStateOf(initialName) }
     var amountText by remember {
-        mutableStateOf(if (initialAmount > 0.0) initialAmount.toBigDecimal().stripTrailingZeros().toPlainString() else "")
+        mutableStateOf(if (initialAmount > 0.0) formatAmountForInput(initialAmount) else "")
     }
     var dayText by remember { mutableStateOf(if (initialDay > 0) initialDay.toString() else "") }
 

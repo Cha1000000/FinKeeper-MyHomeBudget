@@ -137,4 +137,21 @@ class FormattersTest {
         val date = currentIsoDate()
         assertTrue(date.contains("T") || date.contains("-"))
     }
+
+    // ── formatAmountForInput ──
+
+    @Test
+    fun formatAmountForInput_dropsTrailingZeros() {
+        assertEquals("1500", formatAmountForInput(1500.0))
+        assertEquals("1500.5", formatAmountForInput(1500.5))
+        assertEquals("99.05", formatAmountForInput(99.05))
+        assertEquals("0.1", formatAmountForInput(0.1))
+    }
+
+    @Test
+    fun formatAmountForInput_roundsToCents() {
+        assertEquals("10.01", formatAmountForInput(10.005000001))
+        assertEquals("0.3", formatAmountForInput(0.1 + 0.2))
+        assertEquals("-12.5", formatAmountForInput(-12.5))
+    }
 }

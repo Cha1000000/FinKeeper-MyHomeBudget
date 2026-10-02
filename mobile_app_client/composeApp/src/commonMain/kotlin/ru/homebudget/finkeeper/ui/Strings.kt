@@ -280,6 +280,24 @@ object Strings {
     const val LOADING_ERROR = "Ошибка загрузки данных"
     const val LOADING_ERROR_SHORT = "Ошибка загрузки"
     const val ERROR_ADDING_SOURCE = "Ошибка добавления источника"
+    const val ERROR_ADDING_INCOME = "Ошибка добавления дохода"
+    const val ERROR_REORDERING = "Ошибка сортировки"
+    // Общий для расходов и доходов: без «оплатить/платёж»
+    const val ERROR_CONFIRMING_PLANNED = "Не удалось подтвердить запись"
+    const val ERROR_CREATING_CATEGORY = "Ошибка создания категории"
+    const val ERROR_UPDATING_CATEGORY = "Ошибка обновления категории"
+    const val ERROR_DELETING_CATEGORY = "Ошибка удаления категории"
+    const val ERROR_CREATING_INCOME_SOURCE = "Ошибка создания источника дохода"
+    const val ERROR_UPDATING_INCOME_SOURCE = "Ошибка обновления источника дохода"
+    const val ERROR_DELETING_INCOME_SOURCE = "Ошибка удаления источника дохода"
+    const val ERROR_REORDERING_CATEGORIES = "Ошибка изменения порядка категорий"
+    const val ERROR_REORDERING_INCOME_SOURCES = "Ошибка изменения порядка источников дохода"
+    const val ERROR_CREATING_FIXED_CATEGORY = "Ошибка создания фиксированной категории"
+    const val ERROR_UPDATING_FIXED_CATEGORY = "Ошибка обновления фиксированной категории"
+    const val ERROR_DELETING_FIXED_CATEGORY = "Ошибка удаления фиксированной категории"
+    const val ERROR_CREATING_FIXED_INCOME_SOURCE = "Ошибка создания фиксированного источника дохода"
+    const val ERROR_UPDATING_FIXED_INCOME_SOURCE = "Ошибка обновления фиксированного источника дохода"
+    const val ERROR_DELETING_FIXED_INCOME_SOURCE = "Ошибка удаления фиксированного источника дохода"
 
     // === Сообщения об успехе ===
     const val USERNAME_UPDATED = "Имя пользователя успешно обновлено."
@@ -316,6 +334,12 @@ object Strings {
     const val SYNC_DISMISS_ERROR = "Скрыть сообщение об ошибке"
     const val SERVER_UNREACHABLE = "Нет связи с сервером — показаны сохранённые данные"
     const val RETRY = "Повторить"
+    // Сервер ответил, но с ошибкой: экран показывает то, что удалось получить
+    const val SERVER_REFRESH_FAILED = "Сервер ответил ошибкой — часть данных могла не обновиться"
+    const val OPERATION_FAILED = "Не удалось выполнить действие"
+    const val DISMISS = "Скрыть"
+    // Значение неизвестно (например, сервер ещё ни разу не ответил)
+    const val NO_VALUE = "—"
 
     // === Навигация ===
     const val NAV_DASHBOARD = "Обзор"

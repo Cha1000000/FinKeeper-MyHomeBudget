@@ -42,6 +42,7 @@ import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ProgressBar
+import ru.homebudget.finkeeper.ui.components.ScreenErrorBanner
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.theme.AppTheme
@@ -56,7 +57,8 @@ fun SavingsScreen(
     onUpdateGoal: (Int, String?, Double?, Double?) -> Unit,
     onDeleteGoal: (Int) -> Unit,
     onAddTransaction: (Int, Double) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onDismissError: () -> Unit,
 ) {
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingGoal by remember { mutableStateOf<SavingsGoal?>(null) }
@@ -108,6 +110,10 @@ fun SavingsScreen(
 
             if (state.isOffline) {
                 item { ServerUnreachableBanner(onRetry = onRefresh, isRetrying = state.isSyncing) }
+            }
+
+            state.error?.let { error ->
+                item { ScreenErrorBanner(message = error, onDismiss = onDismissError) }
             }
 
             if (state.totalSavings > 0) {

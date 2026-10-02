@@ -19,6 +19,22 @@ fun formatCurrency(amount: Double): String {
     return "$formatted ₽"
 }
 
+/**
+ * Сумма для поля ввода: без разделителей и лишних нулей, с точностью до копеек
+ * (1500.0 → "1500", 1500.5 → "1500.5", 99.05 → "99.05"). Работает на всех платформах.
+ */
+fun formatAmountForInput(amount: Double): String {
+    val cents = kotlin.math.round(amount * 100).toLong()
+    val sign = if (cents < 0) "-" else ""
+    val whole = kotlin.math.abs(cents) / 100
+    val fraction = kotlin.math.abs(cents) % 100
+    return when {
+        fraction == 0L -> "$sign$whole"
+        fraction % 10 == 0L -> "$sign$whole.${fraction / 10}"
+        else -> "$sign$whole.${fraction.toString().padStart(2, '0')}"
+    }
+}
+
 fun formatDate(isoDate: String): String {
     return try {
         val instant = Instant.parse(isoDate)

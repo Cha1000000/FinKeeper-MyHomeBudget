@@ -54,3 +54,34 @@ fun ServerUnreachableBanner(
         }
     }
 }
+
+/**
+ * Ошибка экрана (сбой операции или ответа сервера). Висит, пока пользователь её не скроет
+ * или пока следующая загрузка не пройдёт успешно.
+ */
+@Composable
+fun ScreenErrorBanner(
+    message: String,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onDismiss) { Text(Strings.DISMISS) }
+        }
+    }
+}

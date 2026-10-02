@@ -146,18 +146,20 @@ class TokenStorage(
     /**
      * Последний серверный «кумулятивный баланс» и локальный баланс месяца на момент его
      * получения. Нужен, чтобы «Всего активов» не пропадало при недоступном сервере и
-     * сдвигалось вместе с локальными правками (см. DashboardViewModel).
+     * сдвигалось вместе с локальными правками (см. DashboardViewModel). Привязан к пользователю:
+     * чужое значение после смены аккаунта не показываем.
      */
-    fun saveCumulativeBalance(year: Int, month: Int, serverValue: Double, localBalance: Double) {
-        settings.putString(KEY_CUMULATIVE, "$year;$month;$serverValue;$localBalance")
+    fun saveCumulativeBalance(userId: Long, year: Int, month: Int, serverValue: Double, localBalance: Double) {
+        settings.putString(KEY_CUMULATIVE, "$userId;$year;$month;$serverValue;$localBalance")
     }
 
     /** Возвращает (серверное значение, локальный баланс на тот момент) для месяца или null. */
-    fun loadCumulativeBalance(year: Int, month: Int): Pair<Double, Double>? {
+    fun loadCumulativeBalance(userId: Long, year: Int, month: Int): Pair<Double, Double>? {
         val parts = settings.getStringOrNull(KEY_CUMULATIVE)?.split(";") ?: return null
-        if (parts.size != 4 || parts[0].toIntOrNull() != year || parts[1].toIntOrNull() != month) return null
-        val server = parts[2].toDoubleOrNull() ?: return null
-        val local = parts[3].toDoubleOrNull() ?: return null
+        if (parts.size != 5) return null
+        if (parts[0].toLongOrNull() != userId || parts[1].toIntOrNull() != year || parts[2].toIntOrNull() != month) return null
+        val server = parts[3].toDoubleOrNull() ?: return null
+        val local = parts[4].toDoubleOrNull() ?: return null
         return server to local
     }
 
