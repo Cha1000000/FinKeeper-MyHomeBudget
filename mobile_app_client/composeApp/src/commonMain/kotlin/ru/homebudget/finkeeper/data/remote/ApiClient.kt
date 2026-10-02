@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.remote
 
+import kotlinx.coroutines.CancellationException
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
@@ -15,10 +16,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import ru.homebudget.finkeeper.data.model.*
+import ru.homebudget.finkeeper.data.network.ServerLinkState
+import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.ui.Strings
 
 class ApiClient(
     private val tokenStorage: TokenStorage,
+    private val serverLinkState: ServerLinkState = ServerLinkState(),
 ) {
     private val refreshMutex = Mutex()
     private val json =
@@ -39,6 +43,8 @@ class ApiClient(
             install(HttpTimeout) {
                 requestTimeoutMillis = 30_000
                 connectTimeoutMillis = 10_000
+                // Без явного значения CIO (десктоп) ждёт молчащий сервер до requestTimeout, OkHttp — 10 с
+                socketTimeoutMillis = 15_000
             }
             defaultRequest {
                 contentType(ContentType.Application.Json)
@@ -49,7 +55,7 @@ class ApiClient(
             }
         }.also { httpClient ->
             httpClient.plugin(HttpSend).intercept { request ->
-                val originalCall = execute(request)
+                val originalCall = executeTracked(request)
                 val statusCode = originalCall.response.status.value
                 if (!shouldAttemptRefresh(statusCode) || !shouldHandleAuthRetry(request)) {
                     return@intercept originalCall
@@ -59,8 +65,19 @@ class ApiClient(
                 request.attributes.put(AUTH_RETRY_MARKER, true)
                 request.headers.remove(HttpHeaders.Authorization)
                 request.headers.append(HttpHeaders.Authorization, "Bearer $refreshedToken")
-                execute(request)
+                executeTracked(request)
             }
+        }
+
+    /** Любой ответ сервера — он доступен; сетевая неудача — нет (для индикатора в UI). */
+    private suspend fun Sender.executeTracked(request: HttpRequestBuilder): HttpClientCall =
+        try {
+            execute(request).also { serverLinkState.reportReachable() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (e.isConnectivityFailure()) serverLinkState.reportUnreachable()
+            throw e
         }
 
     private val baseUrl: String get() = tokenStorage.serverUrl + "/api"
@@ -133,6 +150,8 @@ class ApiClient(
                     tokenStorage.clear(AuthSessionEvent.SessionExpired)
                 }
                 null
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Do not clear session on network errors or other exceptions
                 null
@@ -789,6 +808,8 @@ class ApiClient(
             val errorBody =
                 try {
                     response.body<ErrorResponse>().error
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                     null
                 }

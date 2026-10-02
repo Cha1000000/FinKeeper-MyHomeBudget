@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 6–11: автобэкап без зашифрованных токенов. Мастер-ключ лежит в Android Keystore и на
+     другое устройство (или после сброса ключа) не переезжает: восстановленный файл не расшифровать,
+     EncryptedSharedPreferences падает при старте приложения -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="finkeeper_secure_storage.xml" />
+</full-backup-content>

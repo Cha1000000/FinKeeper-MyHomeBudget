@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,7 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.data.model.User
+import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.UiScale
 import ru.homebudget.finkeeper.util.isDesktop
@@ -114,10 +117,16 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                val isServerUnreachable by koinInject<ServerLinkState>().isUnreachable.collectAsState()
                 Text(
-                    text = if (state.isOnline) Strings.SYNC_ONLINE else Strings.SYNC_OFFLINE,
+                    text =
+                        when {
+                            !state.isOnline -> Strings.SYNC_OFFLINE
+                            isServerUnreachable -> Strings.SYNC_SERVER_UNREACHABLE
+                            else -> Strings.SYNC_ONLINE
+                        },
                     style = MaterialTheme.typography.bodyLarge,
-                    color = if (state.isOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    color = if (state.isOnline && !isServerUnreachable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(

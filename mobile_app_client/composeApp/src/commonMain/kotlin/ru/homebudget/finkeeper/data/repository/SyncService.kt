@@ -14,6 +14,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import ru.homebudget.finkeeper.data.local.dao.MonthDao
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
+import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 
 /**
@@ -25,6 +26,7 @@ class SyncService(
     private val syncManager: SyncManager,
     private val monthDao: MonthDao,
     private val tokenStorage: TokenStorage,
+    private val serverLinkState: ServerLinkState,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var isStarted = false
@@ -49,6 +51,20 @@ class SyncService(
                     // При появлении интернета запускаем синхронизацию
                     val monthId = getCurrentMonthLocalId()
                     syncManager.syncAll(monthId)
+                }
+            }.launchIn(scope)
+
+        // Сеть на устройстве была всё время, а сервер не отвечал: операции в очереди уже не ждут
+        // события «сеть появилась». Как только сервер снова ответил — отправляем накопленное
+        var wasServerUnreachable = false
+        serverLinkState.isUnreachable
+            .onEach { unreachable ->
+                if (unreachable) {
+                    wasServerUnreachable = true
+                } else if (wasServerUnreachable) {
+                    wasServerUnreachable = false
+                    println("[SYNC-SERVICE] Server is reachable again, syncing")
+                    syncManager.syncAll(getCurrentMonthLocalId())
                 }
             }.launchIn(scope)
 

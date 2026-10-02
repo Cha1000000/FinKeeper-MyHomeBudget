@@ -90,6 +90,7 @@ import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ProgressBar
 import ru.homebudget.finkeeper.ui.components.PlannedSectionCard
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
+import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.viewmodel.PlannedUiItem
 import ru.homebudget.finkeeper.ui.components.SummaryCard
 import ru.homebudget.finkeeper.ui.theme.AppTheme
@@ -172,6 +173,14 @@ fun MonthViewScreen(
         if (ru.homebudget.finkeeper.util.isDesktop) Modifier.padding(top = 16.dp) else Modifier
     )) {
         ScreenHeader(title = Strings.MONTH_TITLE)
+
+        if (state.isOffline) {
+            ServerUnreachableBanner(
+                onRetry = onRefresh,
+                isRetrying = state.isSyncing,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
 
         // Month navigation header
         GlassyCard(

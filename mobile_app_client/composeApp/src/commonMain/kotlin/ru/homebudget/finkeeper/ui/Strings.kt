@@ -304,6 +304,8 @@ object Strings {
     const val SYNC_STATUS = "Синхронизация"
     const val SYNC_ONLINE = "В сети"
     const val SYNC_OFFLINE = "Офлайн"
+    // Сеть на устройстве есть, а сервер не отвечает
+    const val SYNC_SERVER_UNREACHABLE = "Нет связи"
     const val SYNC_IN_PROGRESS = "Идёт синхронизация данных"
     const val SYNC_PENDING_COUNT = "Ожидают отправки: %1\$d"
     const val SYNC_ALL_SENT = "Все изменения синхронизированы"
@@ -312,6 +314,8 @@ object Strings {
     const val SYNC_ERROR_PREFIX = "Ошибка синхронизации: %1\$s"
     const val SYNC_RETRY = "Повторить синхронизацию"
     const val SYNC_DISMISS_ERROR = "Скрыть сообщение об ошибке"
+    const val SERVER_UNREACHABLE = "Нет связи с сервером — показаны сохранённые данные"
+    const val RETRY = "Повторить"
 
     // === Навигация ===
     const val NAV_DASHBOARD = "Обзор"

@@ -2,6 +2,7 @@ package ru.homebudget.finkeeper.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +15,8 @@ import ru.homebudget.finkeeper.data.repository.budget.BudgetRepository
 import ru.homebudget.finkeeper.data.repository.category.CategoryRepository
 import ru.homebudget.finkeeper.data.repository.expense.ExpenseRepository
 import ru.homebudget.finkeeper.data.repository.income.IncomeRepository
+import ru.homebudget.finkeeper.data.network.isConnectivityFailure
+import ru.homebudget.finkeeper.data.network.runServerPhase
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.SyncManager
 import ru.homebudget.finkeeper.data.repository.income.IncomeSourceRepository
@@ -100,6 +103,8 @@ data class MonthViewState(
     val activeTab: Int = 0, // 0 = expenses, 1 = incomes
     val error: String? = null,
     val isOffline: Boolean = false,
+    /** Идёт серверная фаза загрузки (для индикатора на кнопке «Повторить»). */
+    val isSyncing: Boolean = false,
     // Pending source confirmation state
     val pendingSourceName: String? = null,
     val pendingSourceAmount: Double? = null,
@@ -185,174 +190,202 @@ class MonthViewModel(
         tokenStorage.monthViewMonth = month
     }
 
+    private var loadedMonthKey: Int? = null
+
     fun loadData(
         syncFromServer: Boolean = true,
         showLoader: Boolean = true,
     ) {
         viewModelScope.launch {
-            if (showLoader) {
-                _state.value = _state.value.copy(isLoading = true, error = null)
-            } else {
-                _state.value = _state.value.copy(error = null)
-            }
+            val s = _state.value
+            // Полноэкранный лоадер — только если для этого месяца ещё нечего показать
+            val needLoader = showLoader && loadedMonthKey != s.year * 100 + s.month
+            _state.value = s.copy(isLoading = needLoader || s.isLoading, error = null)
             loadDataSuspend(syncFromServer)
         }
     }
 
+    /**
+     * Local-first: сначала показываем данные из локальной БД, затем (если нужно) подтягиваем
+     * сервер в рамках общего бюджета времени и перечитываем Room. Без связи экран остаётся
+     * на локальных данных с isOffline, а не висит на лоадере.
+     * Синхронизацию пропускаем после локальных мутаций (delete/update), чтобы не перезаписать
+     * ещё не отправленные изменения.
+     */
     private suspend fun loadDataSuspend(syncFromServer: Boolean = true) {
         try {
             val s = _state.value
 
-            // Получаем или создаём месяц через репозиторий
-            val monthResult = monthRepository.getOrCreateMonth(currentUserId, s.year, s.month)
-            val monthData =
-                if (monthResult.isSuccess) {
-                    monthResult.getOrNull()!!
-                } else {
-                    throw Exception("Failed to get or create month")
-                }
+            suspend fun localMonth(): MonthData =
+                monthRepository.getOrCreateMonth(currentUserId, s.year, s.month, registerOnServer = false)
+                    .getOrNull() ?: throw Exception("Failed to get or create month")
 
-            // Фаза 1: Синхронизируем данные с сервером (если онлайн)
-            // Пропускаем синхронизацию после локальных мутаций (delete/update),
-            // чтобы не перезаписать ещё не отправленные изменения
-            var isOffline = _state.value.isOffline
-            if (syncFromServer) {
-                isOffline = false
+            var monthData = localMonth()
+            publishLocalData(monthData, s.year, s.month, isOffline = s.isOffline)
+            if (!syncFromServer) return
+
+            _state.value = _state.value.copy(isSyncing = true)
+            val reachable =
                 try {
-                    categoryRepository.syncWithServer(currentUserId)
-                    incomeSourceRepository.syncWithServer(currentUserId)
-                    // До скачивания: сервер создаст регулярные записи, у которых наступил день
-                    monthRepository.ensureOnServer(monthData.localId)
-                    if (monthData.serverId != null) {
-                        incomeRepository.syncWithServer(currentUserId, monthData.localId)
-                        expenseRepository.syncWithServer(currentUserId, monthData.localId)
-                        budgetRepository.syncWithServer(currentUserId, monthData.localId)
-                        try {
-                            plannedRepository.syncWithServer(currentUserId, monthData.localId)
-                        } catch (_: Exception) {
-                            // Старый сервер без planned-state не должен ломать загрузку месяца
+                    runServerPhase {
+                        stepResult { categoryRepository.syncWithServer(currentUserId) }
+                        stepResult { incomeSourceRepository.syncWithServer(currentUserId) }
+                        // До скачивания: сервер создаст регулярные записи, у которых наступил день
+                        // Сетевой сбой step пометит сам; ответ сервера с ошибкой даёт false без «нет связи»
+                        step { monthRepository.ensureOnServerChecked(monthData.localId) }
+                        monthData = localMonth()
+                        if (monthData.serverId != null) {
+                            stepResult { incomeRepository.syncWithServer(currentUserId, monthData.localId) }
+                            stepResult { expenseRepository.syncWithServer(currentUserId, monthData.localId) }
+                            stepResult { budgetRepository.syncWithServer(currentUserId, monthData.localId) }
+                            try {
+                                step { plannedRepository.syncWithServer(currentUserId, monthData.localId) }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: Exception) {
+                                // Старый сервер без planned-state не должен ломать загрузку месяца
+                            }
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    isOffline = true
-                }
-            }
-
-            // Фаза 2: Читаем актуальные данные из локальной БД
-            var incomes: List<Income> = emptyList()
-            incomeRepository
-                .getIncomesByMonth(monthData.localId)
-                .onSuccess { incomeList ->
-                    incomes = incomeList
+                    println("[LOAD] month server phase failed: ${e.message}")
+                    !e.isConnectivityFailure()
                 }
 
-            var allExpenses: List<Expense> = emptyList()
-            expenseRepository
-                .getExpensesByMonth(monthData.localId)
-                .onSuccess { expenseList ->
-                    allExpenses = expenseList
-                }
-
-            var categories: List<Category> = emptyList()
-            categoryRepository
-                .getAllCategories(currentUserId)
-                .onSuccess { categoryList ->
-                    categories = categoryList
-                }
-
-            var budgets: List<Budget> = emptyList()
-            budgetRepository
-                .getBudgetsByMonth(monthData.localId)
-                .onSuccess { budgetList ->
-                    budgets = budgetList
-                }
-
-            var incomeSources: List<IncomeSource> = emptyList()
-            incomeSourceRepository
-                .getAllIncomeSources(currentUserId)
-                .onSuccess { sourceList ->
-                    incomeSources = sourceList
-                }
-
-            // Виртуальный план-слой: вычисляется локально, работает оффлайн
-            val planned: PlannedResult = plannedRepository.getPlanned(monthData.localId)
-                .withoutDownloadedRecords(allExpenses, incomes)
-
-            // Регулярные записи, у которых наступил день, а с сервера они ещё не пришли —
-            // учитываем как факт (тем же видом, что создаст сервер), чтобы суммы не скакали
-            val autoExpenses = planned.autoAppliedExpenses.map { it.toAutoExpense(monthData.localId) }
-            val autoIncomes = planned.autoAppliedIncomes.map { it.toAutoIncome(monthData.localId) }
-            allExpenses = allExpenses + autoExpenses
-            incomes = incomes + autoIncomes
-
-            // Фильтруем расходы - исключаем категорию "Пополнение копилки"
-            val piggyBankCategoryId = categories.find { it.name == "Пополнение копилки" }?.id
-            val visibleExpenses =
-                if (piggyBankCategoryId != null) {
-                    allExpenses.filter { it.categoryId != piggyBankCategoryId }
-                } else {
-                    allExpenses
-                }
-
-            // Присоединяем названия источников к доходам
-            val incomesWithSources =
-                incomes.map { income ->
-                    val sourceId = income.source.toLongOrNull()
-                    val matchedSource = if (sourceId != null && sourceId != 0L) {
-                        incomeSources.find { it.id.toLong() == sourceId }
-                    } else null
-                    val sourceName = matchedSource?.name
-                        ?: income.description
-                        ?: income.source
-                    IncomeWithSource(
-                        id = income.id,
-                        sourceName = sourceName,
-                        amount = income.amount,
-                        date = income.date,
-                    )
-                }
-
-            val totalIncome = incomes.sumOf { it.amount }
-            val totalExpense = visibleExpenses.sumOf { it.amount }
-            // + ещё не выгруженные пополнения копилок: их скрытый расход создаст сервер позже,
-            // а остаток лимита должен уменьшиться сразу, как и онлайн
-            val totalAllExpenses = allExpenses.sumOf { it.amount } +
-                savingsTransactionRepository.getUnsyncedDepositsTotal(currentUserId, monthData.localId)
-            val totalLimit = budgets.sumOf { it.limitAmount }
-
-            val grouped = buildGroupedExpenses(visibleExpenses, categories, budgets)
-
-            _state.value =
-                _state.value.copy(
-                    isLoading = false,
-                    monthData = monthData,
-                    incomes = incomes,
-                    incomesWithSources = incomesWithSources,
-                    expenses = visibleExpenses,
-                    categories = categories,
-                    incomeSources = incomeSources,
-                    budgets = budgets,
-                    groupedExpenses = grouped,
-                    totalIncome = totalIncome,
-                    totalExpense = totalExpense,
-                    totalAllExpenses = totalAllExpenses,
-                    totalLimit = totalLimit,
-                    plannedExpenses = planned.expenses.map { it.toUi() },
-                    plannedIncomes = planned.incomes.map { it.toUi() },
-                    plannedExpensesTotal = planned.plannedExpensesCents / 100.0,
-                    plannedIncomesTotal = planned.plannedIncomesCents / 100.0,
-                    autoAppliedExpenseIds = autoExpenses.map { it.id }.toSet(),
-                    autoAppliedIncomeIds = autoIncomes.map { it.id }.toSet(),
-                    isOffline = isOffline,
-                )
+            // Пока шла серверная фаза, пользователь мог переключить месяц — не затираем его данные
+            val current = _state.value
+            if (current.year != s.year || current.month != s.month) return
+            publishLocalData(monthData, s.year, s.month, isOffline = !reachable)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _state.value =
                 _state.value.copy(
                     isLoading = false,
                     error = e.message ?: "Ошибка загрузки",
                     isOffline = true,
+                    isSyncing = false,
                 )
         }
+    }
+
+    private suspend fun publishLocalData(
+        monthData: MonthData,
+        year: Int,
+        month: Int,
+        isOffline: Boolean,
+    ) {
+        // Читаем актуальные данные из локальной БД
+        var incomes: List<Income> = emptyList()
+        incomeRepository
+            .getIncomesByMonth(monthData.localId)
+            .onSuccess { incomeList ->
+                incomes = incomeList
+            }
+
+        var allExpenses: List<Expense> = emptyList()
+        expenseRepository
+            .getExpensesByMonth(monthData.localId)
+            .onSuccess { expenseList ->
+                allExpenses = expenseList
+            }
+
+        var categories: List<Category> = emptyList()
+        categoryRepository
+            .getAllCategories(currentUserId)
+            .onSuccess { categoryList ->
+                categories = categoryList
+            }
+
+        var budgets: List<Budget> = emptyList()
+        budgetRepository
+            .getBudgetsByMonth(monthData.localId)
+            .onSuccess { budgetList ->
+                budgets = budgetList
+            }
+
+        var incomeSources: List<IncomeSource> = emptyList()
+        incomeSourceRepository
+            .getAllIncomeSources(currentUserId)
+            .onSuccess { sourceList ->
+                incomeSources = sourceList
+            }
+
+        // Виртуальный план-слой: вычисляется локально, работает оффлайн
+        val planned: PlannedResult = plannedRepository.getPlanned(monthData.localId)
+            .withoutDownloadedRecords(allExpenses, incomes)
+
+        // Регулярные записи, у которых наступил день, а с сервера они ещё не пришли —
+        // учитываем как факт (тем же видом, что создаст сервер), чтобы суммы не скакали
+        val autoExpenses = planned.autoAppliedExpenses.map { it.toAutoExpense(monthData.localId) }
+        val autoIncomes = planned.autoAppliedIncomes.map { it.toAutoIncome(monthData.localId) }
+        allExpenses = allExpenses + autoExpenses
+        incomes = incomes + autoIncomes
+
+        // Фильтруем расходы - исключаем категорию "Пополнение копилки"
+        val piggyBankCategoryId = categories.find { it.name == "Пополнение копилки" }?.id
+        val visibleExpenses =
+            if (piggyBankCategoryId != null) {
+                allExpenses.filter { it.categoryId != piggyBankCategoryId }
+            } else {
+                allExpenses
+            }
+
+        // Присоединяем названия источников к доходам
+        val incomesWithSources =
+            incomes.map { income ->
+                val sourceId = income.source.toLongOrNull()
+                val matchedSource = if (sourceId != null && sourceId != 0L) {
+                    incomeSources.find { it.id.toLong() == sourceId }
+                } else null
+                val sourceName = matchedSource?.name
+                    ?: income.description
+                    ?: income.source
+                IncomeWithSource(
+                    id = income.id,
+                    sourceName = sourceName,
+                    amount = income.amount,
+                    date = income.date,
+                )
+            }
+
+        val totalIncome = incomes.sumOf { it.amount }
+        val totalExpense = visibleExpenses.sumOf { it.amount }
+        // + ещё не выгруженные пополнения копилок: их скрытый расход создаст сервер позже,
+        // а остаток лимита должен уменьшиться сразу, как и онлайн
+        val totalAllExpenses = allExpenses.sumOf { it.amount } +
+            savingsTransactionRepository.getUnsyncedDepositsTotal(currentUserId, monthData.localId)
+        val totalLimit = budgets.sumOf { it.limitAmount }
+
+        val grouped = buildGroupedExpenses(visibleExpenses, categories, budgets)
+
+        _state.value =
+            _state.value.copy(
+                isLoading = false,
+                monthData = monthData,
+                incomes = incomes,
+                incomesWithSources = incomesWithSources,
+                expenses = visibleExpenses,
+                categories = categories,
+                incomeSources = incomeSources,
+                budgets = budgets,
+                groupedExpenses = grouped,
+                totalIncome = totalIncome,
+                totalExpense = totalExpense,
+                totalAllExpenses = totalAllExpenses,
+                totalLimit = totalLimit,
+                plannedExpenses = planned.expenses.map { it.toUi() },
+                plannedIncomes = planned.incomes.map { it.toUi() },
+                plannedExpensesTotal = planned.plannedExpensesCents / 100.0,
+                plannedIncomesTotal = planned.plannedIncomesCents / 100.0,
+                autoAppliedExpenseIds = autoExpenses.map { it.id }.toSet(),
+                autoAppliedIncomeIds = autoIncomes.map { it.id }.toSet(),
+                isOffline = isOffline,
+                isSyncing = false,
+            )
+        loadedMonthKey = year * 100 + month
     }
 
     fun addIncome(

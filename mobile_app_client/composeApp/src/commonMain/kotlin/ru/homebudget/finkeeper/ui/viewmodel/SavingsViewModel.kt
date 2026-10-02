@@ -2,6 +2,7 @@ package ru.homebudget.finkeeper.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,6 +11,7 @@ import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import ru.homebudget.finkeeper.data.model.*
+import ru.homebudget.finkeeper.data.network.runServerPhase
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.SyncManager
 import ru.homebudget.finkeeper.data.repository.month.MonthRepository
@@ -25,6 +27,8 @@ data class SavingsState(
     val totalSavings: Double = 0.0,
     val error: String? = null,
     val isOffline: Boolean = false,
+    /** Идёт серверная фаза загрузки (для индикатора на кнопке «Повторить»). */
+    val isSyncing: Boolean = false,
 )
 
 class SavingsViewModel(
@@ -61,44 +65,56 @@ class SavingsViewModel(
         }
     }
 
+    private var hasLoaded = false
+
     fun loadData(
         showLoader: Boolean = true,
         syncFromServer: Boolean = true,
     ) {
         viewModelScope.launch {
-            if (showLoader) {
-                _state.value = _state.value.copy(isLoading = true, error = null)
-            } else {
-                _state.value = _state.value.copy(error = null)
-            }
+            // Полноэкранный лоадер — только до первой публикации данных
+            val needLoader = showLoader && !hasLoaded
+            _state.value = _state.value.copy(isLoading = needLoader || _state.value.isLoading, error = null)
             loadDataSuspend(syncFromServer)
         }
     }
 
+    /**
+     * Local-first: цели из Room показываем сразу, затем подтягиваем сервер (с бюджетом времени)
+     * и перечитываем Room. Раньше публиковалось прочитанное ДО синхронизации.
+     */
     private suspend fun loadDataSuspend(syncFromServer: Boolean = true) {
         try {
-            // Получаем цели через репозиторий
-            var goals: List<SavingsGoal> = emptyList()
-            savingsGoalRepository
-                .getAllSavingsGoals(currentUserId)
-                .onSuccess { goalList ->
-                    goals = goalList
-                }
+            publishGoals(isOffline = _state.value.isOffline)
+            if (!syncFromServer) return
 
-            if (syncFromServer) {
-                savingsGoalRepository.syncWithServer(currentUserId)
-            }
-
-            val totalSavings = goals.sumOf { it.currentAmount }
-            _state.value = _state.value.copy(isLoading = false, goals = goals, totalSavings = totalSavings, isOffline = false)
+            _state.value = _state.value.copy(isSyncing = true)
+            val reachable = runServerPhase { stepResult { savingsGoalRepository.syncWithServer(currentUserId) } }
+            publishGoals(isOffline = !reachable)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _state.value =
                 _state.value.copy(
                     isLoading = false,
                     error = e.message ?: "Ошибка загрузки",
                     isOffline = true,
+                    isSyncing = false,
                 )
         }
+    }
+
+    private suspend fun publishGoals(isOffline: Boolean) {
+        var goals: List<SavingsGoal> = emptyList()
+        savingsGoalRepository
+            .getAllSavingsGoals(currentUserId)
+            .onSuccess { goalList ->
+                goals = goalList
+            }
+
+        val totalSavings = goals.sumOf { it.currentAmount }
+        _state.value = _state.value.copy(isLoading = false, goals = goals, totalSavings = totalSavings, isOffline = isOffline, isSyncing = false)
+        hasLoaded = true
     }
 
     fun createGoal(
@@ -169,8 +185,8 @@ class SavingsViewModel(
             try {
                 val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
 
-                // Получаем или создаём месяц (нужен для корректной работы синхронизации)
-                val monthResult = monthRepository.getOrCreateMonth(currentUserId, now.year, now.monthNumber)
+                // Получаем или создаём месяц локально (на сервер его зарегистрирует очередь синхронизации)
+                val monthResult = monthRepository.getOrCreateMonth(currentUserId, now.year, now.monthNumber, registerOnServer = false)
                 if (!monthResult.isSuccess) {
                     throw Exception("Failed to get or create month")
                 }

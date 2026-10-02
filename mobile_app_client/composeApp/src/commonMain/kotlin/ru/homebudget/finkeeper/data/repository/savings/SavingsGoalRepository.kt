@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.repository.savings
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -49,6 +50,8 @@ class SavingsGoalRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -95,6 +98,8 @@ class SavingsGoalRepository(
                 )
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -147,6 +152,8 @@ class SavingsGoalRepository(
                 )
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -181,6 +188,8 @@ class SavingsGoalRepository(
                 )
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -208,6 +217,8 @@ class SavingsGoalRepository(
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -281,6 +292,8 @@ class SavingsGoalRepository(
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }

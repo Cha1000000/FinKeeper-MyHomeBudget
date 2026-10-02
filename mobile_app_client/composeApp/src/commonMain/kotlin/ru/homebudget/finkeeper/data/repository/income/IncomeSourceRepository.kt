@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.repository.income
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -52,6 +53,8 @@ class IncomeSourceRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -80,6 +83,8 @@ class IncomeSourceRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -160,6 +165,8 @@ class IncomeSourceRepository(
                 )
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -220,6 +227,8 @@ class IncomeSourceRepository(
                 )
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -247,6 +256,8 @@ class IncomeSourceRepository(
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -336,6 +347,8 @@ class IncomeSourceRepository(
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }

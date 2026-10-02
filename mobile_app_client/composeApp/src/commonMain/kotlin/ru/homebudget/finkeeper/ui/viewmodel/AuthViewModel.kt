@@ -3,6 +3,7 @@ package ru.homebudget.finkeeper.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,6 +14,7 @@ import ru.homebudget.finkeeper.data.model.SocialProvider
 import ru.homebudget.finkeeper.data.model.User
 import ru.homebudget.finkeeper.data.remote.AuthSessionEvent
 import ru.homebudget.finkeeper.data.remote.ApiClient
+import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.data.remote.ApiException
 import ru.homebudget.finkeeper.data.remote.SocialAuthLauncher
 import ru.homebudget.finkeeper.data.remote.TokenStorage
@@ -77,12 +79,25 @@ class AuthViewModel(
         }
     }
 
+    private fun cachedUser(): User =
+        User(
+            id = tokenStorage.userId.toInt(),
+            username = tokenStorage.username ?: "Офлайн",
+            email = tokenStorage.email,
+        )
+
     private fun checkAuth() {
         val hasAccessToken = tokenStorage.accessToken != null
         val hasRefreshToken = tokenStorage.refreshToken != null
         if (!hasAccessToken && !hasRefreshToken) {
             updateLoggedOutState(infoMessage = _state.value.infoMessage)
             return
+        }
+        // Local-first: при известном пользователе открываем приложение сразу с локальными данными,
+        // а сессию проверяем в фоне. Иначе на «зависшей» сети Splash ждёт getMe по 30+ секунд.
+        val hasLocalUser = tokenStorage.userId > 0L
+        if (hasLocalUser) {
+            _state.value = _state.value.copy(user = cachedUser(), isLoading = false, isAuthenticated = true, error = null)
         }
         viewModelScope.launch {
             try {
@@ -94,12 +109,15 @@ class AuthViewModel(
                 tokenStorage.username = user.username
                 tokenStorage.email = user.email
                 _state.value = _state.value.copy(user = user, isLoading = false, isAuthenticated = true, error = null)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val currentInfoMessage = _state.value.infoMessage
 
                 if (e is ApiException && (e.statusCode == 401 || e.statusCode == 403)) {
                     // getMe failed with auth error — the interceptor already tried refresh.
                     // Try one more explicit refresh as a last resort before logging out.
+                    var refreshFailedOnNetwork = false
                     if (tokenStorage.refreshToken != null) {
                         try {
                             apiClient.refreshAuth()
@@ -114,24 +132,39 @@ class AuthViewModel(
                                 error = null,
                             )
                             return@launch
-                        } catch (_: Exception) {
-                            // Explicit refresh also failed — proceed to logout
+                        } catch (ce: CancellationException) {
+                            throw ce
+                        } catch (re: Exception) {
+                            // Обрыв сети — не повод разлогинивать: refresh-токен может быть валиден
+                            // То же для 5xx (деплой, прокси): разлогиниваем только по 401/403 на refresh
+                            refreshFailedOnNetwork = re.isConnectivityFailure() ||
+                                (re is ApiException && re.statusCode >= 500)
                         }
+                    }
+                    if (refreshFailedOnNetwork) {
+                        // Локального пользователя нет — Splash не должен висеть: пускаем в офлайн-режиме
+                        if (!hasLocalUser) {
+                            _state.value = _state.value.copy(
+                                user = cachedUser(),
+                                isLoading = false,
+                                error = Strings.CONNECTION_ERROR,
+                                isAuthenticated = true,
+                            )
+                        }
+                        return@launch
                     }
                     if (tokenStorage.accessToken != null || tokenStorage.refreshToken != null) {
                         tokenStorage.clear()
                     }
                     updateLoggedOutState(infoMessage = currentInfoMessage)
+                } else if (hasLocalUser) {
+                    // Нет связи с сервером: приложение уже открыто на локальных данных,
+                    // статус «нет связи» показывают сами экраны (isOffline)
                 } else {
                     // Network error — keep session, show error, but allow offline access
                     // Restore the offline user so that the app can navigate past the login screen
-                    val offlineUser = User(
-                        id = tokenStorage.userId.toInt(),
-                        username = tokenStorage.username ?: "Офлайн",
-                        email = tokenStorage.email
-                    )
                     _state.value = _state.value.copy(
-                        user = offlineUser,
+                        user = cachedUser(),
                         isLoading = false,
                         error = Strings.CONNECTION_ERROR,
                         isAuthenticated = true,

@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import ru.homebudget.finkeeper.data.local.dao.MonthDao
+import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
@@ -44,6 +45,8 @@ class MonthRepository(
         userId: Long,
         year: Int,
         month: Int,
+        // false — только локальная БД, без сети (для local-first показа данных до ответа сервера)
+        registerOnServer: Boolean = true,
     ): Result<MonthData> =
         withContext(Dispatchers.Default) {
             try {
@@ -51,10 +54,12 @@ class MonthRepository(
 
                 if (localMonth != null) {
                     // Месяц уже есть локально, обновляем serverId если нужно
-                    if (localMonth.serverId == null) {
+                    if (registerOnServer && localMonth.serverId == null) {
                         try {
                             val remoteMonth = apiClient.ensureMonth(year, month)
                             monthDao.updateServerId(localMonth.id, remoteMonth.id.toString())
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             // Игнорируем ошибку синхронизации месяца
                         }
@@ -82,11 +87,15 @@ class MonthRepository(
                         )
 
                     // Синхронизируем с сервером
-                    try {
-                        val remoteMonth = apiClient.ensureMonth(year, month)
-                        monthDao.updateServerId(newId, remoteMonth.id.toString())
-                    } catch (e: Exception) {
-                        // Если не удалось синхронизировать, оставляем serverId как null
+                    if (registerOnServer) {
+                        try {
+                            val remoteMonth = apiClient.ensureMonth(year, month)
+                            monthDao.updateServerId(newId, remoteMonth.id.toString())
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // Если не удалось синхронизировать, оставляем serverId как null
+                        }
                     }
 
                     // Получаем созданный месяц
@@ -102,6 +111,8 @@ class MonthRepository(
                         ),
                     )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -113,6 +124,19 @@ class MonthRepository(
      * они не появлялись бы вовсе. Идемпотентно; без сети — тихо false.
      */
     suspend fun ensureOnServer(monthLocalId: Long): Boolean =
+        try {
+            ensureOnServerChecked(monthLocalId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
+
+    /**
+     * То же, что [ensureOnServer], но сетевые сбои (нет связи, таймаут) пробрасываются, чтобы
+     * вызывающий отличил «сервер не ответил» от «сервер ответил ошибкой» (она даёт `false`).
+     */
+    suspend fun ensureOnServerChecked(monthLocalId: Long): Boolean =
         withContext(Dispatchers.Default) {
             val month = monthDao.getById(monthLocalId) ?: return@withContext false
             try {
@@ -124,6 +148,7 @@ class MonthRepository(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (e.isConnectivityFailure()) throw e
                 false
             }
         }
@@ -147,6 +172,8 @@ class MonthRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -166,6 +193,8 @@ class MonthRepository(
         withContext(Dispatchers.Default) {
             try {
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }

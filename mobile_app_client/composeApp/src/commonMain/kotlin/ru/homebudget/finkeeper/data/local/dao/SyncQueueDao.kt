@@ -47,6 +47,13 @@ class SyncQueueDao(
     }
 
     /**
+     * Возвращает элемент в pending без траты попытки (сетевой отказ, отмена корутины).
+     */
+    fun returnToPending(id: Long) {
+        queries.returnSyncQueueItemToPending(id)
+    }
+
+    /**
      * Отметка элемента как завершённого
      */
     fun markCompleted(id: Long) {
@@ -149,6 +156,14 @@ class SyncQueueDao(
      */
     fun retryRetriableFailed(maxRetryCount: Long) {
         queries.resetRetriableFailedToPending(maxRetryCount)
+    }
+
+    /**
+     * Возвращает в очередь элементы, застрявшие в `syncing`. Вызывать, когда заведомо никто
+     * не отправляет очередь (например, при первом запуске очереди после старта процесса).
+     */
+    fun resetSyncingToPending() {
+        queries.resetSyncingToPending()
     }
 
     /**

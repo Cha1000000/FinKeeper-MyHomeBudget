@@ -2,6 +2,7 @@ package ru.homebudget.finkeeper.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,6 +11,7 @@ import kotlinx.coroutines.launch
 import ru.homebudget.finkeeper.data.model.Category
 import ru.homebudget.finkeeper.data.model.IncomeSource
 import ru.homebudget.finkeeper.data.remote.ApiClient
+import ru.homebudget.finkeeper.data.network.runServerPhase
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.SyncManager
 import ru.homebudget.finkeeper.data.repository.category.CategoryRepository
@@ -28,6 +30,8 @@ data class CategoriesState(
     val isIncomeSourceReorderMode: Boolean = false,
     val error: String? = null,
     val isOffline: Boolean = false,
+    /** Идёт серверная фаза загрузки (для индикатора на кнопке «Повторить»). */
+    val isSyncing: Boolean = false,
 )
 
 class CategoriesViewModel(
@@ -65,72 +69,83 @@ class CategoriesViewModel(
         }
     }
 
+    private var hasLoaded = false
+
     fun loadData(
         showLoader: Boolean = true,
         syncFromServer: Boolean = true,
     ) {
         viewModelScope.launch {
-            if (showLoader) {
-                _state.update { it.copy(isLoading = true, error = null) }
-            } else {
-                _state.update { it.copy(error = null) }
-            }
+            // Полноэкранный лоадер — только до первой публикации данных
+            val needLoader = showLoader && !hasLoaded
+            _state.update { it.copy(isLoading = needLoader || it.isLoading, error = null) }
             loadDataSuspend(syncFromServer)
         }
     }
 
+    /**
+     * Local-first: данные из Room показываем сразу, затем подтягиваем сервер (с бюджетом времени)
+     * и перечитываем Room. Раньше публиковалось прочитанное ДО синхронизации.
+     */
     private suspend fun loadDataSuspend(syncFromServer: Boolean = true) {
-
         try {
-            // Получаем категории через репозиторий
-            var categories: List<Category> = emptyList()
-            categoryRepository
-                .getAllCategories(currentUserId)
-                .onSuccess { categoryList ->
-                    categories = categoryList
+            publishLocalData(isOffline = _state.value.isOffline)
+            if (!syncFromServer) return
+
+            _state.update { it.copy(isSyncing = true) }
+            val reachable =
+                runServerPhase {
+                    stepResult { categoryRepository.syncWithServer(currentUserId) }
+                    stepResult { incomeSourceRepository.syncWithServer(currentUserId) }
                 }
-
-            if (syncFromServer) {
-                categoryRepository.syncWithServer(currentUserId)
-            }
-
-            // Получаем источники дохода через репозиторий
-            var incomeSources: List<IncomeSource> = emptyList()
-            incomeSourceRepository
-                .getAllIncomeSources(currentUserId)
-                .onSuccess { sourceList ->
-                    incomeSources = sourceList
-                }
-
-            if (syncFromServer) {
-                incomeSourceRepository.syncWithServer(currentUserId)
-            }
-
-            // Разделяем на обычные и фиксированные
-            val regularCategories = categories.filter { it.isFixed == 0 && it.isActive == 1 }
-            val fixedCats = categories.filter { it.isFixed == 1 && it.isActive == 1 }
-            val regularSources = incomeSources.filter { it.isFixed == 0 && it.isActive == 1 }
-            val fixedSrcs = incomeSources.filter { it.isFixed == 1 && it.isActive == 1 }
-
-            _state.update {
-                it.copy(
-                    isLoading = false,
-                    categories = regularCategories,
-                    fixedCategories = fixedCats,
-                    incomeSources = regularSources,
-                    fixedIncomeSources = fixedSrcs,
-                    isOffline = false,
-                )
-            }
+            publishLocalData(isOffline = !reachable)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _state.update {
                 it.copy(
                     isLoading = false,
                     error = e.message ?: "Ошибка загрузки данных",
                     isOffline = true,
+                    isSyncing = false,
                 )
             }
         }
+    }
+
+    private suspend fun publishLocalData(isOffline: Boolean) {
+        var categories: List<Category> = emptyList()
+        categoryRepository
+            .getAllCategories(currentUserId)
+            .onSuccess { categoryList ->
+                categories = categoryList
+            }
+
+        var incomeSources: List<IncomeSource> = emptyList()
+        incomeSourceRepository
+            .getAllIncomeSources(currentUserId)
+            .onSuccess { sourceList ->
+                incomeSources = sourceList
+            }
+
+        // Разделяем на обычные и фиксированные
+        val regularCategories = categories.filter { it.isFixed == 0 && it.isActive == 1 }
+        val fixedCats = categories.filter { it.isFixed == 1 && it.isActive == 1 }
+        val regularSources = incomeSources.filter { it.isFixed == 0 && it.isActive == 1 }
+        val fixedSrcs = incomeSources.filter { it.isFixed == 1 && it.isActive == 1 }
+
+        _state.update {
+            it.copy(
+                isLoading = false,
+                categories = regularCategories,
+                fixedCategories = fixedCats,
+                incomeSources = regularSources,
+                fixedIncomeSources = fixedSrcs,
+                isOffline = isOffline,
+                isSyncing = false,
+            )
+        }
+        hasLoaded = true
     }
 
     fun setActiveTab(tab: Int) {

@@ -27,6 +27,7 @@ import ru.homebudget.finkeeper.ui.components.EmptyState
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
+import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.viewmodel.CategoriesState
 import ru.homebudget.finkeeper.data.model.Category
@@ -117,6 +118,14 @@ fun CategoriesScreen(
         if (isDesktop) Modifier.padding(top = 16.dp) else Modifier
     )) {
         ScreenHeader(title = Strings.REFERENCE_BOOKS)
+
+        if (state.isOffline) {
+            ServerUnreachableBanner(
+                onRetry = onRefresh,
+                isRetrying = state.isSyncing,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
 
         TabRow(
             selectedTabIndex = state.activeTab,

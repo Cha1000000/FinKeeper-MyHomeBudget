@@ -25,6 +25,7 @@ import ru.homebudget.finkeeper.ui.components.FinancialDynamicsChart
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
+import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.components.SummaryCard
 import androidx.compose.ui.graphics.luminance
 import ru.homebudget.finkeeper.ui.theme.AppTheme
@@ -63,6 +64,10 @@ fun DashboardScreen(
                 title = Strings.DASHBOARD_TITLE,
                 modifier = Modifier.padding(horizontal = 0.dp),
             )
+        }
+
+        if (state.isOffline) {
+            item { ServerUnreachableBanner(onRetry = onRefresh, isRetrying = state.isSyncing) }
         }
 
         // Month navigation header

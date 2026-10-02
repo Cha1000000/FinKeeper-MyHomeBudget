@@ -646,6 +646,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 updateSyncQueueItemStatus:
 UPDATE sync_queue SET status = ?, last_attempt = datetime('now'), retry_count = retry_count + 1, error_message = ? WHERE id = ?;
 
+-- Возврат в очередь после сетевого отказа или отмены: попытка не считается проваленной,
+-- поэтому откатываем +1, добавленный переходом в syncing (иначе долгий простой сервера
+-- выжигает лимит авто-ретраев и операции застревают в failed)
+returnSyncQueueItemToPending:
+UPDATE sync_queue SET status = 'pending', error_message = NULL, retry_count = MAX(retry_count - 1, 0) WHERE id = ?;
+
 updateSyncQueueItemCompleted:
 UPDATE sync_queue SET status = 'completed', last_attempt = datetime('now') WHERE id = ?;
 
@@ -691,6 +697,11 @@ UPDATE sync_queue SET status = 'pending', error_message = NULL, retry_count = 0 
 -- (retry_count < лимит) — чтобы перманентно падающие операции не штормили сервер
 resetRetriableFailedToPending:
 UPDATE sync_queue SET status = 'pending', error_message = NULL WHERE status = 'failed' AND retry_count < :maxRetryCount;
+
+-- Элементы, застрявшие в 'syncing' (процесс убит или корутина отменена посреди отправки):
+-- из очереди берутся только 'pending', поэтому без сброса операция не ушла бы на сервер никогда
+resetSyncingToPending:
+UPDATE sync_queue SET status = 'pending' WHERE status = 'syncing';
 
 -- Get total income for month
 getTotalIncomeByMonth:

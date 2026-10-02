@@ -43,6 +43,7 @@ import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ProgressBar
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
+import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsState
 import ru.homebudget.finkeeper.util.formatCurrency
@@ -103,6 +104,10 @@ fun SavingsScreen(
                         }
                     },
                 )
+            }
+
+            if (state.isOffline) {
+                item { ServerUnreachableBanner(onRetry = onRefresh, isRetrying = state.isSyncing) }
             }
 
             if (state.totalSavings > 0) {

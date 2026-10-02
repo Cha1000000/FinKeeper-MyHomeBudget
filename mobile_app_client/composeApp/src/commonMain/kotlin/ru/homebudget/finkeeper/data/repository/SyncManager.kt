@@ -1,5 +1,8 @@
 package ru.homebudget.finkeeper.data.repository
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +23,8 @@ import ru.homebudget.finkeeper.data.local.model.SyncOperation
 import ru.homebudget.finkeeper.data.local.model.SyncQueueStatus
 import ru.homebudget.finkeeper.data.local.model.SyncStatus
 import ru.homebudget.finkeeper.data.model.*
+import ru.homebudget.finkeeper.data.network.ServerPhase
+import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.budget.BudgetRepository
@@ -189,6 +194,8 @@ class SyncManager(
 
                 // Немедленно отправляем на сервер (если доступен)
                 scheduleProcessQueue()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val errorMessage = e.message ?: e::class.simpleName ?: "Unknown enqueue sync error"
                 println("[SYNC] enqueueSync ERROR: $errorMessage")
@@ -227,28 +234,45 @@ class SyncManager(
                 }
 
                 // Этап 1: Забираем данные с сервера (Download)
-                syncFromServer(monthId)
+                val serverReachable = syncFromServer(monthId)
+                if (!serverReachable) {
+                    // Каждый следующий запрос упёрся бы в свой таймаут (минуты на «зависшем» сервере).
+                    // Очередь не трогаем: операции остаются pending и уйдут при следующей синхронизации
+                    println("[SYNC] syncAll: server unreachable, upload skipped")
+                    return@launch
+                }
 
                 // Этап 2: Отправляем локальные изменения (Upload)
                 // Авто-ретрай failed-операций под лимитом (транзиентные ошибки повторяем,
                 // перманентные — не штормим)
+                resetStaleSyncingOnce()
                 syncQueueDao.retryRetriableFailed(MAX_AUTO_RETRY_COUNT)
                 val pendingItems = syncQueueDao.getPendingItems(limit = 50)
                 println("[SYNC] syncAll upload: ${pendingItems.size} pending items")
                 val depositMonthIds = depositMonthIds(pendingItems)
+                var uploadReachable = true
                 for (item in pendingItems) {
-                    syncItemToServer(item)
+                    if (!syncItemToServer(item)) {
+                        uploadReachable = false
+                        break
+                    }
                 }
-                pullHiddenSavingsExpenses(depositMonthIds)
+                if (uploadReachable) pullHiddenSavingsExpenses(depositMonthIds)
 
                 // Очистка завершённых элементов
                 syncQueueDao.clearCompleted()
                 updatePendingCount()
+                if (!uploadReachable) {
+                    println("[SYNC] syncAll: server unreachable during upload")
+                    return@launch
+                }
                 markSyncSuccess()
 
                 // Уведомляем подписчиков об обновлении данных
                 _dataUpdated.tryEmit(Unit)
                 println("[SYNC] syncAll DONE")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 println("[SYNC] syncAll ERROR: ${e.message}")
                 _lastSyncError.value = e.message ?: "syncAll error"
@@ -263,41 +287,55 @@ class SyncManager(
      * Синхронизация данных С СЕРВЕРА в локальную БД
      * Этот метод забирает актуальные данные с сервера и обновляет локальную БД
      */
-    private suspend fun syncFromServer(monthId: Long?) {
+    private suspend fun syncFromServer(monthId: Long?): Boolean {
+        // После первой сетевой неудачи остальные шаги пропускаются (иначе каждый ждёт свой таймаут)
+        val phase = ServerPhase()
         try {
             println("[SYNC] syncFromServer START: userId=$currentUserId, monthId=$monthId")
             // Синхронизируем справочники
-            categoryRepository.syncWithServer(currentUserId)
-            incomeSourceRepository.syncWithServer(currentUserId)
-            savingsGoalRepository.syncWithServer(currentUserId)
-            savingsGoalDao
-                .getAllByUser(currentUserId)
-                .filter { !it.serverId.isNullOrBlank() }
-                .forEach { goal ->
-                    savingsTransactionRepository.syncWithServer(currentUserId, goal.id)
-                }
+            phase.stepResult { categoryRepository.syncWithServer(currentUserId) }
+            phase.stepResult { incomeSourceRepository.syncWithServer(currentUserId) }
+            phase.stepResult { savingsGoalRepository.syncWithServer(currentUserId) }
+            if (!phase.isUnreachable) {
+                savingsGoalDao
+                    .getAllByUser(currentUserId)
+                    .filter { !it.serverId.isNullOrBlank() }
+                    .forEach { goal ->
+                        phase.stepResult { savingsTransactionRepository.syncWithServer(currentUserId, goal.id) }
+                    }
+            }
 
             // Синхронизируем данные за месяц (если указан)
             monthId?.let { id ->
-                monthRepository.syncWithServer(currentUserId)
+                phase.stepResult { monthRepository.syncWithServer(currentUserId) }
                 // До скачивания: сервер создаст регулярные записи, у которых наступил день
-                monthRepository.ensureOnServer(id)
-                incomeRepository.syncWithServer(currentUserId, id)
-                expenseRepository.syncWithServer(currentUserId, id)
-                budgetRepository.syncWithServer(currentUserId, id)
+                phase.step { monthRepository.ensureOnServerChecked(id) }
+                phase.stepResult { incomeRepository.syncWithServer(currentUserId, id) }
+                phase.stepResult { expenseRepository.syncWithServer(currentUserId, id) }
+                phase.stepResult { budgetRepository.syncWithServer(currentUserId, id) }
                 try {
-                    plannedRepository.syncWithServer(currentUserId, id)
+                    phase.step { plannedRepository.syncWithServer(currentUserId, id) }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     // Старый сервер без planned-state не должен ломать остальную синхронизацию
                     println("[SYNC] planned-state pull failed: ${e.message}")
                 }
             }
-            applyDeletedRecordsFromServer()
-            println("[SYNC] syncFromServer DONE")
+            phase.step { applyDeletedRecordsFromServer() }
+            if (phase.isUnreachable) {
+                println("[SYNC] syncFromServer: server unreachable, remaining steps skipped")
+            } else {
+                println("[SYNC] syncFromServer DONE")
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             println("[SYNC] syncFromServer ERROR: ${e.message}")
             e.printStackTrace()
+            if (e.isConnectivityFailure()) phase.markUnreachable()
         }
+        return !phase.isUnreachable
     }
 
     private suspend fun applyDeletedRecordsFromServer() {
@@ -473,13 +511,14 @@ class SyncManager(
     /**
      * Отправляет локальные изменения на сервер
      */
-    private suspend fun syncItemToServer(item: SyncQueueItem) {
+    /** `false` — сервер не ответил по сетевой причине: остальную очередь отправлять бессмысленно. */
+    private suspend fun syncItemToServer(item: SyncQueueItem): Boolean {
         try {
             if (shouldSkipOutdatedItem(item)) {
                 println("[SYNC] syncItemToServer SKIPPED outdated item: type=${item.entityType}, entityId=${item.entityId}, op=${item.operation}")
                 syncQueueDao.markCompleted(item.id)
                 updatePendingCount()
-                return
+                return true
             }
 
             println("[SYNC] syncItemToServer START: type=${item.entityType}, entityId=${item.entityId}, op=${item.operation}, userId=${item.userId}")
@@ -507,10 +546,23 @@ class SyncManager(
                 status = SyncQueueStatus.COMPLETED.value,
                 errorMessage = null,
             )
+            return true
+        } catch (e: CancellationException) {
+            // Элемент уже помечен SYNCING, а из очереди берутся только pending: без возврата
+            // операция осталась бы в очереди навсегда и не ушла бы на сервер
+            withContext(NonCancellable) { syncQueueDao.returnToPending(item.id) }
+            throw e
         } catch (e: Exception) {
             val errorMessage = e.message ?: e::class.simpleName ?: "Unknown sync error"
             println("[SYNC] syncItemToServer FAILED: type=${item.entityType}, entityId=${item.entityId}, error=$errorMessage")
             _lastSyncError.value = "Sync ${item.entityType}: $errorMessage"
+
+            if (e.isConnectivityFailure()) {
+                // Сервер недоступен — не вина операции: остаётся в очереди, попытка не тратится
+                syncQueueDao.returnToPending(item.id)
+                updatePendingCount()
+                return false
+            }
             
             // Проверяем, является ли ошибка 404 (Not Found) - в этом случае повторные попытки бесполезны
             val isNotFoundError = errorMessage.contains("404") || 
@@ -533,6 +585,7 @@ class SyncManager(
                 )
             }
             updatePendingCount()
+            return !e.isConnectivityFailure()
         }
     }
 
@@ -755,7 +808,10 @@ class SyncManager(
             val remoteMonth = apiClient.ensureMonth(month.year.toInt(), month.month.toInt())
             monthDao.updateServerId(month.id, remoteMonth.id.toString())
             remoteMonth.id.toString()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (e.isConnectivityFailure()) throw e
             println("[SYNC] resolveMonthServerId failed: monthId=$monthLocalId, error=${e.message}")
             null
         }
@@ -789,7 +845,10 @@ class SyncManager(
                 )
                 remote.id.toString()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (e.isConnectivityFailure()) throw e
             println("[SYNC] resolveCategoryServerId failed: categoryId=$categoryLocalId, error=${e.message}")
             null
         }
@@ -823,7 +882,10 @@ class SyncManager(
                 )
                 remote.id.toString()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (e.isConnectivityFailure()) throw e
             println("[SYNC] resolveIncomeSourceServerId failed: sourceId=$sourceLocalId, error=${e.message}")
             null
         }
@@ -903,6 +965,8 @@ class SyncManager(
                         )
                         println("[SYNC] syncBudgetToServer UPDATE: updateBudget success")
                         applyBudgetServerSnapshot(item, budget.id, remoteBudget)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         // Если получили 404 - бюджет не найден на сервере, создаём новый
                         val errorMessage = e.message ?: ""
@@ -975,6 +1039,8 @@ class SyncManager(
                 ),
                 operationId = getOperationId(item),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             // 409 = платёж уже материализован на сервере — исключение неактуально,
             // pull planned-state приведёт локальное состояние в порядок
@@ -1158,7 +1224,10 @@ class SyncManager(
                 )
                 remote.id.toString()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (e.isConnectivityFailure()) throw e
             println("[SYNC] resolveSavingsGoalServerId failed: goalId=$goalLocalId, error=${e.message}")
             null
         }
@@ -1186,6 +1255,16 @@ class SyncManager(
         for (monthId in monthIds) {
             expenseRepository.syncWithServer(currentUserId, monthId)
         }
+    }
+
+    // Один раз за жизнь процесса: к этому моменту отправку очереди ещё никто не вёл, значит
+    // все элементы в `syncing` остались от убитого процесса и их надо вернуть в очередь
+    private var staleSyncingReset = false
+
+    private fun resetStaleSyncingOnce() {
+        if (staleSyncingReset) return
+        staleSyncingReset = true
+        syncQueueDao.resetSyncingToPending()
     }
 
     private fun scheduleProcessQueue() {
@@ -1226,15 +1305,21 @@ class SyncManager(
                 // Подхватываем и failed-элементы под лимитом ретраев — иначе операция,
                 // упавшая из-за временной причины (родитель ещё не синхронизирован, обрыв
                 // сети), висела бы до следующего полного syncAll
+                resetStaleSyncingOnce()
                 syncQueueDao.retryRetriableFailed(MAX_AUTO_RETRY_COUNT)
                 val pendingItems = syncQueueDao.getPendingItems(limit = 50)
                 println("[SYNC] scheduleProcessQueue: ${pendingItems.size} pending items")
                 val depositMonthIds = depositMonthIds(pendingItems)
+                var serverReachable = true
                 for (item in pendingItems) {
                     println("[SYNC] processing item: id=${item.id}, type=${item.entityType}, entityId=${item.entityId}, op=${item.operation}, status=${item.status}")
-                    syncItemToServer(item)
+                    if (!syncItemToServer(item)) {
+                        // Остальные ушли бы в такие же таймауты — оставляем их pending
+                        serverReachable = false
+                        break
+                    }
                 }
-                pullHiddenSavingsExpenses(depositMonthIds)
+                if (serverReachable) pullHiddenSavingsExpenses(depositMonthIds)
                 syncQueueDao.clearCompleted()
                 updatePendingCount()
                 
@@ -1248,6 +1333,8 @@ class SyncManager(
                     _dataUpdated.tryEmit(Unit)
                 }
                 println("[SYNC] scheduleProcessQueue DONE")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 println("[SYNC] scheduleProcessQueue ERROR: ${e.message}")
                 _lastSyncError.value = e.message ?: "scheduleProcessQueue error"
@@ -1706,6 +1793,8 @@ internal fun decodeSyncQueuePayloadMetadata(payload: String?): SyncQueuePayloadM
 
     return try {
         syncQueuePayloadJson.decodeFromString<SyncQueuePayloadMetadata>(payload)
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         SyncQueuePayloadMetadata(deleteServerId = payload)
     }

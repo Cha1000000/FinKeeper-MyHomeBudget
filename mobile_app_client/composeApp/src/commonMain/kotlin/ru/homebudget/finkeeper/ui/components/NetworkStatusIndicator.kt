@@ -23,13 +23,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
+import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.repository.SyncManager
 import ru.homebudget.finkeeper.ui.Strings
 
 /**
  * Компактный индикатор состояния сети и синхронизации.
  * Отображает:
- * - Зеленый круг когда есть интернет
+ * - Зеленый круг когда есть интернет и сервер отвечает
+ * - Оранжевый круг когда интернет есть, а сервер не отвечает
  * - Красный круг когда офлайн
  * - Спиннер когда идет синхронизация
  * - Badge с количеством не синхронизированных операций
@@ -38,8 +40,23 @@ import ru.homebudget.finkeeper.ui.Strings
 fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
     val networkMonitor = koinInject<NetworkMonitor>()
     val syncManager = koinInject<SyncManager>()
+    val serverLinkState = koinInject<ServerLinkState>()
 
     val isOnline by networkMonitor.isOnline.collectAsState()
+    val isServerUnreachable by serverLinkState.isUnreachable.collectAsState()
+    // Сеть есть, а сервер молчит — не показываем «В сети»
+    val statusColor =
+        when {
+            !isOnline -> Color(0xFFF44336)
+            isServerUnreachable -> Color(0xFFFF9800)
+            else -> Color(0xFF4CAF50)
+        }
+    val statusText =
+        when {
+            !isOnline -> Strings.SYNC_OFFLINE
+            isServerUnreachable -> Strings.SYNC_SERVER_UNREACHABLE
+            else -> Strings.SYNC_ONLINE
+        }
     val isSyncing by syncManager.isSyncing.collectAsState()
     val pendingCount by syncManager.pendingCount.collectAsState()
     val lastSyncError by syncManager.lastSyncError.collectAsState()
@@ -78,9 +95,9 @@ fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
             }
 
             Text(
-                text = if (isOnline) Strings.SYNC_ONLINE else Strings.SYNC_OFFLINE,
+                text = statusText,
                 style = MaterialTheme.typography.labelMedium,
-                color = if (isOnline) Color(0xFF4CAF50) else Color(0xFFF44336),
+                color = statusColor,
             )
 
             Box(
@@ -88,7 +105,7 @@ fun NetworkStatusIndicator(modifier: Modifier = Modifier) {
                     Modifier
                         .size(10.dp)
                         .clip(CircleShape)
-                        .background(if (isOnline) Color(0xFF4CAF50) else Color(0xFFF44336)),
+                        .background(statusColor),
             )
         }
 
