@@ -425,7 +425,7 @@ export default function App() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-base opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-base"></span>
                 </span>
-                v2.2.3 • PRO SYSTEM
+                v2.2.4 • PRO SYSTEM
               </div>
               
               <motion.h1 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-[64px] font-black leading-[1.05] mb-5 md:mb-6 tracking-[-0.04em] text-white">
