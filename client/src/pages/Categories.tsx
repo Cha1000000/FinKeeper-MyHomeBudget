@@ -107,9 +107,9 @@ const Categories: React.FC = () => {
         setActionError(null);
         try {
             if (activeTab === 'expenses') {
-                await api.put(`/categories/${editingId}`, { name: editName, is_active: 1 });
+                await api.put(`/categories/${editingId}`, { name: editName });
             } else {
-                await api.put(`/income_sources/${editingId}`, { name: editName, is_active: 1 });
+                await api.put(`/income_sources/${editingId}`, { name: editName });
             }
             setEditingId(null);
             fetchData();

@@ -2,6 +2,9 @@ const { db, nowIso } = require('./connection');
 const logger = require('../logger');
 
 const MAX_BACKUPS = 5;
+// Скрытая категория (is_active = 0): каждое пополнение копилки дублируется в ней расходом,
+// чтобы уменьшать свободные деньги месяца
+const SAVINGS_EXPENSE_CATEGORY = 'Пополнение копилки';
 
 function getRowById(tableName, id) {
     return db.prepare(`SELECT * FROM ${tableName} WHERE id = ?`).get(id);
@@ -52,7 +55,15 @@ function executeIdempotent(req, res, execute) {
 
     if (existing) {
         if (existing.request_signature !== requestSignature) {
-            return res.status(409).json({ error: 'Operation already used for different request' });
+            // Ключ уже применён, но тело запроса другое: клиент повторил операцию после потерянного
+            // ответа, а данные за это время поменялись. Отдаём исходный ответ, чтобы клиент узнал
+            // id созданной записи и дослал изменения отдельной операцией, а не создал дубль.
+            return res.status(409).json({
+                error: 'Operation already used for different request',
+                code: 'IDEMPOTENCY_KEY_REUSED',
+                original_status: existing.response_status,
+                original_response: JSON.parse(existing.response_body),
+            });
         }
         return res.status(existing.response_status).json(JSON.parse(existing.response_body));
     }
@@ -408,6 +419,145 @@ function computePlannedAggregates(planned) {
     };
 }
 
+// Итоги месяца для summary и графика динамики.
+// expenses — все расходы, включая скрытые пополнения копилок; visibleExpenses — без них
+// (как в карточке «Расходы»); savings — пополнения копилок без корректировок.
+// Пополнения уже входят в expenses, поэтому balance = income - expenses: повторно savings
+// не вычитаем, иначе копилка уменьшает баланс дважды.
+function computeMonthTotals(monthId) {
+    const income = db.prepare('SELECT SUM(amount) as total FROM incomes WHERE month_id = ?').get(monthId).total || 0;
+    const expenses = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE month_id = ?').get(monthId).total || 0;
+    const savingsExpenses = db.prepare(`
+        SELECT SUM(e.amount) as total
+        FROM expenses e
+        JOIN categories c ON c.id = e.category_id
+        WHERE e.month_id = ? AND c.name = ?
+    `).get(monthId, SAVINGS_EXPENSE_CATEGORY).total || 0;
+    const savings = db.prepare('SELECT SUM(amount) as total FROM savings_transactions WHERE month_id = ? AND amount > 0 AND (is_adjustment = 0 OR is_adjustment IS NULL)').get(monthId).total || 0;
+
+    return {
+        income,
+        expenses,
+        visibleExpenses: expenses - savingsExpenses,
+        savings,
+        balance: income - expenses,
+    };
+}
+
+// --- Скрытые расходы копилок ---
+// Пополнение копилки дублируется расходом в скрытой категории с комментарием
+// `Пополнение копилки "<имя копилки>"`. Связи по id нет, поэтому расход ищется по
+// месяцу, сумме, дате и комментарию.
+const SAVINGS_EXPENSE_COMMENT_PREFIX = `${SAVINGS_EXPENSE_CATEGORY} "`;
+
+function savingsExpenseComment(goalName) {
+    return `${SAVINGS_EXPENSE_COMMENT_PREFIX}${goalName}"`;
+}
+
+function getSavingsExpenseCategoryId(userId) {
+    const row = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get(SAVINGS_EXPENSE_CATEGORY, userId);
+    return row ? row.id : null;
+}
+
+function ensureSavingsExpenseCategoryId(userId, timestamp) {
+    const existingId = getSavingsExpenseCategoryId(userId);
+    if (existingId) return existingId;
+    const maxOrder = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(userId);
+    const nextOrder = (maxOrder.maxOrder || 0) + 1;
+    return db.prepare('INSERT INTO categories (user_id, name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)')
+        .run(userId, SAVINGS_EXPENSE_CATEGORY, nextOrder, timestamp, timestamp).lastInsertRowid;
+}
+
+function createSavingsHiddenExpense(userId, { monthId, amount, date, goalName }, timestamp) {
+    const categoryId = ensureSavingsExpenseCategoryId(userId, timestamp);
+    return db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(monthId, categoryId, amount, date, savingsExpenseComment(goalName), timestamp, timestamp).lastInsertRowid;
+}
+
+// Скрытый расход пополнения transaction ({ goal_id, month_id, amount, date }) копилки goalName.
+// Сначала точное совпадение комментария. Если его нет — расход с тем же месяцем, суммой и
+// датой, чей комментарий остался от прежнего имени копилки (переименования до исправления
+// не переписывали комментарии). Расходы, принадлежащие другим копилкам пользователя, не берутся.
+function findSavingsHiddenExpenseId(userId, transaction, goalName) {
+    if (!(transaction.amount > 0) || !transaction.month_id) return null;
+    const categoryId = getSavingsExpenseCategoryId(userId);
+    if (!categoryId) return null;
+
+    const exact = db.prepare(`
+        SELECT id FROM expenses
+        WHERE month_id = ? AND category_id = ? AND amount = ? AND date = ? AND comment = ?
+        ORDER BY id DESC LIMIT 1
+    `).get(transaction.month_id, categoryId, transaction.amount, transaction.date, savingsExpenseComment(goalName));
+    if (exact) return exact.id;
+
+    const candidates = db.prepare(`
+        SELECT id, comment FROM expenses
+        WHERE month_id = ? AND category_id = ? AND amount = ? AND date = ? AND substr(comment, 1, ?) = ?
+        ORDER BY id DESC
+    `).all(
+        transaction.month_id,
+        categoryId,
+        transaction.amount,
+        transaction.date,
+        SAVINGS_EXPENSE_COMMENT_PREFIX.length,
+        SAVINGS_EXPENSE_COMMENT_PREFIX,
+    );
+    if (candidates.length === 0) return null;
+
+    const otherGoalComments = new Set(
+        db.prepare('SELECT name FROM savings_goals WHERE user_id = ? AND id != ?')
+            .all(userId, transaction.goal_id)
+            .map(goal => savingsExpenseComment(goal.name))
+    );
+    const orphan = candidates.find(candidate => !otherGoalComments.has(candidate.comment));
+    return orphan ? orphan.id : null;
+}
+
+// Удаляет скрытый расход пополнения и пишет tombstone, чтобы клиенты убрали его локально.
+// Возвращает id удалённого расхода или null.
+function deleteSavingsHiddenExpense(userId, transaction, goalName, timestamp) {
+    const expenseId = findSavingsHiddenExpenseId(userId, transaction, goalName);
+    if (!expenseId) {
+        // Пополнение с месяцем всегда создаёт скрытый расход: раз его нет, «Свободно» месяца
+        // расходится с копилкой — фиксируем для разбора
+        if (transaction.amount > 0 && transaction.month_id) {
+            logger.warn('savings_hidden_expense_not_found', { userId, transactionId: transaction.id, monthId: transaction.month_id });
+        }
+        return null;
+    }
+    recordDeletedRecord(userId, 'expense', expenseId, timestamp);
+    db.prepare('DELETE FROM expenses WHERE id = ?').run(expenseId);
+    return expenseId;
+}
+
+// Переименование копилки: комментарии скрытых расходов её пополнений переписываются на новое
+// имя. Идём по транзакциям копилки, а не по тексту комментария: у двух копилок может быть
+// одинаковое имя. Возвращает число обновлённых расходов.
+function renameSavingsHiddenExpenses(userId, goalId, oldName, newName, timestamp) {
+    if (oldName === newName) return 0;
+    const transactions = db.prepare('SELECT goal_id, month_id, amount, date FROM savings_transactions WHERE goal_id = ? AND amount > 0 AND month_id IS NOT NULL')
+        .all(goalId);
+    const updateStmt = db.prepare('UPDATE expenses SET comment = ?, updated_at = ? WHERE id = ?');
+    const newComment = savingsExpenseComment(newName);
+    let updated = 0;
+    transactions.forEach(transaction => {
+        const expenseId = findSavingsHiddenExpenseId(userId, transaction, oldName);
+        if (!expenseId) return;
+        updateStmt.run(newComment, timestamp, expenseId);
+        updated += 1;
+    });
+    return updated;
+}
+
+// Ключи идемпотентности нужны, пока клиент может повторить операцию (очередь офлайн-синхронизации).
+// Через 90 дней повтор уже невозможен — старые ключи удаляются, чтобы таблица не росла бесконечно.
+const IDEMPOTENCY_KEY_TTL_DAYS = 90;
+
+function pruneIdempotencyKeys(now = new Date()) {
+    const cutoff = new Date(now.getTime() - IDEMPOTENCY_KEY_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    return db.prepare('DELETE FROM idempotency_keys WHERE created_at < ?').run(cutoff).changes;
+}
+
 function restoreBackupSnapshot(userId, backupData) {
     const restoreTransact = db.transaction(() => {
         // Дочерние таблицы с FK на months удаляются ДО months,
@@ -473,6 +623,14 @@ module.exports = {
     materializePlannedRecord,
     getPlannedRecords,
     computePlannedAggregates,
+    computeMonthTotals,
+    SAVINGS_EXPENSE_CATEGORY,
+    savingsExpenseComment,
+    createSavingsHiddenExpense,
+    findSavingsHiddenExpenseId,
+    deleteSavingsHiddenExpense,
+    renameSavingsHiddenExpenses,
+    pruneIdempotencyKeys,
     createBackup,
     parseBackupDataSafely,
     buildBackupSummary,

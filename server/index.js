@@ -11,6 +11,7 @@ const logger = require('./logger');
 // Database initialization and schema sync
 // the connection.js ensures the schema is up to date immediately when imported
 const { db, nowIso } = require('./db/connection');
+const { pruneIdempotencyKeys } = require('./db/helpers');
 const { getMailConfig } = require('./mailer');
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -233,6 +234,18 @@ setInterval(() => {
         ws.ping();
     });
 }, 30000);
+
+// --- Чистка старых ключей идемпотентности: при старте и раз в сутки ---
+function runIdempotencyKeysCleanup() {
+    try {
+        const removed = pruneIdempotencyKeys();
+        if (removed > 0) logger.info('idempotency_keys_pruned', { removed });
+    } catch (error) {
+        logger.error('idempotency_keys_prune_failed', { error });
+    }
+}
+runIdempotencyKeysCleanup();
+setInterval(runIdempotencyKeysCleanup, 24 * 60 * 60 * 1000).unref();
 
 // --- Boot Server ---
 server.listen(PORT, () => {

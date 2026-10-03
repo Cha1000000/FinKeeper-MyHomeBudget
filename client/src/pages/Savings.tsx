@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { Plus, PiggyBank, ArrowDown, ArrowUp } from 'lucide-react';
 import classNames from 'classnames';
 import { getSavingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, addSavingsTransaction, ensureMonth } from '../api';
@@ -8,6 +9,9 @@ import Modal from '../components/Modal';
 import PageState from '../components/PageState';
 import StatusBanner from '../components/StatusBanner';
 import { useDataChanged } from '../hooks/useWebSocket';
+
+// Пополнения копилки уже вычтены из «Свободно» своих месяцев: при удалении непустой копилки её сумма пропала бы
+const GOAL_NOT_EMPTY_MESSAGE = 'Удалить можно только пустую копилку. Сначала снимите или переведите из неё средства.';
 
 const Savings: React.FC = () => {
     const [goals, setGoals] = useState<SavingsGoal[]>([]);
@@ -105,6 +109,11 @@ const Savings: React.FC = () => {
         }
     };
 
+    // По сохранённому балансу, а не по полю формы: сумма в форме ещё не применена
+    // Тот же допуск, что на сервере: копейки от округления не мешают удалить пустую копилку
+    const editingGoalAmount = Number(goals.find(g => g.id === editingGoalId)?.current_amount);
+    const canDeleteEditingGoal = Number.isFinite(editingGoalAmount) && Math.abs(editingGoalAmount) < 0.005;
+
     const handleDeleteGoal = async () => {
         if (!editingGoalId) return;
         try {
@@ -116,7 +125,14 @@ const Savings: React.FC = () => {
             window.dispatchEvent(new Event('savingsUpdated'));
         } catch (e) {
             console.error(e);
-            setError('Не удалось удалить копилку. Попробуйте ещё раз.');
+            setIsDeleteConfirmOpen(false);
+            // Сервер отказал: на копилке есть деньги (например, её пополнили с другого устройства)
+            if (axios.isAxiosError(e) && e.response?.data?.code === 'SAVINGS_GOAL_NOT_EMPTY') {
+                setError(GOAL_NOT_EMPTY_MESSAGE);
+                loadData();
+            } else {
+                setError('Не удалось удалить копилку. Попробуйте ещё раз.');
+            }
         }
     };
 
@@ -344,12 +360,17 @@ const Savings: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => setIsDeleteConfirmOpen(true)}
-                                className="flex-1 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50 py-3 rounded-xl font-medium hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors shadow-sm"
+                                disabled={!canDeleteEditingGoal}
+                                title={canDeleteEditingGoal ? undefined : GOAL_NOT_EMPTY_MESSAGE}
+                                className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50 py-3 rounded-xl font-medium hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors shadow-sm"
                             >
                                 Удалить копилку
                             </button>
                         )}
                     </div>
+                    {editingGoalId && !canDeleteEditingGoal && (
+                        <p className="mt-3 text-sm text-slate-500 dark:text-[var(--color-text-muted)]">{GOAL_NOT_EMPTY_MESSAGE}</p>
+                    )}
                 </form>
             </Modal>
 
