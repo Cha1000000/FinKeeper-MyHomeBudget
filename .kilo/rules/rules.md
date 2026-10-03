@@ -65,7 +65,7 @@
 
 ### `mobile_app_client/` — KMP-клиент (Android / iOS / Desktop)
 
-**Стек**: Kotlin 2.2.10, Compose Multiplatform 1.6.10, Ktor Client 3.0.3, Koin 3.5.6, SQLDelight 2.0.2, kotlinx-serialization 1.7.1, kotlinx-coroutines 1.9.0, kotlinx-datetime 0.6.1, Multiplatform Settings 1.2.0
+**Стек**: Kotlin 2.4.20, Compose Multiplatform 1.12.1, Ktor Client 3.6.0, Koin 4.2.2, SQLDelight 2.4.0, kotlinx-serialization 1.11.0, kotlinx-coroutines 1.11.0, kotlinx-datetime 0.8.0, Multiplatform Settings 1.3.0
 
 **Правила**:
 - Архитектура: MVVM (`ViewModel` + `StateFlow`).

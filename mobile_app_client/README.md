@@ -17,18 +17,21 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 
 ### Базовые версии
 
+Источник истины — `gradle/libs.versions.toml` (версия приложения — `app_version` в `composeApp/build.gradle`).
+
 | Компонент | Версия |
 | --- | --- |
-| Kotlin | 2.2.10 |
-| Compose Multiplatform | 1.6.10 |
-| Ktor Client | 3.0.3 |
-| Kotlinx Serialization | 1.7.1 |
-| Kotlinx Coroutines | 1.9.0 |
-| Kotlinx Datetime | 0.6.1 |
-| Multiplatform Settings | 1.2.0 |
-| Koin | 3.5.6 |
-| SQLDelight | 2.0.2 |
-| App version | 2.0.4 |
+| Kotlin | 2.4.20 |
+| Compose Multiplatform | 1.12.1 |
+| Ktor Client | 3.6.0 |
+| Kotlinx Serialization | 1.11.0 |
+| Kotlinx Coroutines | 1.11.0 |
+| Kotlinx Datetime | 0.8.0 |
+| Multiplatform Settings | 1.3.0 |
+| Koin | 4.2.2 |
+| SQLDelight | 2.4.0 |
+| AGP / Gradle | 9.4.1 / 9.6.0 |
+| App version | 2.2.4 |
 
 ### Платформы
 
@@ -99,7 +102,7 @@ Kotlin Multiplatform клиент FinKeeper24 для Android, iOS и desktop-п�
 ### Android
 
 - `minSdk = 24`
-- `compileSdk = 35`
+- `compileSdk = 37`
 - `targetSdk = 35`
 - JVM target для Android — `11`
 
