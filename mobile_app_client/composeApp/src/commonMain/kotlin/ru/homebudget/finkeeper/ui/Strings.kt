@@ -197,6 +197,16 @@ object Strings {
 
     // === Экран настроек (Settings) ===
     const val SETTINGS = "Настройки"
+    const val SETTINGS_APP_VERSION = "Версия %1\$s"
+    const val SECTION_EXPAND = "Развернуть"
+    const val SECTION_COLLAPSE = "Свернуть"
+    const val SECTION_EXPANDED = "Развёрнуто"
+    const val SECTION_COLLAPSED = "Свёрнуто"
+    const val SYNC_SUMMARY_ERROR = "ошибка синхронизации"
+    const val SYNC_SUMMARY_IN_PROGRESS = "идёт синхронизация"
+    const val SYNC_SUMMARY_PENDING = "ожидают отправки: %1\$d"
+    const val SYNC_SUMMARY_ALL_SENT = "всё синхронизировано"
+    const val BACKUP_LAST_SUMMARY = "Последняя копия: %1\$s"
     const val PROFILE = "Профиль"
     const val SECURITY = "Безопасность"
     const val ACCOUNT_PROTECTION = "Защита аккаунта"

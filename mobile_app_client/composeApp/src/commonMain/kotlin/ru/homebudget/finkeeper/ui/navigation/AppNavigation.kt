@@ -105,6 +105,11 @@ fun AppNavigation(
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
     var showSecurityOnboardingPrompt by remember { mutableStateOf(false) }
+    // Настройки открыты из подсказки «Добавьте email» — раскрыть раздел защиты аккаунта
+    var settingsFocusAccountProtection by remember { mutableStateOf(false) }
+    LaunchedEffect(currentScreen) {
+        if (currentScreen != Screen.Settings) settingsFocusAccountProtection = false
+    }
     var securityPromptShownThisSession by remember { mutableStateOf(false) }
     var securityPromptSessionUserId by remember { mutableStateOf<Int?>(null) }
     var showAppUpdatePrompt by remember { mutableStateOf(false) }
@@ -179,6 +184,7 @@ fun AppNavigation(
                         onOpenSettings = {
                             authState.user?.let { securityOnboardingPromptState.dismiss(it) }
                             showSecurityOnboardingPrompt = false
+                            settingsFocusAccountProtection = true
                             currentScreen = Screen.Settings
                         },
                         onDismiss = {
@@ -338,6 +344,7 @@ fun AppNavigation(
                             onThemeModeChange = onThemeModeChange,
                             currentUiScale = currentUiScale,
                             onUiScaleChange = onUiScaleChange,
+                            expandAccountProtection = settingsFocusAccountProtection,
                         )
                 }
             }
