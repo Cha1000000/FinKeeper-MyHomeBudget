@@ -16,8 +16,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import ru.homebudget.finkeeper.BuildConfig
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.network.GATEWAY_FAILURE_STATUS_CODES
+import ru.homebudget.finkeeper.util.appPlatform
 import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.ui.Strings
@@ -58,6 +60,9 @@ class ApiClient(
             }
             defaultRequest {
                 contentType(ContentType.Application.Json)
+                // По версии сервер сохраняет старое поведение для приложений, которые не знают новых правил
+                header("X-App-Version", BuildConfig.APP_VERSION.removePrefix("v"))
+                header("X-App-Platform", appPlatform)
                 val token = tokenStorage.accessToken
                 if (token != null) {
                     header("Authorization", "Bearer $token")

@@ -24,6 +24,7 @@ const {
     renameSavingsHiddenExpenses,
 } = require('../db/helpers');
 const logger = require('../logger');
+const { clientSupports, MIN_VERSION_SAVINGS_GOAL_NOT_EMPTY } = require('../middleware/clientVersion');
 
 // Retrieve broadcast logic dynamically since we mounted it in index.js
 const broadcastChange = (req, userId, entity, action) => {
@@ -635,9 +636,15 @@ router.delete('/savings_goals/:id', (req, res) => {
         const goal = db.prepare('SELECT * FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
         if (!goal) return { statusCode: 404, body: { error: 'Goal not found' } };
         // Деньги копилки при удалении никуда не возвращаются (пополнения уже вычтены из «Свободно»
-        // своих месяцев), поэтому удалить можно только пустую копилку
-        if (Math.abs(Number(goal.current_amount) || 0) >= 0.005) {
-            return { statusCode: 409, body: { error: 'Нельзя удалить копилку с ненулевым балансом: сначала выведите или переведите средства', code: 'SAVINGS_GOAL_NOT_EMPTY' } };
+        // своих месяцев), поэтому удалить можно только пустую копилку. Старые приложения (до 2.2.4)
+        // запрета не знают и удаляют копилку у себя сразу: им удаление разрешено, как раньше, —
+        // по деньгам это то же, что снять всё и удалить
+        const isNotEmpty = Math.abs(Number(goal.current_amount) || 0) >= 0.005;
+        if (isNotEmpty) {
+            if (clientSupports(req, MIN_VERSION_SAVINGS_GOAL_NOT_EMPTY)) {
+                return { statusCode: 409, body: { error: 'Нельзя удалить копилку с ненулевым балансом: сначала выведите или переведите средства', code: 'SAVINGS_GOAL_NOT_EMPTY' } };
+            }
+            logger.info('savings_goal_deleted_by_legacy_client', { userId: req.user.id, goalId: goal.id, appVersion: req.get('x-app-version') ?? null });
         }
 
         const remove = db.transaction(() => {

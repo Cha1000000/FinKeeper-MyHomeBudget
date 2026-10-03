@@ -93,9 +93,12 @@ async function registerUser(prefix) {
     return createClient(json.token);
 }
 
+// По умолчанию тесты ходят как актуальное приложение; старый клиент — appHeaders: {}
+const CURRENT_APP_HEADERS = { 'X-App-Version': '2.2.4', 'X-App-Platform': 'android' };
+
 function createClient(token) {
-    const call = async (method, route, body, { expect = 200, opId } = {}) => {
-        const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+    const call = async (method, route, body, { expect = 200, opId, appHeaders = CURRENT_APP_HEADERS } = {}) => {
+        const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...appHeaders };
         if (opId !== null && method !== 'GET') headers['X-Operation-Id'] = opId ?? `sync-audit-${++opCounter}`;
         const response = await fetch(`${baseUrl}/api${route}`, {
             method,
@@ -329,6 +332,33 @@ test('копилку с ненулевым балансом удалить не�
     await client.call('DELETE', `/savings_goals/${second.id}`, undefined, { expect: 409 });
     await client.call('PUT', `/savings_goals/${second.id}`, { current_amount: 0 });
     await client.call('DELETE', `/savings_goals/${second.id}`);
+});
+
+test('старое приложение (до 2.2.4) удаляет непустую копилку как раньше, веб и новое — получают 409', async () => {
+    const client = await registerUser('goal_legacy');
+    const month = await ensureMonth(client);
+    const createFilledGoal = async (name) => {
+        const goal = await client.call('POST', '/savings_goals', { name, target_amount: 0 });
+        await client.call('POST', '/savings_transactions', { goal_id: goal.id, amount: 700, date: '2026-05-12', month_id: month.id });
+        return goal;
+    };
+
+    const goal = await createFilledGoal('Новые клиенты');
+    for (const appHeaders of [
+        { 'X-App-Platform': 'web' },
+        { 'X-App-Version': '2.2.4', 'X-App-Platform': 'desktop' },
+        { 'X-App-Version': '2.3.0', 'X-App-Platform': 'ios' },
+    ]) {
+        const refused = await client.call('DELETE', `/savings_goals/${goal.id}`, undefined, { expect: 409, appHeaders });
+        assert.equal(refused.code, 'SAVINGS_GOAL_NOT_EMPTY', JSON.stringify(appHeaders));
+    }
+
+    for (const appHeaders of [{}, { 'X-App-Version': '2.2.3', 'X-App-Platform': 'android' }, { 'X-App-Version': 'garbage' }]) {
+        const legacyGoal = await createFilledGoal(`Старый ${JSON.stringify(appHeaders)}`);
+        await client.call('DELETE', `/savings_goals/${legacyGoal.id}`, undefined, { appHeaders });
+        assert.ok(!(await client.call('GET', '/savings_goals')).some(row => row.id === legacyGoal.id), JSON.stringify(appHeaders));
+        assert.ok((await tombstones(client, 'savings_goal')).some(row => row.entity_id === legacyGoal.id), 'tombstone записан');
+    }
 });
 
 test('404 на правку несуществующей записи помечен RECORD_NOT_FOUND, на связанную — нет', async () => {

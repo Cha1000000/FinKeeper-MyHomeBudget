@@ -8,6 +8,8 @@ const api = axios.create({
 // Add a request interceptor
 api.interceptors.request.use(
   (config) => {
+    // Веб всегда актуален (деплоится вместе с сервером): сервер не включает для него режим старых клиентов
+    config.headers['X-App-Platform'] = 'web';
     const token = getToken();
     if (token) {
       config.headers['Authorization'] = 'Bearer ' + token;
