@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.homebudget.finkeeper.data.model.Category
 import ru.homebudget.finkeeper.data.model.IncomeSource
-import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.data.network.runServerPhase
@@ -47,7 +46,6 @@ data class CategoriesState(
 class CategoriesViewModel(
     private val categoryRepository: CategoryRepository,
     private val incomeSourceRepository: IncomeSourceRepository,
-    private val api: ApiClient,
     private val tokenStorage: TokenStorage,
     private val syncManager: SyncManager,
     private val serverLinkState: ServerLinkState,
@@ -325,14 +323,8 @@ class CategoriesViewModel(
         viewModelScope.launch {
             _state.update { it.copy(actionError = null, categories = categories) }
             try {
-                // Конвертируем локальные ID в серверные для отправки на сервер
-                val mapping = categoryRepository.getServerIdMapping(currentUserId)
-                val serverIds = categories.mapNotNull { cat -> mapping[cat.id] }
-
-                // Порядок хранится только на сервере (в очередь синхронизации он не ставится):
-                // без сети или с ещё не выгруженными записями честно сообщаем, что он не сохранён
-                check(serverIds.size == categories.size) { "Not all items are synced yet" }
-                api.reorderCategories(serverIds)
+                // Порядок сохраняется локально и уходит на сервер через очередь (работает и офлайн)
+                categoryRepository.reorderCategories(currentUserId, categories.map { it.id.toLong() }).getOrThrow()
             } catch (e: Exception) {
                 _state.update { it.copy(actionError = e.toActionError(Strings.ERROR_REORDERING_CATEGORIES)) }
             }
@@ -343,14 +335,7 @@ class CategoriesViewModel(
         viewModelScope.launch {
             _state.update { it.copy(actionError = null, incomeSources = incomeSources) }
             try {
-                // Конвертируем локальные ID в серверные для отправки на сервер
-                val mapping = incomeSourceRepository.getServerIdMapping(currentUserId)
-                val serverIds = incomeSources.mapNotNull { src -> mapping[src.id] }
-
-                // Порядок хранится только на сервере (в очередь синхронизации он не ставится):
-                // без сети или с ещё не выгруженными записями честно сообщаем, что он не сохранён
-                check(serverIds.size == incomeSources.size) { "Not all items are synced yet" }
-                api.reorderIncomeSources(serverIds)
+                incomeSourceRepository.reorderIncomeSources(currentUserId, incomeSources.map { it.id.toLong() }).getOrThrow()
             } catch (e: Exception) {
                 _state.update { it.copy(actionError = e.toActionError(Strings.ERROR_REORDERING_INCOME_SOURCES)) }
             }

@@ -8,12 +8,14 @@ import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import ru.homebudget.finkeeper.data.local.dao.SavingsGoalDao
+import ru.homebudget.finkeeper.data.local.dao.SavingsTransactionDao
 import ru.homebudget.finkeeper.data.local.model.EntityType
 import ru.homebudget.finkeeper.data.local.model.SyncOperation
 import ru.homebudget.finkeeper.data.local.model.SyncStatus
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.repository.Result
+import ru.homebudget.finkeeper.data.repository.SavingsGoalNotEmptyException
 import ru.homebudget.finkeeper.data.repository.SyncManager
 import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.SavingsGoal as RemoteSavingsGoal
@@ -26,6 +28,7 @@ class SavingsGoalRepository(
     private val savingsGoalDao: SavingsGoalDao,
     private val apiClient: ApiClient,
     private val tokenStorage: TokenStorage,
+    private val savingsTransactionDao: SavingsTransactionDao,
 ) : KoinComponent {
     private val currentUserId: Long get() = tokenStorage.userId
     private val syncManager: SyncManager by lazy { get() }
@@ -142,13 +145,15 @@ class SavingsGoalRepository(
                 val updated = savingsGoalDao.getById(id)
                 println("[SAVINGS-GOAL] updateSavingsGoal: verified currentAmount=${updated?.currentAmount}")
 
-                // Добавляем операцию в очередь синхронизации
+                // Сумму отправляем, только если пользователь её поменял: иначе сервер ведёт её сам
+                // по транзакциям, а локальная может включать ещё не отправленные пополнения
                 syncManager.enqueueSync(
                     userId = existing.userId,
                     entityType = EntityType.SAVINGS_GOAL.value,
                     entityId = id,
                     operation = SyncOperation.UPDATE.value,
                     payload = null,
+                    goalCurrentAmount = newCurrentAmount.takeIf { it != existing.currentAmount },
                 )
 
                 Result.success(Unit)
@@ -183,6 +188,9 @@ class SavingsGoalRepository(
                     icon = existing.icon,
                     targetDate = existing.targetDate,
                     isAchieved = existing.isAchieved,
+                    // Версию записи не меняем: это не правка пользователя, а локальное отражение
+                    // транзакции. Иначе ждущий INSERT/UPDATE копилки счёл бы себя устаревшим
+                    updatedAt = existing.updatedAt,
                     serverId = existing.serverId,
                     syncStatus = existing.syncStatus, // Не меняем статус синхронизации
                 )
@@ -201,20 +209,24 @@ class SavingsGoalRepository(
     suspend fun deleteSavingsGoal(id: Long): Result<Unit> =
         withContext(Dispatchers.Default) {
             try {
-                val goal = savingsGoalDao.getById(id)
-                val serverId = goal?.serverId
+                val goal = savingsGoalDao.getById(id) ?: return@withContext Result.success(Unit)
+                // Пополнения копилки уже вычтены из «Свободно» своих месяцев: удаление непустой
+                // копилки «потеряло» бы её сумму. Сначала средства выводят или переводят
+                if (goal.currentAmount != 0L) return@withContext Result.error(SavingsGoalNotEmptyException())
 
+                // Внешние ключи в локальной БД не включены — транзакции копилки удаляем сами
+                // (на сервере их удалит удаление копилки)
+                savingsTransactionDao.deleteAllByGoal(id)
                 savingsGoalDao.deleteById(id)
 
-                if (serverId != null) {
-                    syncManager.enqueueSync(
-                        userId = goal.userId,
-                        entityType = EntityType.SAVINGS_GOAL.value,
-                        entityId = id,
-                        operation = SyncOperation.DELETE.value,
-                        payload = serverId,
-                    )
-                }
+                // DELETE ставим и без serverId: тогда очередь просто выбросит ещё не отправленный INSERT
+                syncManager.enqueueSync(
+                    userId = goal.userId,
+                    entityType = EntityType.SAVINGS_GOAL.value,
+                    entityId = id,
+                    operation = SyncOperation.DELETE.value,
+                    payload = goal.serverId,
+                )
 
                 Result.success(Unit)
             } catch (e: CancellationException) {

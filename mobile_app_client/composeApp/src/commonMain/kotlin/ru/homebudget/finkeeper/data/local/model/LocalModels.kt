@@ -59,7 +59,11 @@ enum class EntityType(val value: String) {
     BUDGET("budget"),
     SAVINGS_GOAL("savings_goal"),
     SAVINGS_TRANSACTION("savings_transaction"),
-    PLANNED_OVERRIDE("planned_override");
+    PLANNED_OVERRIDE("planned_override"),
+
+    // Порядок списка целиком (одна операция на пользователя, entity_id = 0)
+    CATEGORY_ORDER("category_order"),
+    INCOME_SOURCE_ORDER("income_source_order");
 
     companion object {
         fun fromValue(value: String): EntityType {

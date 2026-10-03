@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import ru.homebudget.finkeeper.data.local.dao.Month
+import ru.homebudget.finkeeper.data.local.dao.MonthDao
 import ru.homebudget.finkeeper.data.local.dao.SavingsGoalDao
 import ru.homebudget.finkeeper.data.local.dao.SavingsTransactionDao
 import ru.homebudget.finkeeper.data.local.model.EntityType
@@ -29,6 +30,7 @@ class SavingsTransactionRepository(
     private val savingsGoalDao: SavingsGoalDao,
     private val apiClient: ApiClient,
     private val tokenStorage: TokenStorage,
+    private val monthDao: MonthDao,
 ) : KoinComponent {
     private val currentUserId: Long get() = tokenStorage.userId
     private val syncManager: SyncManager by lazy { get() }
@@ -178,6 +180,9 @@ class SavingsTransactionRepository(
                     }
 
                     val existing = savingsTransactionDao.getByServerId(remote.id.toString())
+                    // Месяц пополнения нужен локально: правка транзакции шлёт month_id, и без него
+                    // сервер отвязал бы пополнение от месяца (скрытый расход пропал бы из «Свободно»)
+                    val localMonthId = remote.monthId?.let { monthDao.getByServerId(it.toString())?.id }
 
                     if (existing != null) {
                         if (
@@ -194,7 +199,7 @@ class SavingsTransactionRepository(
                         savingsTransactionDao.update(
                             id = existing.id,
                             savingsGoalId = existing.savingsGoalId,
-                            monthId = existing.monthId,
+                            monthId = existing.monthId ?: localMonthId,
                             amount = remote.amount.toLong(),
                             type = existing.type,
                             description = existing.description,
@@ -207,7 +212,7 @@ class SavingsTransactionRepository(
                         savingsTransactionDao.insert(
                             userId = userId,
                             savingsGoalId = goalId,
-                            monthId = null,
+                            monthId = localMonthId,
                             amount = remote.amount.toLong(),
                             type = if (remote.amount >= 0) "deposit" else "withdrawal",
                             description = null,

@@ -15,6 +15,7 @@ import io.ktor.util.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.network.GATEWAY_FAILURE_STATUS_CODES
 import ru.homebudget.finkeeper.data.network.ServerLinkState
@@ -430,9 +431,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun reorderCategories(ids: List<Int>) {
+    suspend fun reorderCategories(
+        ids: List<Int>,
+        operationId: String? = null,
+    ) {
         val response =
             client.put("$baseUrl/categories/reorder") {
+                applyOperationId(operationId)
                 setBody(ReorderCategoriesRequest(ids))
             }
         checkResponse(response)
@@ -490,9 +495,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun reorderIncomeSources(ids: List<Int>) {
+    suspend fun reorderIncomeSources(
+        ids: List<Int>,
+        operationId: String? = null,
+    ) {
         val response =
             client.put("$baseUrl/income_sources/reorder") {
+                applyOperationId(operationId)
                 setBody(ReorderIncomeSourcesRequest(ids))
             }
         checkResponse(response)
@@ -820,9 +829,9 @@ class ApiClient(
 
     private suspend fun checkResponse(response: HttpResponse) {
         if (!response.status.isSuccess()) {
-            val errorBody =
+            val errorResponse =
                 try {
-                    response.body<ErrorResponse>().error
+                    response.body<ErrorResponse>()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
@@ -831,12 +840,14 @@ class ApiClient(
             throw ApiException(
                 statusCode = response.status.value,
                 message =
-                    errorBody
+                    errorResponse?.error
                         ?: Strings.HTTP_ERROR
                             .replace(
                                 "%1\$d",
                                 response.status.value.toString(),
                             ).replace("%2\$s", response.status.description),
+                code = errorResponse?.code,
+                originalResponse = errorResponse?.originalResponse,
             )
         }
     }
@@ -849,4 +860,19 @@ class ApiClient(
 class ApiException(
     val statusCode: Int,
     override val message: String,
-) : Exception(message)
+    /** Машиночитаемый код ошибки сервера (`code` в теле ответа), если он есть. */
+    val code: String? = null,
+    /** Для [CODE_IDEMPOTENCY_KEY_REUSED]: ответ сервера на первое применение ключа операции. */
+    val originalResponse: JsonElement? = null,
+) : Exception(message) {
+    companion object {
+        /** Ключ операции уже применён к запросу с другим телом (повтор после потерянного ответа). */
+        const val CODE_IDEMPOTENCY_KEY_REUSED = "IDEMPOTENCY_KEY_REUSED"
+
+        /** Нельзя удалить копилку с ненулевым балансом. */
+        const val CODE_SAVINGS_GOAL_NOT_EMPTY = "SAVINGS_GOAL_NOT_EMPTY"
+
+        /** 404 на PUT: нет самой изменяемой записи (а не связанной с ней), её удалили на другом устройстве. */
+        const val CODE_RECORD_NOT_FOUND = "RECORD_NOT_FOUND"
+    }
+}

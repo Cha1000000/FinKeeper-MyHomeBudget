@@ -343,26 +343,9 @@ class ExpenseRepository(
                             expenseDao.deleteById(local.id)
                         }
                     }
-
-                    // Дедупликация: удаляем pending-записи с serverId=null,
-                    // если существует synced-запись с таким же содержимым
-                    // (расход был отправлен на сервер, но serverId не вернулся обратно)
-                    val pendingNoServer = allLocalExpenses.filter {
-                        it.serverId == null && it.syncStatus == SyncStatus.PENDING.value
-                    }
-                    val syncedExpenses = allLocalExpenses.filter {
-                        it.serverId != null && it.syncStatus == SyncStatus.SYNCED.value
-                    }
-                    for (pending in pendingNoServer) {
-                        val hasSyncedDuplicate = syncedExpenses.any { synced ->
-                            synced.categoryId == pending.categoryId &&
-                                synced.amount == pending.amount &&
-                                synced.description.equals(pending.description, ignoreCase = true)
-                        }
-                        if (hasSyncedDuplicate) {
-                            expenseDao.deleteById(pending.id)
-                        }
-                    }
+                    // Pending-расходы без serverId здесь не трогаем: даже если на сервере есть
+                    // расход с той же категорией, суммой и комментарием, это может быть другая
+                    // покупка. Повторную отправку уже доехавшего расхода закрывает X-Operation-Id.
                 }
 
                 Result.success(Unit)

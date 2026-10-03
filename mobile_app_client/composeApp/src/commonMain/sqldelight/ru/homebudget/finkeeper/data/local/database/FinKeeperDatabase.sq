@@ -270,8 +270,9 @@ SELECT * FROM categories WHERE sync_status != 'synced';
 getCategoriesPendingSyncCount:
 SELECT COUNT(*) FROM categories WHERE sync_status != 'synced';
 
+-- Порядок синхронизируется отдельной операцией очереди (category_order), версию записи не трогаем
 updateCategorySortOrder:
-UPDATE categories SET sort_order = ?, updated_at = datetime('now') WHERE id = ?;
+UPDATE categories SET sort_order = ? WHERE id = ?;
 
 getMaxCategorySortOrder:
 SELECT COALESCE(MAX(sort_order), 0) FROM categories WHERE user_id = ?;
@@ -325,6 +326,9 @@ SELECT * FROM income_sources WHERE sync_status != 'synced';
 
 getIncomeSourcesPendingSyncCount:
 SELECT COUNT(*) FROM income_sources WHERE sync_status != 'synced';
+
+updateIncomeSourceSortOrder:
+UPDATE income_sources SET sort_order = ? WHERE id = ?;
 
 getMaxIncomeSourceSortOrder:
 SELECT COALESCE(MAX(sort_order), 0) FROM income_sources WHERE user_id = ?;
@@ -658,6 +662,15 @@ UPDATE sync_queue SET status = 'completed', last_attempt = datetime('now') WHERE
 deleteSyncQueueItemById:
 DELETE FROM sync_queue WHERE id = ?;
 
+-- Слияние новой операции с уже ждущей в очереди: элемент остаётся на своём месте (id),
+-- получает новое содержимое и свежий счётчик попыток. Отправляемый (syncing) не трогаем.
+mergeSyncQueueItem:
+UPDATE sync_queue SET operation = ?, payload = ?, status = 'pending', error_message = NULL, retry_count = 0
+WHERE id = ? AND status IN ('pending', 'failed');
+
+updateSyncQueueItemPayload:
+UPDATE sync_queue SET payload = ? WHERE id = ?;
+
 deleteSyncQueueItemByIdAndType:
 DELETE FROM sync_queue WHERE entity_type = ? AND entity_id = ?;
 
@@ -667,14 +680,16 @@ DELETE FROM sync_queue WHERE user_id = ?;
 getSyncQueueItemById:
 SELECT * FROM sync_queue WHERE id = ?;
 
+-- Порядок — по id (порядку постановки в очередь): created_at хранится строкой переменной
+-- точности и сортируется неверно, а родитель (копилка, категория) должен уходить раньше детей
 getPendingSyncQueueItems:
-SELECT * FROM sync_queue WHERE status = 'pending' ORDER BY created_at ASC LIMIT :limit;
+SELECT * FROM sync_queue WHERE status = 'pending' ORDER BY id ASC LIMIT :limit;
 
 getFailedSyncQueueItems:
 SELECT * FROM sync_queue WHERE status = 'failed' ORDER BY last_attempt ASC LIMIT :limit;
 
 getAllSyncQueueItemsByUser:
-SELECT * FROM sync_queue WHERE user_id = ? ORDER BY created_at DESC;
+SELECT * FROM sync_queue WHERE user_id = ? ORDER BY id DESC;
 
 getSyncQueueItemCount:
 SELECT COUNT(*) FROM sync_queue WHERE status = 'pending';

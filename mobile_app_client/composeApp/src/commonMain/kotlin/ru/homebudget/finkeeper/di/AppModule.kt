@@ -55,8 +55,8 @@ val appModule =
         single { ExpenseRepository(get(), get(), get(), get(), get()) }
         single { MonthRepository(get(), get(), get()) }
         single { BudgetRepository(get(), get(), get(), get(), get()) }
-        single { SavingsGoalRepository(get(), get(), get()) }
-        single { SavingsTransactionRepository(get(), get(), get(), get()) }
+        single { SavingsGoalRepository(get(), get(), get(), get()) }
+        single { SavingsTransactionRepository(get(), get(), get(), get(), get()) }
         single { PlannedRepository(get(), get(), get(), get(), get(), get(), get()) }
 
         // SyncManager должен быть создан после репозиториев
@@ -91,7 +91,7 @@ val appModule =
         factory { AuthViewModel(get(), get(), get<SocialAuthLauncher>()) }
         factory { DashboardViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { MonthViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-        factory { CategoriesViewModel(get(), get(), get(), get(), get(), get()) }
+        factory { CategoriesViewModel(get(), get(), get(), get(), get()) }
         factory { SavingsViewModel(get(), get(), get(), get(), get(), get()) }
         factory { SettingsViewModel(get(), get(), get()) }
 

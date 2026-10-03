@@ -44,8 +44,11 @@ fun Throwable.isTimeoutOrUnresolvable(): Boolean =
         it is HttpRequestTimeoutException ||
             it is ConnectTimeoutException ||
             it is SocketTimeoutException ||
-            it::class.simpleName == "UnknownHostException"
+            it.isUnresolvableHost()
     }
+
+/** Адрес сервера не разрешается (DNS). У каждого движка Ktor — своё исключение. */
+internal expect fun Throwable.isUnresolvableHost(): Boolean
 
 /**
  * Серия сетевых шагов с «коротким замыканием»: после первой сетевой неудачи остальные шаги

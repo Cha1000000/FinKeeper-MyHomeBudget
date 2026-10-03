@@ -61,6 +61,25 @@ class SyncQueueDao(
     }
 
     /**
+     * Слияние новой операции с ожидающим элементом: элемент сохраняет место в очереди (id),
+     * получает новые операцию/payload и свежий счётчик попыток. Элемент в `syncing` не меняется.
+     */
+    fun merge(id: Long, operation: String, payload: String?) {
+        queries.mergeSyncQueueItem(
+            operation = operation,
+            payload = payload,
+            id = id,
+        )
+    }
+
+    /**
+     * Замена payload элемента (например, новый ключ операции)
+     */
+    fun updatePayload(id: Long, payload: String?) {
+        queries.updateSyncQueueItemPayload(payload = payload, id = id)
+    }
+
+    /**
      * Удаление элемента по ID
      */
     fun deleteById(id: Long) {

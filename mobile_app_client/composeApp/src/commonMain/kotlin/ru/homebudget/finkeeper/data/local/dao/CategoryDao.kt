@@ -204,11 +204,11 @@ class CategoryDao(
         return queries.getCategoriesPendingSyncCount().executeAsOne()
     }
 
-    /**
-     * Update only sort_order for a category
-     */
-    fun updateSortOrder(id: Long, sortOrder: Long) {
-        queries.updateCategorySortOrder(sort_order = sortOrder, id = id)
+    /** Порядок списка: sort_order = позиция в [orderedIds] */
+    fun applySortOrder(orderedIds: List<Long>) {
+        queries.transaction {
+            orderedIds.forEachIndexed { index, id -> queries.updateCategorySortOrder(sort_order = index.toLong(), id = id) }
+        }
     }
 
     /**

@@ -382,13 +382,23 @@ private fun EditGoalDialog(
                     label = Strings.CURRENT_AMOUNT,
                     keyboardType = KeyboardType.Decimal
                 )
+                // Непустую копилку удалить нельзя: её пополнения уже вычтены из «Свободно»
+                val canDelete = goal.currentAmount == 0.0
                 TextButton(
                     onClick = onDelete,
+                    enabled = canDelete,
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
                     Text(Strings.DELETE_PIGGY_BANK)
+                }
+                if (!canDelete) {
+                    Text(
+                        text = Strings.DELETE_PIGGY_BANK_NOT_EMPTY,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         },

@@ -2,6 +2,10 @@ package ru.homebudget.finkeeper.ui.viewmodel
 
 import kotlinx.coroutines.CancellationException
 import ru.homebudget.finkeeper.data.network.isConnectivityFailure
+import ru.homebudget.finkeeper.data.repository.BlankNameException
+import ru.homebudget.finkeeper.data.repository.DuplicateNameException
+import ru.homebudget.finkeeper.data.repository.ReservedNameException
+import ru.homebudget.finkeeper.data.repository.SavingsGoalNotEmptyException
 import ru.homebudget.finkeeper.ui.Strings
 
 /**
@@ -13,7 +17,15 @@ internal fun Throwable.toActionError(fallback: String = Strings.OPERATION_FAILED
     if (this is CancellationException) throw this
     println("[VM] action failed: ${this::class.simpleName}: $message")
     printStackTrace()
-    return if (isConnectivityFailure()) Strings.OFFLINE_RETRY_LATER else fallback
+    return when {
+        // Отказы проверок репозитория — понятная пользователю причина, а не сбой
+        this is DuplicateNameException -> Strings.ERROR_NAME_EXISTS
+        this is ReservedNameException -> Strings.ERROR_NAME_RESERVED
+        this is BlankNameException -> Strings.ERROR_NAME_BLANK
+        this is SavingsGoalNotEmptyException -> Strings.DELETE_PIGGY_BANK_NOT_EMPTY
+        isConnectivityFailure() -> Strings.OFFLINE_RETRY_LATER
+        else -> fallback
+    }
 }
 
 /**

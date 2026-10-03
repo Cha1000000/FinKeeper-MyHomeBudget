@@ -193,6 +193,7 @@ object Strings {
     const val EDIT_PIGGY_BANK = "Редактировать копилку"
     const val DELETE_PIGGY_BANK = "Удалить копилку"
     const val DELETE_PIGGY_BANK_CONFIRM = "Вы уверены? Все данные копилки будут удалены."
+    const val DELETE_PIGGY_BANK_NOT_EMPTY = "Удалить можно только пустую копилку. Сначала снимите или переведите из неё средства."
     const val PIGGY_BANK_NAME = "Копилка: %1\u0024s"
 
     // === Экран настроек (Settings) ===
@@ -282,6 +283,9 @@ object Strings {
     const val RECOVERY_EMAIL_REQUIRED = "Введите email для восстановления доступа"
     const val RECOVERY_TOKEN_REQUIRED = "Введите токен восстановления"
     const val OFFLINE_RETRY_LATER = "Сейчас нет сети. Повторите действие, когда соединение восстановится."
+    const val ERROR_NAME_EXISTS = "Запись с таким названием уже существует"
+    const val ERROR_NAME_RESERVED = "Это название зарезервировано для служебной категории"
+    const val ERROR_NAME_BLANK = "Введите название"
     const val INVALID_USERNAME_OR_PASSWORD = "Неверное имя пользователя или пароль"
     const val CONNECTION_ERROR = "Ошибка подключения к серверу"
     const val SOCIAL_BROWSER_OPEN_ERROR = "Не удалось открыть браузер для входа."

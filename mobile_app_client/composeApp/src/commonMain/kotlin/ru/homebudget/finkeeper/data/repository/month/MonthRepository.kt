@@ -2,8 +2,6 @@ package ru.homebudget.finkeeper.data.repository.month
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -165,27 +163,6 @@ class MonthRepository(
                     }
 
                 Result.success(result)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Result.error(e)
-            }
-        }
-
-    /**
-     * Синхронизация с сервером
-     */
-    // Pull-синхронизация сериализуется мьютексом: Dashboard и Month ViewModel стартуют
-    // параллельно, и две гонящиеся insert-ветки дублировали локальные записи
-    private val syncPullMutex = Mutex()
-
-    suspend fun syncWithServer(userId: Long): Result<Unit> =
-        syncPullMutex.withLock { syncWithServerInternal(userId) }
-
-    private suspend fun syncWithServerInternal(userId: Long): Result<Unit> =
-        withContext(Dispatchers.Default) {
-            try {
-                Result.success(Unit)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

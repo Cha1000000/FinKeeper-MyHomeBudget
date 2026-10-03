@@ -136,35 +136,6 @@ class BudgetRepository(
         }
 
     /**
-     * Удаление бюджета
-     */
-    suspend fun deleteBudget(id: Long): Result<Unit> =
-        withContext(Dispatchers.Default) {
-            try {
-                val budget = budgetDao.getById(id)
-                val serverId = budget?.serverId
-
-                budgetDao.deleteById(id)
-
-                if (serverId != null) {
-                    syncManager.enqueueSync(
-                        userId = currentUserId,
-                        entityType = EntityType.BUDGET.value,
-                        entityId = id,
-                        operation = SyncOperation.DELETE.value,
-                        payload = serverId,
-                    )
-                }
-
-                Result.success(Unit)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Result.error(e)
-            }
-        }
-
-    /**
      * Синхронизация с сервером
      */
     // Pull-синхронизация сериализуется мьютексом: Dashboard и Month ViewModel стартуют

@@ -18,6 +18,7 @@ import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.data.network.runServerPhase
 import ru.homebudget.finkeeper.data.remote.TokenStorage
+import ru.homebudget.finkeeper.data.repository.SAVINGS_EXPENSE_CATEGORY_NAME
 import ru.homebudget.finkeeper.data.repository.SyncManager
 import ru.homebudget.finkeeper.data.repository.budget.BudgetRepository
 import ru.homebudget.finkeeper.data.repository.category.CategoryRepository
@@ -40,7 +41,7 @@ data class ExpenseCategoryBreakdown(
     val percentage: Double,
 )
 
-private const val PIGGY_BANK_CATEGORY_NAME = "Пополнение копилки"
+private const val PIGGY_BANK_CATEGORY_NAME = SAVINGS_EXPENSE_CATEGORY_NAME
 
 data class DashboardState(
     val isLoading: Boolean = true,

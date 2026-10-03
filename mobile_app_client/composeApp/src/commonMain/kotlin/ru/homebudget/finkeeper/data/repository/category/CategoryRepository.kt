@@ -14,8 +14,13 @@ import ru.homebudget.finkeeper.data.local.model.SyncOperation
 import ru.homebudget.finkeeper.data.local.model.SyncStatus
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
+import ru.homebudget.finkeeper.data.repository.BlankNameException
+import ru.homebudget.finkeeper.data.repository.DuplicateNameException
+import ru.homebudget.finkeeper.data.repository.ReservedNameException
 import ru.homebudget.finkeeper.data.repository.Result
+import ru.homebudget.finkeeper.data.repository.SAVINGS_EXPENSE_CATEGORY_NAME
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.mergeReorderedSubset
 import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.Category as RemoteCategory
 
@@ -136,15 +141,28 @@ class CategoryRepository(
         }
 
     /**
-     * Маппинг localId → serverId для категорий (используется при reorder)
+     * Новый порядок категорий: [reorderedIds] — переставленные записи (весь список или его часть,
+     * например только нефиксированные), остальные остаются на своих местах. Порядок сохраняется
+     * локально сразу и уходит на сервер через очередь — одной операцией на весь список
+     * (следующая перестановка заменяет ещё не отправленную).
      */
-    suspend fun getServerIdMapping(userId: Long): Map<Int, Int> =
+    suspend fun reorderCategories(userId: Long, reorderedIds: List<Long>): Result<Unit> =
         withContext(Dispatchers.Default) {
-            val localCategories = categoryDao.getAllByUser(userId)
-            localCategories.mapNotNull { local ->
-                val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
-                local.id.toInt() to sid
-            }.toMap()
+            try {
+                val current = categoryDao.getActiveByUser(userId).map { it.id }
+                categoryDao.applySortOrder(mergeReorderedSubset(current, reorderedIds))
+                syncManager.enqueueSync(
+                    userId = userId,
+                    entityType = EntityType.CATEGORY_ORDER.value,
+                    entityId = 0L,
+                    operation = SyncOperation.UPDATE.value,
+                )
+                Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.error(e)
+            }
         }
 
     /**
@@ -163,18 +181,53 @@ class CategoryRepository(
     ): Result<RemoteCategory> =
         withContext(Dispatchers.Default) {
             try {
+                val name = name.trim()
+                if (name.isEmpty()) return@withContext Result.error(BlankNameException())
+                if (name == SAVINGS_EXPENSE_CATEGORY_NAME) return@withContext Result.error(ReservedNameException(name))
+
                 val existingByName = categoryDao.getByName(userId, name)
-                if (existingByName != null) {
-                    val result = RemoteCategory(
-                        id = existingByName.id.toInt(),
-                        userId = existingByName.userId.toInt(),
+                if (existingByName != null && existingByName.isActive == 0L) {
+                    // Удалённая категория с тем же именем: восстанавливаем её вместе с историей
+                    // расходов (так же поступает сервер, имена у него уникальны)
+                    val maxSortOrder = categoryDao.getMaxSortOrder(userId) ?: 0L
+                    categoryDao.update(
+                        id = existingByName.id,
                         name = existingByName.name,
-                        sortOrder = existingByName.sortOrder.toInt(),
-                        isActive = existingByName.isActive.toInt(),
-                        isFixed = existingByName.isFixed.toInt(),
-                        fixedAmount = existingByName.fixedAmount?.let { it.toDouble() / 100.0 },
-                        autoDay = existingByName.autoDay?.toInt(),
-                        requireConfirm = existingByName.requireConfirm.toInt(),
+                        type = existingByName.type,
+                        icon = icon ?: existingByName.icon,
+                        color = color ?: existingByName.color,
+                        sortOrder = maxSortOrder + 1,
+                        isActive = 1L,
+                        isFixed = if (isFixed) 1L else 0L,
+                        fixedAmount = if (isFixed) fixedAmount?.let { (it * 100).toLong() } else null,
+                        autoDay = if (isFixed) autoDay?.toLong() else null,
+                        requireConfirm = if (isFixed && requireConfirm) 1L else 0L,
+                        updatedAt = Clock.System.now().toString(),
+                        serverId = existingByName.serverId,
+                        syncStatus = SyncStatus.PENDING.value,
+                    )
+                    syncManager.enqueueSync(
+                        userId = currentUserId,
+                        entityType = EntityType.CATEGORY.value,
+                        entityId = existingByName.id,
+                        operation = SyncOperation.UPDATE.value,
+                        payload = null,
+                        reactivate = true,
+                    )
+                    println("[CATEGORY] createCategory: reactivated id=${existingByName.id}, name='$name'")
+                }
+                if (existingByName != null) {
+                    val restored = categoryDao.getById(existingByName.id) ?: existingByName
+                    val result = RemoteCategory(
+                        id = restored.id.toInt(),
+                        userId = restored.userId.toInt(),
+                        name = restored.name,
+                        sortOrder = restored.sortOrder.toInt(),
+                        isActive = restored.isActive.toInt(),
+                        isFixed = restored.isFixed.toInt(),
+                        fixedAmount = restored.fixedAmount?.let { it.toDouble() / 100.0 },
+                        autoDay = restored.autoDay?.toInt(),
+                        requireConfirm = restored.requireConfirm.toInt(),
                     )
                     return@withContext Result.success(result)
                 }
@@ -247,6 +300,14 @@ class CategoryRepository(
             try {
                 val existing = categoryDao.getById(id) ?: return@withContext Result.error(Exception("Category not found"))
                 val now = Clock.System.now().toString()
+                val newName = name?.trim() ?: existing.name
+                if (newName != existing.name) {
+                    if (newName.isEmpty()) return@withContext Result.error(BlankNameException())
+                    if (newName == SAVINGS_EXPENSE_CATEGORY_NAME) return@withContext Result.error(ReservedNameException(newName))
+                    // Сервер хранит имена уникальными (вместе с удалёнными) и отклонит переименование
+                    val sameName = categoryDao.getByName(existing.userId, newName)
+                    if (sameName != null && sameName.id != id) return@withContext Result.error(DuplicateNameException(newName))
+                }
 
                 val newIsFixed = when (isFixed) {
                     true -> 1L
@@ -256,7 +317,7 @@ class CategoryRepository(
 
                 categoryDao.update(
                     id = id,
-                    name = name ?: existing.name,
+                    name = newName,
                     type = existing.type,
                     icon = icon ?: existing.icon,
                     color = color ?: existing.color,
@@ -299,35 +360,6 @@ class CategoryRepository(
         }
 
     /**
-     * Удаление категории
-     */
-    suspend fun deleteCategory(id: Long): Result<Unit> =
-        withContext(Dispatchers.Default) {
-            try {
-                val category = categoryDao.getById(id)
-                val serverId = category?.serverId
-
-                categoryDao.deleteById(id)
-
-                if (serverId != null) {
-                    syncManager.enqueueSync(
-                        userId = currentUserId,
-                        entityType = EntityType.CATEGORY.value,
-                        entityId = id,
-                        operation = SyncOperation.DELETE.value,
-                        payload = serverId,
-                    )
-                }
-
-                Result.success(Unit)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Result.error(e)
-            }
-        }
-
-    /**
      * Синхронизация с сервером
      */
     // Pull-синхронизация сериализуется мьютексом: Dashboard и Month ViewModel стартуют
@@ -342,6 +374,8 @@ class CategoryRepository(
             try {
                 val remoteCategories = apiClient.getCategories()
                 val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.CATEGORY.value)
+                // Свой порядок ещё не отправлен — серверный его не перетирает
+                val keepLocalOrder = syncManager.hasActiveQueueOperation(EntityType.CATEGORY_ORDER.value, 0L)
 
                 for (remote in remoteCategories) {
                     if (remote.id.toString() in pendingDeleteServerIds) {
@@ -368,7 +402,7 @@ class CategoryRepository(
                             type = existing.type,
                             icon = existing.icon,
                             color = existing.color,
-                            sortOrder = remote.sortOrder.toLong(),
+                            sortOrder = if (keepLocalOrder) existing.sortOrder else remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
                             isFixed = remote.isFixed.toLong(),
                             fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
@@ -428,10 +462,4 @@ class CategoryRepository(
                 Result.error(e)
             }
         }
-
-    suspend fun updateCategorySortOrder(categoryId: Long, sortOrder: Long) {
-        withContext(Dispatchers.Default) {
-            categoryDao.updateSortOrder(categoryId, sortOrder)
-        }
-    }
 }

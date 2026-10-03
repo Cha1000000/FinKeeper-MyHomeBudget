@@ -13,6 +13,7 @@ import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import ru.homebudget.finkeeper.data.model.*
+import ru.homebudget.finkeeper.data.repository.SAVINGS_EXPENSE_CATEGORY_NAME
 import ru.homebudget.finkeeper.data.repository.budget.BudgetRepository
 import ru.homebudget.finkeeper.data.repository.category.CategoryRepository
 import ru.homebudget.finkeeper.data.repository.expense.ExpenseRepository
@@ -342,7 +343,7 @@ class MonthViewModel(
         incomes = incomes + autoIncomes
 
         // Фильтруем расходы - исключаем категорию "Пополнение копилки"
-        val piggyBankCategoryId = categories.find { it.name == "Пополнение копилки" }?.id
+        val piggyBankCategoryId = categories.find { it.name == SAVINGS_EXPENSE_CATEGORY_NAME }?.id
         val visibleExpenses =
             if (piggyBankCategoryId != null) {
                 allExpenses.filter { it.categoryId != piggyBankCategoryId }
@@ -674,10 +675,9 @@ class MonthViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(actionError = null)
             try {
-                newOrder.forEachIndexed { index, group ->
-                    categoryRepository.updateCategorySortOrder(group.categoryId.toLong(), index.toLong())
-                }
                 _state.value = _state.value.copy(groupedExpenses = newOrder)
+                // Переставлены только категории с расходами в месяце — остальные остаются на местах
+                categoryRepository.reorderCategories(currentUserId, newOrder.map { it.categoryId.toLong() }).getOrThrow()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(actionError = e.toActionError(Strings.ERROR_REORDERING))
             }
