@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.repository.budget
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -52,6 +53,8 @@ class BudgetRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -125,33 +128,8 @@ class BudgetRepository(
                     )
 
                 Result.success(result)
-            } catch (e: Exception) {
-                Result.error(e)
-            }
-        }
-
-    /**
-     * Удаление бюджета
-     */
-    suspend fun deleteBudget(id: Long): Result<Unit> =
-        withContext(Dispatchers.Default) {
-            try {
-                val budget = budgetDao.getById(id)
-                val serverId = budget?.serverId
-
-                budgetDao.deleteById(id)
-
-                if (serverId != null) {
-                    syncManager.enqueueSync(
-                        userId = currentUserId,
-                        entityType = EntityType.BUDGET.value,
-                        entityId = id,
-                        operation = SyncOperation.DELETE.value,
-                        payload = serverId,
-                    )
-                }
-
-                Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -233,6 +211,8 @@ class BudgetRepository(
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }

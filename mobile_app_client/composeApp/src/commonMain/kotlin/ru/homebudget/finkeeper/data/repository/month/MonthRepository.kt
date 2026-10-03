@@ -2,8 +2,6 @@ package ru.homebudget.finkeeper.data.repository.month
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -44,6 +42,8 @@ class MonthRepository(
         userId: Long,
         year: Int,
         month: Int,
+        // false — только локальная БД, без сети (для local-first показа данных до ответа сервера)
+        registerOnServer: Boolean = true,
     ): Result<MonthData> =
         withContext(Dispatchers.Default) {
             try {
@@ -51,10 +51,12 @@ class MonthRepository(
 
                 if (localMonth != null) {
                     // Месяц уже есть локально, обновляем serverId если нужно
-                    if (localMonth.serverId == null) {
+                    if (registerOnServer && localMonth.serverId == null) {
                         try {
                             val remoteMonth = apiClient.ensureMonth(year, month)
                             monthDao.updateServerId(localMonth.id, remoteMonth.id.toString())
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             // Игнорируем ошибку синхронизации месяца
                         }
@@ -82,11 +84,15 @@ class MonthRepository(
                         )
 
                     // Синхронизируем с сервером
-                    try {
-                        val remoteMonth = apiClient.ensureMonth(year, month)
-                        monthDao.updateServerId(newId, remoteMonth.id.toString())
-                    } catch (e: Exception) {
-                        // Если не удалось синхронизировать, оставляем serverId как null
+                    if (registerOnServer) {
+                        try {
+                            val remoteMonth = apiClient.ensureMonth(year, month)
+                            monthDao.updateServerId(newId, remoteMonth.id.toString())
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // Если не удалось синхронизировать, оставляем serverId как null
+                        }
                     }
 
                     // Получаем созданный месяц
@@ -102,6 +108,8 @@ class MonthRepository(
                         ),
                     )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -113,19 +121,27 @@ class MonthRepository(
      * они не появлялись бы вовсе. Идемпотентно; без сети — тихо false.
      */
     suspend fun ensureOnServer(monthLocalId: Long): Boolean =
+        try {
+            ensureOnServerChecked(monthLocalId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
+
+    /**
+     * То же, что [ensureOnServer], но ошибки пробрасываются: шаг серверной фазы отличит «сервер
+     * не ответил» (сетевой сбой) от «сервер ответил ошибкой» и не выдаст пропущенную загрузку
+     * месяца за успешную. `false` — месяца нет в локальной БД.
+     */
+    suspend fun ensureOnServerChecked(monthLocalId: Long): Boolean =
         withContext(Dispatchers.Default) {
             val month = monthDao.getById(monthLocalId) ?: return@withContext false
-            try {
-                val remote = apiClient.ensureMonth(month.year.toInt(), month.month.toInt())
-                if (month.serverId != remote.id.toString()) {
-                    monthDao.updateServerId(month.id, remote.id.toString())
-                }
-                true
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                false
+            val remote = apiClient.ensureMonth(month.year.toInt(), month.month.toInt())
+            if (month.serverId != remote.id.toString()) {
+                monthDao.updateServerId(month.id, remote.id.toString())
             }
+            true
         }
 
     /**
@@ -147,25 +163,8 @@ class MonthRepository(
                     }
 
                 Result.success(result)
-            } catch (e: Exception) {
-                Result.error(e)
-            }
-        }
-
-    /**
-     * Синхронизация с сервером
-     */
-    // Pull-синхронизация сериализуется мьютексом: Dashboard и Month ViewModel стартуют
-    // параллельно, и две гонящиеся insert-ветки дублировали локальные записи
-    private val syncPullMutex = Mutex()
-
-    suspend fun syncWithServer(userId: Long): Result<Unit> =
-        syncPullMutex.withLock { syncWithServerInternal(userId) }
-
-    private suspend fun syncWithServerInternal(userId: Long): Result<Unit> =
-        withContext(Dispatchers.Default) {
-            try {
-                Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }

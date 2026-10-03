@@ -78,4 +78,73 @@ class SyncQueueIntegrationTest {
         assertEquals("pending", retriedItem.status)
         assertEquals(null, retriedItem.errorMessage)
     }
+
+    @Test
+    fun syncQueue_resetSyncingToPending_returnsStuckItemsOnly() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        FinKeeperDatabase.Schema.create(driver)
+        val database = FinKeeperDatabase(driver)
+        val userId = UserDao(database).insert(username = "u", email = "u@example.com", passwordHash = "hash")
+        val syncQueueDao = SyncQueueDao(database)
+
+        fun enqueue(entityId: Long) =
+            syncQueueDao.insert(
+                userId = userId,
+                entityType = "expense",
+                entityId = entityId,
+                operation = SyncOperation.INSERT.value,
+                payload = null,
+            )
+        enqueue(1)
+        enqueue(2)
+        enqueue(3)
+        val items = syncQueueDao.getAllByUser(userId).sortedBy { it.entityId }
+        syncQueueDao.updateStatus(items[0].id, "syncing", null)
+        syncQueueDao.updateStatus(items[1].id, "failed", "boom")
+        // items[2] остаётся pending
+
+        syncQueueDao.resetSyncingToPending()
+
+        val byEntity = syncQueueDao.getAllByUser(userId).associateBy { it.entityId }
+        assertEquals("pending", byEntity.getValue(1).status)
+        assertEquals("failed", byEntity.getValue(2).status)
+        assertEquals("pending", byEntity.getValue(3).status)
+    }
+
+    @Test
+    fun syncQueue_returnToPending_undoesSyncingAttemptAndKeepsRealFailures() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        FinKeeperDatabase.Schema.create(driver)
+        val database = FinKeeperDatabase(driver)
+        val userId = UserDao(database).insert(username = "u", email = "u@example.com", passwordHash = "hash")
+        val syncQueueDao = SyncQueueDao(database)
+        syncQueueDao.insert(
+            userId = userId,
+            entityType = "expense",
+            entityId = 1,
+            operation = SyncOperation.INSERT.value,
+            payload = null,
+        )
+        val id = syncQueueDao.getAllByUser(userId).single().id
+
+        // Три сетевых отказа подряд: попытка не должна накапливаться
+        repeat(3) {
+            syncQueueDao.updateStatus(id, "syncing", null)
+            syncQueueDao.returnToPending(id)
+        }
+        val afterNetworkFailures = syncQueueDao.getAllByUser(userId).single()
+        assertEquals("pending", afterNetworkFailures.status)
+        assertEquals(0, afterNetworkFailures.retryCount)
+
+        // Настоящий провал (syncing → failed) по-прежнему тратит попытки
+        syncQueueDao.updateStatus(id, "syncing", null)
+        syncQueueDao.updateStatus(id, "failed", "boom")
+        assertEquals(2, syncQueueDao.getAllByUser(userId).single().retryCount)
+
+        // Откат не уходит в минус
+        syncQueueDao.returnToPending(id)
+        syncQueueDao.returnToPending(id)
+        syncQueueDao.returnToPending(id)
+        assertEquals(0, syncQueueDao.getAllByUser(userId).single().retryCount)
+    }
 }

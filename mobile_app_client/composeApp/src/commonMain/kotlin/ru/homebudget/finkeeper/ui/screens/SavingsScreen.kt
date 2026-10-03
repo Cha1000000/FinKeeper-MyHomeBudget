@@ -42,7 +42,9 @@ import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ProgressBar
+import ru.homebudget.finkeeper.ui.components.ScreenErrorBanner
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
+import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsState
 import ru.homebudget.finkeeper.util.formatCurrency
@@ -55,7 +57,8 @@ fun SavingsScreen(
     onUpdateGoal: (Int, String?, Double?, Double?) -> Unit,
     onDeleteGoal: (Int) -> Unit,
     onAddTransaction: (Int, Double) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onDismissError: () -> Unit,
 ) {
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingGoal by remember { mutableStateOf<SavingsGoal?>(null) }
@@ -103,6 +106,14 @@ fun SavingsScreen(
                         }
                     },
                 )
+            }
+
+            if (state.isOffline) {
+                item { ServerUnreachableBanner(onRetry = onRefresh, isRetrying = state.isSyncing) }
+            }
+
+            state.error?.let { error ->
+                item { ScreenErrorBanner(message = error, onDismiss = onDismissError) }
             }
 
             if (state.totalSavings > 0) {
@@ -371,13 +382,23 @@ private fun EditGoalDialog(
                     label = Strings.CURRENT_AMOUNT,
                     keyboardType = KeyboardType.Decimal
                 )
+                // Непустую копилку удалить нельзя: её пополнения уже вычтены из «Свободно»
+                val canDelete = goal.currentAmount == 0.0
                 TextButton(
                     onClick = onDelete,
+                    enabled = canDelete,
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
                     Text(Strings.DELETE_PIGGY_BANK)
+                }
+                if (!canDelete) {
+                    Text(
+                        text = Strings.DELETE_PIGGY_BANK_NOT_EMPTY,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         },

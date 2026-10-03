@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.repository.planned
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -196,6 +197,8 @@ class PlannedRepository(
                     payload = null,
                 )
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -231,6 +234,8 @@ class PlannedRepository(
                     createdAt = nowIso(),
                 )
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -304,6 +309,8 @@ class PlannedRepository(
             val remote = apiClient.ensureMonth(month.year.toInt(), month.month.toInt())
             monthDao.updateServerId(month.id, remote.id.toString())
             remote.id
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             null
         }

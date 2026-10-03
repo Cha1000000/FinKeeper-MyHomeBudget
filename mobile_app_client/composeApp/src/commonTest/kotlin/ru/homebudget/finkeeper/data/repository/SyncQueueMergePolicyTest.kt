@@ -49,4 +49,21 @@ class SyncQueueMergePolicyTest {
 
         assertEquals(QueueMergeAction.REPLACE_WITH_NEW, action)
     }
+
+    @Test
+    fun resolveQueueMergeAction_deleteThenUpdate_keepsDelete() {
+        // Удаление побеждает правку: запись уже удалена
+        assertEquals(
+            QueueMergeAction.KEEP_EXISTING,
+            resolveQueueMergeAction(SyncOperation.DELETE.value, SyncOperation.UPDATE.value),
+        )
+    }
+
+    @Test
+    fun resolveQueueMergeAction_updateThenDelete_replacesWithDelete() {
+        assertEquals(
+            QueueMergeAction.REPLACE_WITH_NEW,
+            resolveQueueMergeAction(SyncOperation.UPDATE.value, SyncOperation.DELETE.value),
+        )
+    }
 }

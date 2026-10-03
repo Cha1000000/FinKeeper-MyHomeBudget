@@ -105,6 +105,11 @@ fun AppNavigation(
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
     var showSecurityOnboardingPrompt by remember { mutableStateOf(false) }
+    // Настройки открыты из подсказки «Добавьте email» — раскрыть раздел защиты аккаунта
+    var settingsFocusAccountProtection by remember { mutableStateOf(false) }
+    LaunchedEffect(currentScreen) {
+        if (currentScreen != Screen.Settings) settingsFocusAccountProtection = false
+    }
     var securityPromptShownThisSession by remember { mutableStateOf(false) }
     var securityPromptSessionUserId by remember { mutableStateOf<Int?>(null) }
     var showAppUpdatePrompt by remember { mutableStateOf(false) }
@@ -179,6 +184,7 @@ fun AppNavigation(
                         onOpenSettings = {
                             authState.user?.let { securityOnboardingPromptState.dismiss(it) }
                             showSecurityOnboardingPrompt = false
+                            settingsFocusAccountProtection = true
                             currentScreen = Screen.Settings
                         },
                         onDismiss = {
@@ -215,6 +221,7 @@ fun AppNavigation(
                                 onRefresh = { dashboardViewModel.loadData() },
                                 onPrevMonth = { dashboardViewModel.prevMonth() },
                                 onNextMonth = { dashboardViewModel.nextMonth() },
+                                onDismissError = { dashboardViewModel.clearError() },
                             )
                         }
 
@@ -241,6 +248,7 @@ fun AppNavigation(
                                 onCancelAddIncomeSource = { monthViewModel.cancelAddIncomeSource() },
                                 onReorderExpenseGroups = { monthViewModel.reorderExpenseGroups(it) },
                                 onRefresh = { monthViewModel.loadData() },
+                                onDismissError = { monthViewModel.clearError() },
                                 onConfirmPlanned = { item, amount -> monthViewModel.confirmPlanned(item, amount) },
                                 onSkipPlanned = { item, skipped -> monthViewModel.skipPlanned(item, skipped) },
                                 onOverridePlanned = { item, amount, day -> monthViewModel.overridePlanned(item, amount, day) },
@@ -275,6 +283,7 @@ fun AppNavigation(
                                 onAddFixedIncomeSource = { name, amount, day, requireConfirm -> categoriesViewModel.addFixedIncomeSource(name, amount, day, requireConfirm) },
                                 onUpdateFixedIncomeSource = { id, name, amount, day, requireConfirm -> categoriesViewModel.updateFixedIncomeSource(id, name, amount, day, requireConfirm) },
                                 onDeactivateFixedIncomeSource = { categoriesViewModel.deactivateFixedIncomeSource(it) },
+                                onDismissError = { categoriesViewModel.clearError() },
                             )
                         }
 
@@ -290,6 +299,7 @@ fun AppNavigation(
                                 onDeleteGoal = { savingsViewModel.deleteGoal(it) },
                                 onAddTransaction = { goalId, amount -> savingsViewModel.addTransaction(goalId, amount) },
                                 onRefresh = { savingsViewModel.loadData() },
+                                onDismissError = { savingsViewModel.clearError() },
                             )
                         }
 
@@ -334,6 +344,7 @@ fun AppNavigation(
                             onThemeModeChange = onThemeModeChange,
                             currentUiScale = currentUiScale,
                             onUiScaleChange = onUiScaleChange,
+                            expandAccountProtection = settingsFocusAccountProtection,
                         )
                 }
             }
@@ -677,8 +688,8 @@ private fun DesktopSidebar(
     isDark: Boolean,
     semantic: AppSemanticColors,
     username: String,
-    totalAssets: Double,
-    resource: Double,
+    totalAssets: Double?,
+    resource: Double?,
     available: Double,
 ) {
     val gradientBrush =
@@ -807,7 +818,7 @@ private fun DesktopSidebar(
                     color = inactiveColor,
                 )
                 Text(
-                    text = formatCurrency(totalAssets),
+                    text = totalAssets?.let(::formatCurrency) ?: Strings.NO_VALUE,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = activeColor,
                 )
@@ -818,7 +829,7 @@ private fun DesktopSidebar(
                     color = inactiveColor,
                 )
                 Text(
-                    text = formatCurrency(resource),
+                    text = resource?.let(::formatCurrency) ?: Strings.NO_VALUE,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = activeColor,
                 )

@@ -143,12 +143,33 @@ class TokenStorage(
             settings.putInt(KEY_MONTHVIEW_MONTH, value)
         }
 
+    /**
+     * Последний серверный «кумулятивный баланс» и локальный баланс месяца на момент его
+     * получения. Нужен, чтобы «Всего активов» не пропадало при недоступном сервере и
+     * сдвигалось вместе с локальными правками (см. DashboardViewModel). Привязан к пользователю:
+     * чужое значение после смены аккаунта не показываем.
+     */
+    fun saveCumulativeBalance(userId: Long, year: Int, month: Int, serverValue: Double, localBalance: Double) {
+        settings.putString(KEY_CUMULATIVE, "$userId;$year;$month;$serverValue;$localBalance")
+    }
+
+    /** Возвращает (серверное значение, локальный баланс на тот момент) для месяца или null. */
+    fun loadCumulativeBalance(userId: Long, year: Int, month: Int): Pair<Double, Double>? {
+        val parts = settings.getStringOrNull(KEY_CUMULATIVE)?.split(";") ?: return null
+        if (parts.size != 5) return null
+        if (parts[0].toLongOrNull() != userId || parts[1].toIntOrNull() != year || parts[2].toIntOrNull() != month) return null
+        val server = parts[3].toDoubleOrNull() ?: return null
+        val local = parts[4].toDoubleOrNull() ?: return null
+        return server to local
+    }
+
     fun clear(authEvent: AuthSessionEvent? = null) {
         secureTokenStorage.clear()
         settings.remove(KEY_TOKEN)
         settings.remove(KEY_USER_ID)
         settings.remove(KEY_USERNAME)
         settings.remove(KEY_EMAIL)
+        settings.remove(KEY_CUMULATIVE)
         authEvent?.let { _authEvents.tryEmit(it) }
     }
 
@@ -159,6 +180,7 @@ class TokenStorage(
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USERNAME = "user_name"
         private const val KEY_EMAIL = "user_email"
+        private const val KEY_CUMULATIVE = "cumulative_balance"
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_UI_SCALE = "ui_scale"

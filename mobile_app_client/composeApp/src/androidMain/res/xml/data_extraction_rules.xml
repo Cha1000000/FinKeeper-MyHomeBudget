@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: то же исключение зашифрованных токенов для облачного бэкапа и переноса между устройствами -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="finkeeper_secure_storage.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="finkeeper_secure_storage.xml" />
+    </device-transfer>
+</data-extraction-rules>

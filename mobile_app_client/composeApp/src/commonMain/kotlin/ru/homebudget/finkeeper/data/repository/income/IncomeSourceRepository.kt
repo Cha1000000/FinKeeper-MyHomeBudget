@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.repository.income
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -12,8 +13,11 @@ import ru.homebudget.finkeeper.data.local.model.SyncOperation
 import ru.homebudget.finkeeper.data.local.model.SyncStatus
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.TokenStorage
+import ru.homebudget.finkeeper.data.repository.BlankNameException
+import ru.homebudget.finkeeper.data.repository.DuplicateNameException
 import ru.homebudget.finkeeper.data.repository.Result
 import ru.homebudget.finkeeper.data.repository.SyncManager
+import ru.homebudget.finkeeper.data.repository.mergeReorderedSubset
 import ru.homebudget.finkeeper.data.repository.shouldApplyRemoteServerSnapshot
 import ru.homebudget.finkeeper.data.model.IncomeSource as RemoteIncomeSource
 
@@ -52,6 +56,8 @@ class IncomeSourceRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -80,21 +86,36 @@ class IncomeSourceRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
         }
 
     /**
-     * Маппинг localId → serverId для источников дохода (используется при reorder)
+     * Новый порядок источников дохода: [reorderedIds] — переставленные записи (весь список или его часть,
+     * например только нефиксированные), остальные остаются на своих местах. Порядок сохраняется
+     * локально сразу и уходит на сервер через очередь — одной операцией на весь список
+     * (следующая перестановка заменяет ещё не отправленную).
      */
-    suspend fun getServerIdMapping(userId: Long): Map<Int, Int> =
+    suspend fun reorderIncomeSources(userId: Long, reorderedIds: List<Long>): Result<Unit> =
         withContext(Dispatchers.Default) {
-            val localSources = incomeSourceDao.getAllByUser(userId)
-            localSources.mapNotNull { local ->
-                val sid = local.serverId?.toIntOrNull() ?: return@mapNotNull null
-                local.id.toInt() to sid
-            }.toMap()
+            try {
+                val current = incomeSourceDao.getActiveByUser(userId).map { it.id }
+                incomeSourceDao.applySortOrder(mergeReorderedSubset(current, reorderedIds))
+                syncManager.enqueueSync(
+                    userId = userId,
+                    entityType = EntityType.INCOME_SOURCE_ORDER.value,
+                    entityId = 0L,
+                    operation = SyncOperation.UPDATE.value,
+                )
+                Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.error(e)
+            }
         }
 
     /**
@@ -110,17 +131,46 @@ class IncomeSourceRepository(
     ): Result<RemoteIncomeSource> =
         withContext(Dispatchers.Default) {
             try {
+                val name = name.trim()
+                if (name.isEmpty()) return@withContext Result.error(BlankNameException())
+
                 val existingByName = incomeSourceDao.getByName(userId, name)
-                if (existingByName != null) {
-                    val result = RemoteIncomeSource(
-                        id = existingByName.id.toInt(),
-                        userId = existingByName.userId.toInt(),
+                if (existingByName != null && existingByName.isActive == 0L) {
+                    // Удалённый источник с тем же именем: восстанавливаем его вместе с историей
+                    // доходов (так же поступает сервер, имена у него уникальны)
+                    incomeSourceDao.update(
+                        id = existingByName.id,
                         name = existingByName.name,
-                        isActive = existingByName.isActive.toInt(),
-                        isFixed = existingByName.isFixed.toInt(),
-                        fixedAmount = existingByName.fixedAmount?.let { it.toDouble() / 100.0 },
-                        autoDay = existingByName.autoDay?.toInt(),
-                        requireConfirm = existingByName.requireConfirm.toInt(),
+                        sortOrder = incomeSourceDao.getMaxSortOrder(userId) + 1,
+                        isActive = 1L,
+                        isFixed = if (isFixed) 1L else 0L,
+                        fixedAmount = if (isFixed) fixedAmount?.let { (it * 100).toLong() } else null,
+                        autoDay = if (isFixed) autoDay?.toLong() else null,
+                        requireConfirm = if (isFixed && requireConfirm) 1L else 0L,
+                        serverId = existingByName.serverId,
+                        syncStatus = SyncStatus.PENDING.value,
+                    )
+                    syncManager.enqueueSync(
+                        userId = currentUserId,
+                        entityType = EntityType.INCOME_SOURCE.value,
+                        entityId = existingByName.id,
+                        operation = SyncOperation.UPDATE.value,
+                        payload = null,
+                        reactivate = true,
+                    )
+                    println("[INCOME-SOURCE] createIncomeSource: reactivated id=${existingByName.id}, name='$name'")
+                }
+                if (existingByName != null) {
+                    val restored = incomeSourceDao.getById(existingByName.id) ?: existingByName
+                    val result = RemoteIncomeSource(
+                        id = restored.id.toInt(),
+                        userId = restored.userId.toInt(),
+                        name = restored.name,
+                        isActive = restored.isActive.toInt(),
+                        isFixed = restored.isFixed.toInt(),
+                        fixedAmount = restored.fixedAmount?.let { it.toDouble() / 100.0 },
+                        autoDay = restored.autoDay?.toInt(),
+                        requireConfirm = restored.requireConfirm.toInt(),
                     )
                     return@withContext Result.success(result)
                 }
@@ -160,6 +210,8 @@ class IncomeSourceRepository(
                 )
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -180,6 +232,13 @@ class IncomeSourceRepository(
         withContext(Dispatchers.Default) {
             try {
                 val existing = incomeSourceDao.getById(id) ?: return@withContext Result.error(Exception("Income source not found"))
+                val newName = name?.trim() ?: existing.name
+                if (newName != existing.name) {
+                    if (newName.isEmpty()) return@withContext Result.error(BlankNameException())
+                    // Сервер хранит имена уникальными (вместе с удалёнными) и отклонит переименование
+                    val sameName = incomeSourceDao.getByName(existing.userId, newName)
+                    if (sameName != null && sameName.id != id) return@withContext Result.error(DuplicateNameException(newName))
+                }
 
                 val newIsFixed = when (isFixed) {
                     true -> 1L
@@ -189,7 +248,7 @@ class IncomeSourceRepository(
 
                 incomeSourceDao.update(
                     id = id,
-                    name = name ?: existing.name,
+                    name = newName,
                     sortOrder = existing.sortOrder,
                     isActive = when (isActive) {
                         true -> 1L
@@ -220,33 +279,8 @@ class IncomeSourceRepository(
                 )
 
                 Result.success(Unit)
-            } catch (e: Exception) {
-                Result.error(e)
-            }
-        }
-
-    /**
-     * Удаление источника дохода
-     */
-    suspend fun deleteIncomeSource(id: Long): Result<Unit> =
-        withContext(Dispatchers.Default) {
-            try {
-                val source = incomeSourceDao.getById(id)
-                val serverId = source?.serverId
-
-                incomeSourceDao.deleteById(id)
-
-                if (serverId != null) {
-                    syncManager.enqueueSync(
-                        userId = currentUserId,
-                        entityType = EntityType.INCOME_SOURCE.value,
-                        entityId = id,
-                        operation = SyncOperation.DELETE.value,
-                        payload = serverId,
-                    )
-                }
-
-                Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -267,6 +301,8 @@ class IncomeSourceRepository(
             try {
                 val remoteSources = apiClient.getIncomeSources()
                 val pendingDeleteServerIds = syncManager.getPendingDeleteServerIds(EntityType.INCOME_SOURCE.value)
+                // Свой порядок ещё не отправлен — серверный его не перетирает
+                val keepLocalOrder = syncManager.hasActiveQueueOperation(EntityType.INCOME_SOURCE_ORDER.value, 0L)
 
                 for (remote in remoteSources) {
                     if (remote.id.toString() in pendingDeleteServerIds) {
@@ -290,7 +326,7 @@ class IncomeSourceRepository(
                         incomeSourceDao.update(
                             id = existing.id,
                             name = remote.name,
-                            sortOrder = remote.sortOrder.toLong(),
+                            sortOrder = if (keepLocalOrder) existing.sortOrder else remote.sortOrder.toLong(),
                             isActive = remote.isActive.toLong(),
                             isFixed = remote.isFixed.toLong(),
                             fixedAmount = remote.fixedAmount?.let { (it * 100).toLong() },
@@ -336,6 +372,8 @@ class IncomeSourceRepository(
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }

@@ -2,6 +2,7 @@ package ru.homebudget.finkeeper.di
 
 import org.koin.dsl.module
 import ru.homebudget.finkeeper.data.local.dao.*
+import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.SecureTokenStorage
 import ru.homebudget.finkeeper.data.remote.SocialAuthLauncher
@@ -29,7 +30,8 @@ val appModule =
     module {
         // Remote data
         single<TokenStorage> { TokenStorage(secureTokenStorage = get<SecureTokenStorage>()) }
-        single { ApiClient(get()) }
+        single { ServerLinkState() }
+        single { ApiClient(get(), get()) }
         single { SyncStateStorage(get()) }
 
         // DAOs (DatabaseProvider предоставляется в platform-specific модулях)
@@ -53,8 +55,8 @@ val appModule =
         single { ExpenseRepository(get(), get(), get(), get(), get()) }
         single { MonthRepository(get(), get(), get()) }
         single { BudgetRepository(get(), get(), get(), get(), get()) }
-        single { SavingsGoalRepository(get(), get(), get()) }
-        single { SavingsTransactionRepository(get(), get(), get(), get()) }
+        single { SavingsGoalRepository(get(), get(), get(), get()) }
+        single { SavingsTransactionRepository(get(), get(), get(), get(), get()) }
         single { PlannedRepository(get(), get(), get(), get(), get(), get(), get()) }
 
         // SyncManager должен быть создан после репозиториев
@@ -87,14 +89,14 @@ val appModule =
 
         // ViewModels
         factory { AuthViewModel(get(), get(), get<SocialAuthLauncher>()) }
-        factory { DashboardViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-        factory { MonthViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        factory { DashboardViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        factory { MonthViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { CategoriesViewModel(get(), get(), get(), get(), get()) }
-        factory { SavingsViewModel(get(), get(), get(), get(), get()) }
+        factory { SavingsViewModel(get(), get(), get(), get(), get(), get()) }
         factory { SettingsViewModel(get(), get(), get()) }
 
         // Сервис авто-синхронизации
-        single { SyncService(get(), get(), get(), get()) }
+        single { SyncService(get(), get(), get(), get(), get()) }
 
         // WebSocket сервис для real-time обновлений
         single { WebSocketService(get(), get()) }

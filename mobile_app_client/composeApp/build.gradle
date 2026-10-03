@@ -1,6 +1,6 @@
 buildscript {
     ext {
-        app_version = '2.2.3'
+        app_version = '2.2.4'
     }
 }
 
@@ -113,7 +113,17 @@ kotlin {
                 implementation libs.sqldelight.sqlite
             }
         }
+        // Тесты на JVM-драйвере SQLite (DAO, схема): код общий, поэтому гоняем и на desktop,
+        // и в Android unit-тестах. Общий каталог подключён к обоим source set'ам
         desktopTest {
+            kotlin.srcDir("src/jvmSharedTest/kotlin")
+            dependencies {
+                implementation libs.kotlin.test
+                implementation libs.sqldelight.sqlite
+            }
+        }
+        androidUnitTest {
+            kotlin.srcDir("src/jvmSharedTest/kotlin")
             dependencies {
                 implementation libs.kotlin.test
                 implementation libs.sqldelight.sqlite
@@ -139,7 +149,7 @@ android {
         applicationId "ru.homebudget.finkeeper"
         minSdk = libs.versions.android.minSdk.get().toInteger()
         targetSdk = libs.versions.android.targetSdk.get().toInteger()
-        versionCode = 10
+        versionCode = 11
         versionName = app_version
     }
 

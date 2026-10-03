@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.repository
 
+import kotlinx.coroutines.CancellationException
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.http.*
@@ -104,12 +105,16 @@ class WebSocketService(
                                         _dataChanged.emit(event)
                                         syncManager.notifyDataChanged()
                                     }
+                                } catch (e: CancellationException) {
+                                    throw e
                                 } catch (e: Exception) {
                                     // Ignore non-JSON frames (pings etc.)
                                 }
                             }
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     println("WebSocket error: ${e.message}")
                 }

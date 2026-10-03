@@ -14,15 +14,15 @@ If the user explicitly asks for a role or names specific skills, that explicit i
 FinKeeper24 is a personal finance management application that allows users to track incomes, expenses, budgets, and savings goals. The mobile client aims to replicate the full functionality of the web client in a native mobile environment.
 
 ### Tech Stack
-- **Language:** Kotlin 2.2.10
-- **UI Framework:** Compose Multiplatform 1.6.10 (Material 3)
-- **Networking:** Ktor Client 3.0.3 (OkHttp on Android, Darwin on iOS, CIO on Desktop)
-- **Dependency Injection:** Koin 3.5.6
-- **Serialization:** kotlinx.serialization 1.7.1
-- **Concurrency:** kotlinx.coroutines 1.9.0
-- **Persistence:** Multiplatform Settings 1.2.0 + secure token storage per platform
-- **Date/Time:** kotlinx-datetime 0.6.1
-- **Database:** SQLDelight 2.0.2
+- **Language:** Kotlin 2.4.20
+- **UI Framework:** Compose Multiplatform 1.12.1 (Material 3)
+- **Networking:** Ktor Client 3.6.0 (OkHttp on Android, Darwin on iOS, CIO on Desktop)
+- **Dependency Injection:** Koin 4.2.2
+- **Serialization:** kotlinx.serialization 1.11.0
+- **Concurrency:** kotlinx.coroutines 1.11.0
+- **Persistence:** Multiplatform Settings 1.3.0 + secure token storage per platform
+- **Date/Time:** kotlinx-datetime 0.8.0
+- **Database:** SQLDelight 2.4.0
 
 ### Architecture
 The project follows the **MVVM (Model-View-ViewModel)** pattern:
@@ -60,7 +60,7 @@ The project follows the **MVVM (Model-View-ViewModel)** pattern:
 ## Development Conventions
 
 ### Coding Style
-- **Kotlin 2.2.10:** Follows standard Kotlin Multiplatform conventions used in this repository.
+- **Kotlin 2.4.20:** Follows standard Kotlin Multiplatform conventions used in this repository.
 - **Compose Multiplatform:** UI code is shared in `commonMain`. Platform-specific entry points are in `androidMain` and `iosMain`.
 - **Naming:** Follows standard Kotlin camelCase conventions. Data models use `@SerialName` for snake_case API mapping.
 

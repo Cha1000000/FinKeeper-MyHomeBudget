@@ -2,6 +2,7 @@ package ru.homebudget.finkeeper.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class AuthData(
@@ -458,7 +459,9 @@ data class ValidationErrorDetail(
 data class ErrorResponse(
     val error: String? = null,
     val code: String? = null,
-    val details: List<ValidationErrorDetail> = emptyList()
+    val details: List<ValidationErrorDetail> = emptyList(),
+    // Только для code = IDEMPOTENCY_KEY_REUSED: ответ на первое применение ключа операции
+    @SerialName("original_response") val originalResponse: JsonElement? = null,
 )
 
 // --- План-слой (запланированные регулярные платежи) ---

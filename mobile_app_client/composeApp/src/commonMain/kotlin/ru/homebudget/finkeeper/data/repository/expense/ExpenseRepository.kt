@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.repository.expense
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -57,6 +58,8 @@ class ExpenseRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -84,6 +87,8 @@ class ExpenseRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -140,6 +145,8 @@ class ExpenseRepository(
                     )
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 println("[EXPENSE] createExpense ERROR: ${e.message}")
                 e.printStackTrace()
@@ -186,6 +193,8 @@ class ExpenseRepository(
                 )
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -215,6 +224,8 @@ class ExpenseRepository(
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -332,29 +343,14 @@ class ExpenseRepository(
                             expenseDao.deleteById(local.id)
                         }
                     }
-
-                    // Дедупликация: удаляем pending-записи с serverId=null,
-                    // если существует synced-запись с таким же содержимым
-                    // (расход был отправлен на сервер, но serverId не вернулся обратно)
-                    val pendingNoServer = allLocalExpenses.filter {
-                        it.serverId == null && it.syncStatus == SyncStatus.PENDING.value
-                    }
-                    val syncedExpenses = allLocalExpenses.filter {
-                        it.serverId != null && it.syncStatus == SyncStatus.SYNCED.value
-                    }
-                    for (pending in pendingNoServer) {
-                        val hasSyncedDuplicate = syncedExpenses.any { synced ->
-                            synced.categoryId == pending.categoryId &&
-                                synced.amount == pending.amount &&
-                                synced.description.equals(pending.description, ignoreCase = true)
-                        }
-                        if (hasSyncedDuplicate) {
-                            expenseDao.deleteById(pending.id)
-                        }
-                    }
+                    // Pending-расходы без serverId здесь не трогаем: даже если на сервере есть
+                    // расход с той же категорией, суммой и комментарием, это может быть другая
+                    // покупка. Повторную отправку уже доехавшего расхода закрывает X-Operation-Id.
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }

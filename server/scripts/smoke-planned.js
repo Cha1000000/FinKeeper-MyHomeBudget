@@ -174,6 +174,21 @@ async function main() {
             assert(curState.auto_created.filter(r => r.template_type === 'category' && r.created_record_type === 'expense').length === 2, 'два расхода в auto_created');
             assert(curState.auto_created.filter(r => r.template_type === 'income_source' && r.created_record_type === 'income').length === 1, 'один доход в auto_created');
 
+            // --- Копилка: пополнение уменьшает баланс один раз ---
+            const goal = await mutate('POST', '/savings_goals', { name: 'Отпуск', target_amount: 100000 });
+            await mutate('POST', '/savings_transactions', { goal_id: goal.id, amount: 7000, date: `${curYear}-${String(curMonth).padStart(2, '0')}-01`, month_id: curMonthRow.id });
+            await mutate('POST', '/savings_transactions', { goal_id: goal.id, amount: -2000, date: `${curYear}-${String(curMonth).padStart(2, '0')}-01`, month_id: curMonthRow.id });
+            const curSummary = await api('GET', `/months/${curMonthRow.id}/summary`);
+            assert(curSummary.income === 150000, 'summary.income: зарплата');
+            assert(curSummary.expenses === 45000 + 8000 + 7000, 'summary.expenses включает скрытое пополнение');
+            assert(curSummary.savings === 7000, 'summary.savings: только пополнение, без снятия');
+            assert(curSummary.balance === 150000 - 60000, 'summary.balance: пополнение вычтено один раз');
+            const trend = await api('GET', '/analytics/trend');
+            const curTrend = trend.find(item => item.month === `${curMonth}/${curYear}`);
+            assert(curTrend, 'текущий месяц есть в графике динамики');
+            assert(curTrend.expense === 45000 + 8000, 'trend.expense без скрытых пополнений');
+            assert(curTrend.savings === 7000, 'trend.savings: пополнение');
+
             // --- Валидации ---
             await mutate('PUT', `/months/${nextMonthRow.id}/planned/category/${school.id}`, { override_amount: -5 }, { expect: 400 });
             await mutate('PUT', `/months/${nextMonthRow.id}/planned/badtype/${school.id}`, { is_skipped: 1 }, { expect: 400 });

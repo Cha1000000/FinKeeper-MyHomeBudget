@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.repository.income
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -55,6 +56,8 @@ class IncomeRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -81,6 +84,8 @@ class IncomeRepository(
                     }
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -133,6 +138,8 @@ class IncomeRepository(
                 )
 
                 Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -171,6 +178,8 @@ class IncomeRepository(
                 )
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -198,6 +207,8 @@ class IncomeRepository(
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
@@ -255,12 +266,7 @@ class IncomeRepository(
                             continue
                         }
 
-                        // remote.source — это имя источника ("Зарплата" или "💸 Зарплата")
-                        // Ищем локальный ID: сначала точное совпадение, потом нечёткое (с/без эмодзи)
-                        val matchedSource = allSources
-                            .find { it.name.equals(remote.source, ignoreCase = true) }
-                            ?: allSources.find { it.name.contains(remote.source, ignoreCase = true) }
-                            ?: allSources.find { remote.source.contains(it.name, ignoreCase = true) }
+                        val matchedSource = matchIncomeSourceByName(allSources, remote.source) { it.name }
                         val sourceId = matchedSource?.id ?: 0L
                         // Если источник не найден, сохраняем оригинальное имя в description
                         val description = if (matchedSource == null) remote.source else null
@@ -309,8 +315,28 @@ class IncomeRepository(
                 }
 
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.error(e)
             }
         }
+}
+
+/**
+ * Источник дохода по имени из серверной записи (сервер хранит у дохода имя источника).
+ * Сначала точное совпадение (имена уникальны), затем без учёта регистра. Нечёткое совпадение
+ * (имя с эмодзи и без) — только если кандидат единственный: иначе «Зарплата» попала бы
+ * в «Зарплата жены».
+ */
+internal fun <T> matchIncomeSourceByName(
+    sources: List<T>,
+    remoteName: String,
+    nameOf: (T) -> String,
+): T? {
+    sources.find { nameOf(it) == remoteName }?.let { return it }
+    sources.filter { nameOf(it).equals(remoteName, ignoreCase = true) }.singleOrNull()?.let { return it }
+    return sources
+        .filter { nameOf(it).contains(remoteName, ignoreCase = true) || remoteName.contains(nameOf(it), ignoreCase = true) }
+        .singleOrNull()
 }

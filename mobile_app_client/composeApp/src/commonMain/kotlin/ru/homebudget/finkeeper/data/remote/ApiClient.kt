@@ -1,5 +1,6 @@
 package ru.homebudget.finkeeper.data.remote
 
+import kotlinx.coroutines.CancellationException
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
@@ -14,11 +15,27 @@ import io.ktor.util.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import ru.homebudget.finkeeper.BuildConfig
 import ru.homebudget.finkeeper.data.model.*
+import ru.homebudget.finkeeper.data.network.GATEWAY_FAILURE_STATUS_CODES
+import ru.homebudget.finkeeper.util.appPlatform
+import ru.homebudget.finkeeper.data.network.ServerLinkState
+import ru.homebudget.finkeeper.data.network.isConnectivityFailure
 import ru.homebudget.finkeeper.ui.Strings
+
+/** Таймауты HTTP; отдельный тип — чтобы тесты могли проверить «молчащий» сервер за секунды. */
+data class ApiTimeouts(
+    val requestMillis: Long = 30_000,
+    val connectMillis: Long = 10_000,
+    // Без явного значения CIO (десктоп) ждёт молчащий сервер до requestTimeout, OkHttp — 10 с
+    val socketMillis: Long = 15_000,
+)
 
 class ApiClient(
     private val tokenStorage: TokenStorage,
+    private val serverLinkState: ServerLinkState = ServerLinkState(),
+    private val timeouts: ApiTimeouts = ApiTimeouts(),
 ) {
     private val refreshMutex = Mutex()
     private val json =
@@ -37,11 +54,15 @@ class ApiClient(
                 level = LogLevel.NONE
             }
             install(HttpTimeout) {
-                requestTimeoutMillis = 30_000
-                connectTimeoutMillis = 10_000
+                requestTimeoutMillis = timeouts.requestMillis
+                connectTimeoutMillis = timeouts.connectMillis
+                socketTimeoutMillis = timeouts.socketMillis
             }
             defaultRequest {
                 contentType(ContentType.Application.Json)
+                // По версии сервер сохраняет старое поведение для приложений, которые не знают новых правил
+                header("X-App-Version", BuildConfig.APP_VERSION.removePrefix("v"))
+                header("X-App-Platform", appPlatform)
                 val token = tokenStorage.accessToken
                 if (token != null) {
                     header("Authorization", "Bearer $token")
@@ -49,7 +70,7 @@ class ApiClient(
             }
         }.also { httpClient ->
             httpClient.plugin(HttpSend).intercept { request ->
-                val originalCall = execute(request)
+                val originalCall = executeTracked(request)
                 val statusCode = originalCall.response.status.value
                 if (!shouldAttemptRefresh(statusCode) || !shouldHandleAuthRetry(request)) {
                     return@intercept originalCall
@@ -59,9 +80,25 @@ class ApiClient(
                 request.attributes.put(AUTH_RETRY_MARKER, true)
                 request.headers.remove(HttpHeaders.Authorization)
                 request.headers.append(HttpHeaders.Authorization, "Bearer $refreshedToken")
-                execute(request)
+                executeTracked(request)
             }
         }
+
+    /** Ответ сервера — он доступен (кроме 502/503/504 от прокси); сетевая неудача — нет. */
+    private suspend fun Sender.executeTracked(request: HttpRequestBuilder): HttpClientCall {
+        val requestId = serverLinkState.beginRequest()
+        return try {
+            execute(request).also { call ->
+                val status = call.response.status.value
+                serverLinkState.reportResult(requestId, reachable = status !in GATEWAY_FAILURE_STATUS_CODES)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (e.isConnectivityFailure()) serverLinkState.reportResult(requestId, reachable = false)
+            throw e
+        }
+    }
 
     private val baseUrl: String get() = tokenStorage.serverUrl + "/api"
 
@@ -127,14 +164,17 @@ class ApiClient(
 
             try {
                 refreshAuth().accessToken
-            } catch (e: ApiException) {
-                // Only clear session on auth errors (401/403)
-                if (e.statusCode == 401 || e.statusCode == 403) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Сервер недоступен — отдаём сетевую ошибку, а не исходный 401: иначе вызывающий
+                // примет её за ответ сервера и не прекратит запросы к «зависшему» серверу
+                if (e.isConnectivityFailure()) throw e
+                println("[AUTH] token refresh failed: ${e::class.simpleName}: ${e.message}")
+                // Сессию сбрасываем только по 401/403 на refresh, не по прочим ошибкам
+                if (e is ApiException && (e.statusCode == 401 || e.statusCode == 403)) {
                     tokenStorage.clear(AuthSessionEvent.SessionExpired)
                 }
-                null
-            } catch (_: Exception) {
-                // Do not clear session on network errors or other exceptions
                 null
             }
         }
@@ -396,9 +436,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun reorderCategories(ids: List<Int>) {
+    suspend fun reorderCategories(
+        ids: List<Int>,
+        operationId: String? = null,
+    ) {
         val response =
             client.put("$baseUrl/categories/reorder") {
+                applyOperationId(operationId)
                 setBody(ReorderCategoriesRequest(ids))
             }
         checkResponse(response)
@@ -456,9 +500,13 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun reorderIncomeSources(ids: List<Int>) {
+    suspend fun reorderIncomeSources(
+        ids: List<Int>,
+        operationId: String? = null,
+    ) {
         val response =
             client.put("$baseUrl/income_sources/reorder") {
+                applyOperationId(operationId)
                 setBody(ReorderIncomeSourcesRequest(ids))
             }
         checkResponse(response)
@@ -786,21 +834,25 @@ class ApiClient(
 
     private suspend fun checkResponse(response: HttpResponse) {
         if (!response.status.isSuccess()) {
-            val errorBody =
+            val errorResponse =
                 try {
-                    response.body<ErrorResponse>().error
+                    response.body<ErrorResponse>()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                     null
                 }
             throw ApiException(
                 statusCode = response.status.value,
                 message =
-                    errorBody
+                    errorResponse?.error
                         ?: Strings.HTTP_ERROR
                             .replace(
                                 "%1\$d",
                                 response.status.value.toString(),
                             ).replace("%2\$s", response.status.description),
+                code = errorResponse?.code,
+                originalResponse = errorResponse?.originalResponse,
             )
         }
     }
@@ -813,4 +865,19 @@ class ApiClient(
 class ApiException(
     val statusCode: Int,
     override val message: String,
-) : Exception(message)
+    /** Машиночитаемый код ошибки сервера (`code` в теле ответа), если он есть. */
+    val code: String? = null,
+    /** Для [CODE_IDEMPOTENCY_KEY_REUSED]: ответ сервера на первое применение ключа операции. */
+    val originalResponse: JsonElement? = null,
+) : Exception(message) {
+    companion object {
+        /** Ключ операции уже применён к запросу с другим телом (повтор после потерянного ответа). */
+        const val CODE_IDEMPOTENCY_KEY_REUSED = "IDEMPOTENCY_KEY_REUSED"
+
+        /** Нельзя удалить копилку с ненулевым балансом. */
+        const val CODE_SAVINGS_GOAL_NOT_EMPTY = "SAVINGS_GOAL_NOT_EMPTY"
+
+        /** 404 на PUT: нет самой изменяемой записи (а не связанной с ней), её удалили на другом устройстве. */
+        const val CODE_RECORD_NOT_FOUND = "RECORD_NOT_FOUND"
+    }
+}

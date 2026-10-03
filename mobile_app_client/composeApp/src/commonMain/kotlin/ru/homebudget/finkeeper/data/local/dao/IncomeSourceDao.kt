@@ -140,6 +140,13 @@ class IncomeSourceDao(
         return queries.getIncomeSourcesPendingSyncCount().executeAsOne()
     }
 
+    /** Порядок списка: sort_order = позиция в [orderedIds] */
+    fun applySortOrder(orderedIds: List<Long>) {
+        queries.transaction {
+            orderedIds.forEachIndexed { index, id -> queries.updateIncomeSourceSortOrder(sort_order = index.toLong(), id = id) }
+        }
+    }
+
     /**
      * Получение максимального порядка сортировки
      */

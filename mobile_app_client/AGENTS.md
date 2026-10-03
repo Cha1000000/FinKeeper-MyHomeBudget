@@ -157,14 +157,14 @@ composeApp/src/commonMain/kotlin/ru/homebudget/finkeeper/
 
 | Library | Version | Purpose |
 |---------|---------|---------|
-| Kotlin | 2.2.10 | Language |
-| Compose Multiplatform | 1.6.10 | UI Framework |
-| Ktor Client | 3.0.3 | HTTP Client |
-| Koin | 3.5.6 | Dependency Injection |
-| kotlinx-serialization | 1.7.1 | JSON Serialization |
-| kotlinx-datetime | 0.6.1 | Date/Time handling |
-| Multiplatform Settings | 1.2.0 | Settings and server URL storage |
-| SQLDelight | 2.0.2 | Local database and sync queue |
+| Kotlin | 2.4.20 | Language |
+| Compose Multiplatform | 1.12.1 | UI Framework |
+| Ktor Client | 3.6.0 | HTTP Client |
+| Koin | 4.2.2 | Dependency Injection |
+| kotlinx-serialization | 1.11.0 | JSON Serialization |
+| kotlinx-datetime | 0.8.0 | Date/Time handling |
+| Multiplatform Settings | 1.3.0 | Settings and server URL storage |
+| SQLDelight | 2.4.0 | Local database and sync queue |
 
 ## Platform Notes
 

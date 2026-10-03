@@ -1,6 +1,8 @@
 package ru.homebudget.finkeeper.util
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import ru.homebudget.finkeeper.data.network.isTimeoutOrUnresolvable
 
 data class RetryConfig(
     val maxAttempts: Int = 3,
@@ -8,9 +10,16 @@ data class RetryConfig(
     val maxDelayMillis: Long = 2_000
 )
 
+/**
+ * Не повторяем отмену корутины и таймауты/недоступный адрес: на «зависшей» сети каждая попытка
+ * стоит полный таймаут, и ретраи лишь умножают ожидание. Обрывы соединения и 5xx — повторяем.
+ */
+fun isRetriableByDefault(throwable: Throwable): Boolean =
+    throwable !is CancellationException && !throwable.isTimeoutOrUnresolvable()
+
 suspend fun <T> withRetry(
     config: RetryConfig = RetryConfig(),
-    shouldRetry: (Throwable) -> Boolean = { true },
+    shouldRetry: (Throwable) -> Boolean = ::isRetriableByDefault,
     block: suspend () -> T
 ): T {
     var attempt = 0

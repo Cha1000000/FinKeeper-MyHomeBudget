@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.dp
 
 actual val isDesktop: Boolean = true
 
+actual val appPlatform: String = "desktop"
+
 @Composable
 actual fun AppLogoIcon(modifier: Modifier) {
     Image(

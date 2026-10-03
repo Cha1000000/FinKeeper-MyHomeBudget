@@ -17,8 +17,14 @@ const {
     materializePlannedRecord,
     getPlannedRecords,
     computePlannedAggregates,
+    computeMonthTotals,
+    SAVINGS_EXPENSE_CATEGORY,
+    createSavingsHiddenExpense,
+    deleteSavingsHiddenExpense,
+    renameSavingsHiddenExpenses,
 } = require('../db/helpers');
 const logger = require('../logger');
+const { clientSupports, MIN_VERSION_SAVINGS_GOAL_NOT_EMPTY } = require('../middleware/clientVersion');
 
 // Retrieve broadcast logic dynamically since we mounted it in index.js
 const broadcastChange = (req, userId, entity, action) => {
@@ -30,6 +36,54 @@ const broadcastChange = (req, userId, entity, action) => {
 
 // Protect data routes
 router.use(authenticateToken);
+
+// 404 на PUT: нет самой изменяемой записи (удалена с другого устройства), а не связанной с ней.
+// По этому коду клиент удаляет запись и у себя
+const RECORD_NOT_FOUND = 'RECORD_NOT_FOUND';
+
+// --- Категории и источники дохода (общие правила) ---
+const RESERVED_CATEGORY_NAME_ERROR = `Название «${SAVINGS_EXPENSE_CATEGORY}» зарезервировано`;
+
+function isValidName(name) {
+    return typeof name === 'string' && name.trim().length > 0;
+}
+
+// Имя скрытой категории пополнений копилок занято: категория с таким именем попала бы в расчёт
+// пополнений и исчезла бы из интерфейса, а при реактивации «ожила» бы сама скрытая категория
+function isReservedCategoryName(name) {
+    return typeof name === 'string' && name.trim() === SAVINGS_EXPENSE_CATEGORY;
+}
+
+// Повторное создание удалённой категории/источника с тем же именем восстанавливает прежнюю запись
+// (вместе с её расходами/доходами и историей) с параметрами из запроса; активная возвращается как есть
+function reactivateOrReturnExisting(req, table, entityType, existing, fixed) {
+    if (Number(existing.is_active) === 1) {
+        return { statusCode: 200, body: existing };
+    }
+    const timestamp = nowIso();
+    const maxOrder = db.prepare(`SELECT MAX(sort_order) as maxOrder FROM ${table} WHERE user_id = ?`).get(req.user.id);
+    db.prepare(`
+        UPDATE ${table}
+        SET is_active = 1, sort_order = ?, is_fixed = ?, fixed_amount = ?, auto_day = ?, require_confirm = ?, updated_at = ?
+        WHERE id = ? AND user_id = ?
+    `).run(
+        (maxOrder.maxOrder || 0) + 1,
+        fixed.isFixed,
+        fixed.isFixed ? fixed.fixedAmount : null,
+        fixed.isFixed ? fixed.autoDay : null,
+        fixed.requireConfirm,
+        timestamp,
+        existing.id,
+        req.user.id,
+    );
+    clearDeletedRecord(req.user.id, entityType, existing.id);
+    broadcastChange(req, req.user.id, entityType, 'updated');
+    return { statusCode: 200, body: getRowById(table, existing.id) };
+}
+
+function findSameNameRow(table, userId, name, excludeId) {
+    return db.prepare(`SELECT id, is_active FROM ${table} WHERE user_id = ? AND name = ? AND id != ?`).get(userId, name, excludeId);
+}
 
 router.get('/deleted_records', (req, res) => {
     const { entity_type, since } = req.query;
@@ -69,19 +123,23 @@ router.post('/categories', (req, res) => {
     return executeIdempotent(req, res, () => {
         const { name, is_fixed, fixed_amount, auto_day, require_confirm } = req.body;
 
+        if (!isValidName(name)) return { statusCode: 400, body: { error: 'name is required' } };
+        if (isReservedCategoryName(name)) return { statusCode: 400, body: { error: RESERVED_CATEGORY_NAME_ERROR } };
+
         const isFixed = Number(is_fixed) === 1 ? 1 : 0;
         if (isFixed && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed categories' } };
         if (isFixed && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed categories' } };
         const requireConfirm = isFixed && Number(require_confirm) === 1 ? 1 : 0;
+        const fixed = { isFixed, fixedAmount: fixed_amount, autoDay: auto_day, requireConfirm };
+
+        const existing = db.prepare('SELECT * FROM categories WHERE user_id = ? AND name = ?').get(req.user.id, name);
+        if (existing) {
+            return reactivateOrReturnExisting(req, 'categories', 'category', existing, fixed);
+        }
 
         const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
         const nextOrder = (result.maxOrder || 0) + 1;
         const timestamp = nowIso();
-
-        const existing = db.prepare('SELECT * FROM categories WHERE user_id = ? AND name = ?').get(req.user.id, name);
-        if (existing) {
-            return { statusCode: 200, body: existing };
-        }
 
         try {
             const info = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_fixed, fixed_amount, auto_day, require_confirm, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
@@ -94,7 +152,7 @@ router.post('/categories', (req, res) => {
             // Гонка: параллельный запрос уже создал категорию с этим именем (UNIQUE) — вернём её.
             if (String(err.code || '').startsWith('SQLITE_CONSTRAINT')) {
                 const row = db.prepare('SELECT * FROM categories WHERE user_id = ? AND name = ?').get(req.user.id, name);
-                if (row) return { statusCode: 200, body: row };
+                if (row) return reactivateOrReturnExisting(req, 'categories', 'category', row, fixed);
             }
             return { statusCode: 500, body: { error: err.message } };
         }
@@ -117,6 +175,7 @@ router.put('/categories/reorder', (req, res) => {
 
         try {
             transact(ids);
+            broadcastChange(req, req.user.id, 'category', 'updated');
             return { statusCode: 200, body: { success: true } };
         } catch (err) {
             logger.error('categories_reorder_failed', {
@@ -137,6 +196,16 @@ router.put('/categories/:id', (req, res) => {
         if (isFixed === 1 && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed categories' } };
         if (isFixed === 1 && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed categories' } };
 
+        const category = db.prepare('SELECT * FROM categories WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+        if (!category) return { statusCode: 404, body: { error: 'Category not found' } };
+        if (name != null && name !== category.name) {
+            if (!isValidName(name)) return { statusCode: 400, body: { error: 'name is required' } };
+            if (isReservedCategoryName(name)) return { statusCode: 400, body: { error: RESERVED_CATEGORY_NAME_ERROR } };
+            if (findSameNameRow('categories', req.user.id, name, category.id)) {
+                return { statusCode: 409, body: { error: 'Категория с таким названием уже существует' } };
+            }
+        }
+
         const sets = ['updated_at = ?'];
         const params = [nowIso()];
 
@@ -151,7 +220,7 @@ router.put('/categories/:id', (req, res) => {
         params.push(req.params.id, req.user.id);
         const result = db.prepare(`UPDATE categories SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
         if (result.changes === 0) return { statusCode: 404, body: { error: 'Category not found' } };
-        if (Number(is_active) !== 0) {
+        if (is_active != null && Number(is_active) !== 0) {
             clearDeletedRecord(req.user.id, 'category', Number(req.params.id));
         }
         const body = getRowById('categories', req.params.id);
@@ -185,15 +254,18 @@ router.post('/income_sources', (req, res) => {
     return executeIdempotent(req, res, () => {
         const { name, is_fixed, fixed_amount, auto_day, require_confirm } = req.body;
 
+        if (!isValidName(name)) return { statusCode: 400, body: { error: 'name is required' } };
+
         const isFixed = Number(is_fixed) === 1 ? 1 : 0;
         if (isFixed && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed income sources' } };
         if (isFixed && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed income sources' } };
         const requireConfirm = isFixed && Number(require_confirm) === 1 ? 1 : 0;
+        const fixed = { isFixed, fixedAmount: fixed_amount, autoDay: auto_day, requireConfirm };
 
         try {
             const existing = db.prepare('SELECT * FROM income_sources WHERE user_id = ? AND name = ?').get(req.user.id, name);
             if (existing) {
-                return { statusCode: 200, body: existing };
+                return reactivateOrReturnExisting(req, 'income_sources', 'income_source', existing, fixed);
             }
 
             const result = db.prepare('SELECT MAX(sort_order) as maxOrder FROM income_sources WHERE user_id = ?').get(req.user.id);
@@ -209,7 +281,7 @@ router.post('/income_sources', (req, res) => {
             // Гонка: параллельный запрос уже создал источник с этим именем (UNIQUE) — вернём его.
             if (String(err.code || '').startsWith('SQLITE_CONSTRAINT')) {
                 const row = db.prepare('SELECT * FROM income_sources WHERE user_id = ? AND name = ?').get(req.user.id, name);
-                if (row) return { statusCode: 200, body: row };
+                if (row) return reactivateOrReturnExisting(req, 'income_sources', 'income_source', row, fixed);
             }
             return { statusCode: 500, body: { error: err.message } };
         }
@@ -232,6 +304,7 @@ router.put('/income_sources/reorder', (req, res) => {
 
         try {
             transact(ids);
+            broadcastChange(req, req.user.id, 'income_source', 'updated');
             return { statusCode: 200, body: { success: true } };
         } catch (err) {
             logger.error('income_sources_reorder_failed', {
@@ -253,9 +326,20 @@ router.put('/income_sources/:id', (req, res) => {
         if (isFixed === 1 && (fixed_amount == null || fixed_amount <= 0)) return { statusCode: 400, body: { error: 'fixed_amount is required and must be > 0 for fixed income sources' } };
         if (isFixed === 1 && (auto_day == null || auto_day < 1 || auto_day > 31)) return { statusCode: 400, body: { error: 'auto_day must be between 1 and 31 for fixed income sources' } };
 
+        const source = db.prepare('SELECT * FROM income_sources WHERE id = ? AND user_id = ?').get(id, req.user.id);
+        if (!source) return { statusCode: 404, body: { error: 'Income source not found' } };
+        const isRename = name != null && name !== source.name;
+        if (isRename) {
+            if (!isValidName(name)) return { statusCode: 400, body: { error: 'name is required' } };
+            if (findSameNameRow('income_sources', req.user.id, name, source.id)) {
+                return { statusCode: 409, body: { error: 'Источник дохода с таким названием уже существует' } };
+            }
+        }
+
         try {
+            const timestamp = nowIso();
             const sets = ['updated_at = ?'];
-            const params = [nowIso()];
+            const params = [timestamp];
 
             if (name != null) { sets.push('name = ?'); params.push(name); }
             if (is_active != null) { sets.push('is_active = ?'); params.push(is_active); }
@@ -266,8 +350,22 @@ router.put('/income_sources/:id', (req, res) => {
             }
 
             params.push(id, req.user.id);
-            const result = db.prepare(`UPDATE income_sources SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
-            if (result.changes === 0) return { statusCode: 404, body: { error: 'Income source not found' } };
+            // Доходы ссылаются на источник по имени (incomes.source), поэтому при переименовании
+            // их тоже переименовываем — иначе они «отвалятся» от источника в группировках
+            let renamedIncomes = 0;
+            const update = db.transaction(() => {
+                db.prepare(`UPDATE income_sources SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
+                if (isRename) {
+                    renamedIncomes = db.prepare(`
+                        UPDATE incomes SET source = ?, updated_at = ?
+                        WHERE source = ? AND month_id IN (SELECT id FROM months WHERE user_id = ?)
+                    `).run(name, timestamp, source.name, req.user.id).changes;
+                }
+            });
+            update();
+            if (renamedIncomes > 0) {
+                broadcastChange(req, req.user.id, 'income', 'updated');
+            }
             if (is_active != null && Number(is_active) !== 0) {
                 clearDeletedRecord(req.user.id, 'income_source', Number(id));
             }
@@ -343,7 +441,7 @@ router.put('/incomes/:id', (req, res) => {
     return executeIdempotent(req, res, () => {
         const { amount } = req.body;
         const income = db.prepare('SELECT month_id FROM incomes WHERE id = ?').get(req.params.id);
-        if (!income) return { statusCode: 404, body: { error: 'Income not found' } };
+        if (!income) return { statusCode: 404, body: { error: 'Income not found', code: RECORD_NOT_FOUND } };
         if (!checkMonthAccess(req.user.id, income.month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
 
         db.prepare('UPDATE incomes SET amount = ?, updated_at = ? WHERE id = ?').run(amount, nowIso(), req.params.id);
@@ -401,7 +499,7 @@ router.put('/expenses/:id', (req, res) => {
         const { amount, comment } = req.body;
 
         const expense = db.prepare('SELECT month_id FROM expenses WHERE id = ?').get(req.params.id);
-        if (!expense) return { statusCode: 404, body: { error: 'Expense not found' } };
+        if (!expense) return { statusCode: 404, body: { error: 'Expense not found', code: RECORD_NOT_FOUND } };
         if (!checkMonthAccess(req.user.id, expense.month_id)) return { statusCode: 403, body: { error: 'Access denied' } };
 
         // comment — необязательное поле: если не передано, не трогаем (обратная совместимость)
@@ -492,28 +590,43 @@ router.put('/savings_goals/:id', (req, res) => {
             updates.push('name = ?');
             values.push(name);
         }
-        if (target_amount !== undefined) {
+        // null = поле не передано: клиент шлёт сумму копилки, только когда пользователь её менял
+        if (target_amount !== undefined && target_amount !== null) {
             updates.push('target_amount = ?');
             values.push(target_amount);
         }
-        if (current_amount !== undefined) {
+        if (current_amount !== undefined && current_amount !== null) {
             updates.push('current_amount = ?');
             values.push(current_amount);
         }
         
-        const goal = db.prepare('SELECT id FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
-        if (!goal) return { statusCode: 404, body: { error: 'Goal not found' } };
+        const goal = db.prepare('SELECT id, name FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+        if (!goal) return { statusCode: 404, body: { error: 'Goal not found', code: RECORD_NOT_FOUND } };
+        if (name !== undefined && !isValidName(name)) return { statusCode: 400, body: { error: 'name is required' } };
 
         if (updates.length === 0) {
             return { statusCode: 200, body: getRowById('savings_goals', req.params.id) };
         }
 
+        const timestamp = nowIso();
         updates.push('updated_at = ?');
-        values.push(nowIso());
+        values.push(timestamp);
         const sql = `UPDATE savings_goals SET ${updates.join(', ')} WHERE id = ?`;
-        db.prepare(sql).run(...values, req.params.id);
+        let renamedExpenses = 0;
+        const update = db.transaction(() => {
+            db.prepare(sql).run(...values, req.params.id);
+            // Скрытые расходы пополнений хранят имя копилки в комментарии — переписываем,
+            // иначе удаление/правка старых пополнений не найдёт их расход
+            if (name !== undefined && name !== goal.name) {
+                renamedExpenses = renameSavingsHiddenExpenses(req.user.id, goal.id, goal.name, name, timestamp);
+            }
+        });
+        update();
         const body = getRowById('savings_goals', req.params.id);
         broadcastChange(req, req.user.id, 'savings_goal', 'updated');
+        if (renamedExpenses > 0) {
+            broadcastChange(req, req.user.id, 'expense', 'updated');
+        }
         return { statusCode: 200, body };
     });
 });
@@ -522,15 +635,29 @@ router.delete('/savings_goals/:id', (req, res) => {
     return executeIdempotent(req, res, () => {
         const goal = db.prepare('SELECT * FROM savings_goals WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
         if (!goal) return { statusCode: 404, body: { error: 'Goal not found' } };
+        // Деньги копилки при удалении никуда не возвращаются (пополнения уже вычтены из «Свободно»
+        // своих месяцев), поэтому удалить можно только пустую копилку. Старые приложения (до 2.2.4)
+        // запрета не знают и удаляют копилку у себя сразу: им удаление разрешено, как раньше, —
+        // по деньгам это то же, что снять всё и удалить
+        const isNotEmpty = Math.abs(Number(goal.current_amount) || 0) >= 0.005;
+        if (isNotEmpty) {
+            if (clientSupports(req, MIN_VERSION_SAVINGS_GOAL_NOT_EMPTY)) {
+                return { statusCode: 409, body: { error: 'Нельзя удалить копилку с ненулевым балансом: сначала выведите или переведите средства', code: 'SAVINGS_GOAL_NOT_EMPTY' } };
+            }
+            logger.info('savings_goal_deleted_by_legacy_client', { userId: req.user.id, goalId: goal.id, appVersion: req.get('x-app-version') ?? null });
+        }
 
-        const deletedAt = nowIso();
-        const transactions = db.prepare('SELECT id FROM savings_transactions WHERE goal_id = ?').all(req.params.id);
-        transactions.forEach((transaction) => {
-            recordDeletedRecord(req.user.id, 'savings_transaction', transaction.id, deletedAt);
+        const remove = db.transaction(() => {
+            const deletedAt = nowIso();
+            const transactions = db.prepare('SELECT id FROM savings_transactions WHERE goal_id = ?').all(req.params.id);
+            transactions.forEach((transaction) => {
+                recordDeletedRecord(req.user.id, 'savings_transaction', transaction.id, deletedAt);
+            });
+            recordDeletedRecord(req.user.id, 'savings_goal', goal.id, deletedAt);
+            db.prepare('DELETE FROM savings_transactions WHERE goal_id = ?').run(req.params.id);
+            db.prepare('DELETE FROM savings_goals WHERE id = ?').run(req.params.id);
         });
-        recordDeletedRecord(req.user.id, 'savings_goal', goal.id, deletedAt);
-        db.prepare('DELETE FROM savings_transactions WHERE goal_id = ?').run(req.params.id);
-        db.prepare('DELETE FROM savings_goals WHERE id = ?').run(req.params.id);
+        remove();
         broadcastChange(req, req.user.id, 'savings_goal', 'deleted');
         return { statusCode: 200, body: { success: true, id: goal.id } };
     });
@@ -554,23 +681,7 @@ router.post('/savings_transactions', (req, res) => {
             db.prepare('UPDATE savings_goals SET current_amount = current_amount + ?, updated_at = ? WHERE id = ?').run(amount, timestamp, goal_id);
             
             if (amount > 0 && month_id) {
-                let savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
-                if (!savingsCategory) {
-                    const maxOrder = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
-                    const nextOrder = (maxOrder.maxOrder || 0) + 1;
-                    const catInfo = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)').run(req.user.id, 'Пополнение копилки', nextOrder, timestamp, timestamp);
-                    savingsCategory = { id: catInfo.lastInsertRowid };
-                }
-                
-                db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-                    month_id,
-                    savingsCategory.id,
-                    amount,
-                    date,
-                    `Пополнение копилки "${goal.name}"`,
-                    timestamp,
-                    timestamp
-                );
+                createSavingsHiddenExpense(req.user.id, { monthId: month_id, amount, date, goalName: goal.name }, timestamp);
             }
             
             return info;
@@ -598,28 +709,7 @@ router.delete('/savings_transactions/:id', (req, res) => {
             const timestamp = nowIso();
 
             db.prepare('UPDATE savings_goals SET current_amount = current_amount - ?, updated_at = ? WHERE id = ?').run(transaction.amount, timestamp, transaction.goal_id);
-
-            if (transaction.amount > 0 && transaction.month_id) {
-                const savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
-                if (savingsCategory) {
-                    db.prepare(`
-                        DELETE FROM expenses
-                        WHERE id = (
-                            SELECT id
-                            FROM expenses
-                            WHERE month_id = ? AND category_id = ? AND amount = ? AND date = ? AND comment = ?
-                            ORDER BY id DESC
-                            LIMIT 1
-                        )
-                    `).run(
-                        transaction.month_id,
-                        savingsCategory.id,
-                        transaction.amount,
-                        transaction.date,
-                        `Пополнение копилки "${transaction.goal_name}"`,
-                    );
-                }
-            }
+            deleteSavingsHiddenExpense(req.user.id, transaction, transaction.goal_name, timestamp);
 
             recordDeletedRecord(req.user.id, 'savings_transaction', transaction.id, timestamp);
             db.prepare('DELETE FROM savings_transactions WHERE id = ?').run(req.params.id);
@@ -643,13 +733,14 @@ router.put('/savings_transactions/:id', (req, res) => {
         `).get(req.params.id, req.user.id);
 
         if (!existingTransaction) {
-            return { statusCode: 404, body: { error: 'Savings transaction not found' } };
+            return { statusCode: 404, body: { error: 'Savings transaction not found', code: RECORD_NOT_FOUND } };
         }
 
         const nextGoalId = goal_id ?? existingTransaction.goal_id;
         const nextAmount = amount ?? existingTransaction.amount;
         const nextDate = date ?? existingTransaction.date;
-        const nextMonthId = month_id !== undefined ? month_id : existingTransaction.month_id;
+        // null = поле не передано (клиенты шлют null явно): месяц у пополнения не стираем
+        const nextMonthId = month_id != null ? month_id : existingTransaction.month_id;
 
         const nextGoal = db.prepare('SELECT id, name FROM savings_goals WHERE id = ? AND user_id = ?').get(nextGoalId, req.user.id);
         if (!nextGoal) {
@@ -669,27 +760,7 @@ router.put('/savings_transactions/:id', (req, res) => {
                 existingTransaction.goal_id
             );
 
-            if (existingTransaction.amount > 0 && existingTransaction.month_id) {
-                const savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
-                if (savingsCategory) {
-                    db.prepare(`
-                        DELETE FROM expenses
-                        WHERE id = (
-                            SELECT id
-                            FROM expenses
-                            WHERE month_id = ? AND category_id = ? AND amount = ? AND date = ? AND comment = ?
-                            ORDER BY id DESC
-                            LIMIT 1
-                        )
-                    `).run(
-                        existingTransaction.month_id,
-                        savingsCategory.id,
-                        existingTransaction.amount,
-                        existingTransaction.date,
-                        `Пополнение копилки "${existingTransaction.goal_name}"`,
-                    );
-                }
-            }
+            deleteSavingsHiddenExpense(req.user.id, existingTransaction, existingTransaction.goal_name, timestamp);
 
             db.prepare(`
                 UPDATE savings_transactions
@@ -704,29 +775,7 @@ router.put('/savings_transactions/:id', (req, res) => {
             );
 
             if (nextAmount > 0 && nextMonthId) {
-                let savingsCategory = db.prepare('SELECT id FROM categories WHERE name = ? AND user_id = ?').get('Пополнение копилки', req.user.id);
-                if (!savingsCategory) {
-                    const maxOrder = db.prepare('SELECT MAX(sort_order) as maxOrder FROM categories WHERE user_id = ?').get(req.user.id);
-                    const nextOrder = (maxOrder.maxOrder || 0) + 1;
-                    const catInfo = db.prepare('INSERT INTO categories (user_id, name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)').run(
-                        req.user.id,
-                        'Пополнение копилки',
-                        nextOrder,
-                        timestamp,
-                        timestamp
-                    );
-                    savingsCategory = { id: catInfo.lastInsertRowid };
-                }
-
-                db.prepare('INSERT INTO expenses (month_id, category_id, amount, date, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-                    nextMonthId,
-                    savingsCategory.id,
-                    nextAmount,
-                    nextDate,
-                    `Пополнение копилки "${nextGoal.name}"`,
-                    timestamp,
-                    timestamp
-                );
+                createSavingsHiddenExpense(req.user.id, { monthId: nextMonthId, amount: nextAmount, date: nextDate, goalName: nextGoal.name }, timestamp);
             }
         });
 
@@ -929,23 +978,18 @@ router.get('/months/:monthId/summary', (req, res) => {
     const monthId = req.params.monthId;
     if (!checkMonthAccess(req.user.id, monthId)) return res.status(403).json({ error: 'Access denied' });
 
-    const totalIncome = db.prepare('SELECT SUM(amount) as total FROM incomes WHERE month_id = ?').get(monthId).total || 0;
-    const totalExpenses = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE month_id = ?').get(monthId).total || 0;
-
-    // Savings contributions (positive amounts in transactions linked to this month, EXCLUDING adjustments)
-    const totalSavings = db.prepare('SELECT SUM(amount) as total FROM savings_transactions WHERE month_id = ? AND amount > 0 AND (is_adjustment = 0 OR is_adjustment IS NULL)').get(monthId).total || 0;
-
-    const balance = totalIncome - totalExpenses - totalSavings;
+    // expenses включает скрытые пополнения копилок; balance их повторно не вычитает
+    const { income, expenses, savings, balance } = computeMonthTotals(monthId);
     const { plannedExpenses, plannedIncomes } = computePlannedAggregates(getPlannedRecords(req.user.id, monthId));
 
     res.json({
-        income: totalIncome,
-        expenses: totalExpenses,
-        savings: totalSavings,
+        income,
+        expenses,
+        savings,
         balance,
         plannedExpenses,
         plannedIncomes,
-        forecastExpenses: totalExpenses + plannedExpenses,
+        forecastExpenses: expenses + plannedExpenses,
         forecastBalance: balance + plannedIncomes - plannedExpenses
     });
 });
@@ -983,15 +1027,12 @@ router.get('/analytics/trend', (req, res) => {
     const months = db.prepare('SELECT * FROM months WHERE user_id = ? ORDER BY year DESC, month DESC LIMIT 6').all(req.user.id).reverse();
 
     const data = months.map(m => {
-        const income = db.prepare('SELECT SUM(amount) as total FROM incomes WHERE month_id = ?').get(m.id).total || 0;
-        const expense = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE month_id = ?').get(m.id).total || 0;
-        // Savings contributions (positive amounts only, EXCLUDING adjustments)
-        const savings = db.prepare('SELECT SUM(amount) as total FROM savings_transactions WHERE month_id = ? AND amount > 0 AND (is_adjustment = 0 OR is_adjustment IS NULL)').get(m.id).total || 0;
-        
+        // Пополнения копилок — отдельным столбцом savings, в expense их нет (как в карточке «Расходы»)
+        const { income, visibleExpenses, savings } = computeMonthTotals(m.id);
         return {
             month: `${m.month}/${m.year}`,
             income,
-            expense,
+            expense: visibleExpenses,
             savings
         };
     });

@@ -66,8 +66,54 @@ class SyncQueuePayloadMetadataTest {
                 operation = SyncOperation.UPDATE.value,
                 payload = payload,
                 currentUpdatedAt = "2026-03-10T09:05:00Z",
+                hasLaterItem = true,
             ),
         )
+    }
+
+    @Test
+    fun shouldSkipOutdatedQueueItem_withoutLaterItem_neverSkips() {
+        val payload =
+            encodeSyncQueuePayloadMetadata(
+                SyncQueuePayloadMetadata(opId = "op-1", entityUpdatedAt = "2026-03-10T09:00:00Z"),
+            )
+        // Одиночный элемент — единственный способ доставить изменение на сервер
+        for (operation in listOf(SyncOperation.INSERT.value, SyncOperation.UPDATE.value)) {
+            assertFalse(
+                shouldSkipOutdatedQueueItem(
+                    operation = operation,
+                    payload = payload,
+                    currentUpdatedAt = "2026-03-10T09:05:00Z",
+                    hasLaterItem = false,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun shouldSkipOutdatedQueueItem_insert_neverSkipsEvenWithLaterItem() {
+        val payload =
+            encodeSyncQueuePayloadMetadata(
+                SyncQueuePayloadMetadata(opId = "op-1", entityUpdatedAt = "2026-03-10T09:00:00Z"),
+            )
+        assertFalse(
+            shouldSkipOutdatedQueueItem(
+                operation = SyncOperation.INSERT.value,
+                payload = payload,
+                currentUpdatedAt = "2026-03-10T09:05:00Z",
+                hasLaterItem = true,
+            ),
+        )
+    }
+
+    @Test
+    fun encodeDecode_goalCurrentAmount_roundTrip() {
+        val decoded =
+            decodeSyncQueuePayloadMetadata(
+                encodeSyncQueuePayloadMetadata(SyncQueuePayloadMetadata(opId = "op", goalCurrentAmount = 12_500)),
+            )
+        assertEquals(12_500L, decoded?.goalCurrentAmount)
+        assertEquals(null, decodeSyncQueuePayloadMetadata("""{"opId":"old"}""")?.goalCurrentAmount)
     }
 
     @Test
@@ -85,6 +131,7 @@ class SyncQueuePayloadMetadataTest {
                 operation = SyncOperation.UPDATE.value,
                 payload = payload,
                 currentUpdatedAt = "2026-03-10T09:00:00Z",
+                hasLaterItem = true,
             ),
         )
     }
@@ -105,6 +152,7 @@ class SyncQueuePayloadMetadataTest {
                 operation = SyncOperation.DELETE.value,
                 payload = payload,
                 currentUpdatedAt = "2026-03-10T09:05:00Z",
+                hasLaterItem = true,
             ),
         )
     }
@@ -145,5 +193,25 @@ class SyncQueuePayloadMetadataTest {
                 currentUpdatedAt = "2026-03-10T09:00:00Z",
             ),
         )
+    }
+
+    @Test
+    fun shouldSkipOutdatedQueueItem_updateCarryingGoalAmountOrReactivate_neverSkips() {
+        // Более поздний элемент не несёт ни явной суммы копилки, ни восстановления записи
+        val carriers =
+            listOf(
+                SyncQueuePayloadMetadata(opId = "op-1", entityUpdatedAt = "2026-03-10T09:00:00Z", goalCurrentAmount = 500L),
+                SyncQueuePayloadMetadata(opId = "op-2", entityUpdatedAt = "2026-03-10T09:00:00Z", reactivate = true),
+            )
+        for (meta in carriers) {
+            assertFalse(
+                shouldSkipOutdatedQueueItem(
+                    operation = SyncOperation.UPDATE.value,
+                    payload = encodeSyncQueuePayloadMetadata(meta),
+                    currentUpdatedAt = "2026-03-10T09:05:00Z",
+                    hasLaterItem = true,
+                ),
+            )
+        }
     }
 }

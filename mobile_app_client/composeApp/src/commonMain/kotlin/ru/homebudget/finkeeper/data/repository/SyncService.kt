@@ -2,8 +2,8 @@ package ru.homebudget.finkeeper.data.repository
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.launchIn
@@ -14,6 +14,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import ru.homebudget.finkeeper.data.local.dao.MonthDao
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
+import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 
 /**
@@ -25,9 +26,11 @@ class SyncService(
     private val syncManager: SyncManager,
     private val monthDao: MonthDao,
     private val tokenStorage: TokenStorage,
+    private val serverLinkState: ServerLinkState,
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var isStarted = false
+    // Своя Job на каждый запуск: после stop() сервис можно запустить снова (iOS останавливает
+    // его при уходе в фон). Отменённый навсегда общий scope молча глушил бы все подписки
+    private var runJob: Job? = null
     private var didSyncAfterLogin = false
 
     val dataUpdated: SharedFlow<Unit> get() = syncManager.dataUpdated
@@ -36,8 +39,10 @@ class SyncService(
      * Запускает отслеживание сети и авто-синхронизацию
      */
     fun start() {
-        if (isStarted) return
-        isStarted = true
+        if (runJob?.isActive == true) return
+        val job = SupervisorJob()
+        runJob = job
+        val scope = CoroutineScope(job + Dispatchers.Default)
 
         // Запускаем мониторинг сети
         networkMonitor.startMonitoring()
@@ -49,6 +54,20 @@ class SyncService(
                     // При появлении интернета запускаем синхронизацию
                     val monthId = getCurrentMonthLocalId()
                     syncManager.syncAll(monthId)
+                }
+            }.launchIn(scope)
+
+        // Сеть на устройстве была всё время, а сервер не отвечал: операции в очереди уже не ждут
+        // события «сеть появилась». Как только сервер снова ответил — отправляем накопленное
+        var wasServerUnreachable = false
+        serverLinkState.isUnreachable
+            .onEach { unreachable ->
+                if (unreachable) {
+                    wasServerUnreachable = true
+                } else if (wasServerUnreachable) {
+                    wasServerUnreachable = false
+                    println("[SYNC-SERVICE] Server is reachable again, syncing")
+                    syncManager.syncAll(getCurrentMonthLocalId())
                 }
             }.launchIn(scope)
 
@@ -71,23 +90,11 @@ class SyncService(
      * Останавливает отслеживание сети
      */
     fun stop() {
-        if (!isStarted) return
-        isStarted = false
+        val job = runJob ?: return
+        runJob = null
 
         networkMonitor.stopMonitoring()
-        scope.cancel()
-    }
-
-    /**
-     * Принудительная синхронизация
-     */
-    fun forceSync() {
-        if (networkMonitor.isNetworkAvailable) {
-            scope.launch {
-                val monthId = getCurrentMonthLocalId()
-                syncManager.syncAll(monthId)
-            }
-        }
+        job.cancel()
     }
 
     private fun getCurrentMonthLocalId(): Long? {

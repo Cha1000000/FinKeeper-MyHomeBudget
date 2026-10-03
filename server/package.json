@@ -8,7 +8,9 @@
     "smoke:health": "node ./scripts/smoke-health.js",
     "smoke:planned": "node ./scripts/smoke-planned.js",
     "test:planned": "node --test ./test/planned.test.js",
-    "test": "npm run smoke:health && npm run test:planned && npm run smoke:planned"
+    "test:totals": "node --test ./test/month-totals.test.js",
+    "test:sync": "node --test ./test/sync-audit.test.js",
+    "test": "npm run smoke:health && npm run test:planned && npm run test:totals && npm run test:sync && npm run smoke:planned"
   },
   "keywords": [],
   "author": "",
