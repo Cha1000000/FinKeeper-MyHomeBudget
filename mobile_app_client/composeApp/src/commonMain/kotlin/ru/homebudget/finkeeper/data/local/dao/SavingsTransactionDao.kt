@@ -103,7 +103,15 @@ class SavingsTransactionDao(private val database: FinKeeperDatabase) {
             id = id
         )
     }
-    
+
+    /**
+     * Проставляет месяц транзакции, только если он ещё не задан. updated_at не трогает:
+     * это локальное дозаполнение, а не изменение данных
+     */
+    fun fillMonthIdIfMissing(id: Long, monthId: Long) {
+        queries.fillSavingsTransactionMonthId(month_id = monthId, id = id)
+    }
+
     /**
      * Удаление транзакции по ID
      */

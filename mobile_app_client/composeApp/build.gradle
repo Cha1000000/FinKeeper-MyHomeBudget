@@ -1,6 +1,6 @@
 buildscript {
     ext {
-        app_version = '2.2.4'
+        app_version = '2.2.5'
     }
 }
 
@@ -149,7 +149,7 @@ android {
         applicationId "ru.homebudget.finkeeper"
         minSdk = libs.versions.android.minSdk.get().toInteger()
         targetSdk = libs.versions.android.targetSdk.get().toInteger()
-        versionCode = 11
+        versionCode = 12
         versionName = app_version
     }
 

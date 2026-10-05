@@ -192,6 +192,13 @@ class SavingsTransactionRepository(
                             continue
                         }
 
+                        // Копилки скачиваются раньше месяцев: на свежей установке месяца пополнения
+                        // ещё нет локально, и запись сохраняется без month_id. Дозаполняем, когда
+                        // месяц появился, — даже если сама запись на сервере не менялась
+                        if (existing.monthId == null && localMonthId != null) {
+                            savingsTransactionDao.fillMonthIdIfMissing(existing.id, localMonthId)
+                        }
+
                         if (!shouldApplyRemoteServerSnapshot(existing.updatedAt, remote.updatedAt)) {
                             continue
                         }
