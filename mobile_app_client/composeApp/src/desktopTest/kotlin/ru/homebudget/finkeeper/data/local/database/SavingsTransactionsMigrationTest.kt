@@ -125,4 +125,20 @@ class SavingsTransactionsMigrationTest {
         assertEquals("month_id", driver.columns()[3])
         assertEquals(listOf<Long?>(1000), driver.queryLongs("SELECT amount FROM savings_transactions"))
     }
+
+    // Сценарий с телефона: база Android/iOS из приложения ≤ 1.1.0 без month_id. Общий
+    // DatabaseProvider должен сам добавить колонку — иначе любое чтение копилок падает
+    @Test
+    fun databaseProvider_migratesOldMobileDatabase() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        driver.exec("CREATE TABLE savings_transactions ($baseColumns, $tailColumns)")
+        driver.insertRow(withMonth = false)
+
+        val database = DatabaseProvider(driver).database
+
+        val rows = database.finKeeperDatabaseQueries.getSavingsTransactionsByGoal(1).executeAsList()
+        assertEquals(1, rows.size)
+        assertEquals(null, rows.single().month_id)
+        assertEquals(1000L, rows.single().amount)
+    }
 }

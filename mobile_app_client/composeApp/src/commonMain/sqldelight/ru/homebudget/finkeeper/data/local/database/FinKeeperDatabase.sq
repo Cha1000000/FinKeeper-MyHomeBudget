@@ -606,6 +606,9 @@ UPDATE savings_transactions SET savings_goal_id = ?, month_id = ?, amount = ?, t
 updateSavingsTransactionSyncStatus:
 UPDATE savings_transactions SET sync_status = ?, server_id = ? WHERE id = ?;
 
+fillSavingsTransactionMonthId:
+UPDATE savings_transactions SET month_id = ? WHERE id = ? AND month_id IS NULL;
+
 deleteSavingsTransactionById:
 DELETE FROM savings_transactions WHERE id = ?;
 

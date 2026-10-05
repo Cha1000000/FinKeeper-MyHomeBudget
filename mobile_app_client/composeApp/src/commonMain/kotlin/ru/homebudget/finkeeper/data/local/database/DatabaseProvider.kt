@@ -80,6 +80,9 @@ private fun runAdditiveMigrations(driver: SqlDriver) {
         }
     }
 
+    // v2.2.5 — savings_transactions.month_id у баз, созданных до его появления
+    migrateSavingsTransactionsMonthColumn(driver)
+
     // v2.2.1 — схлопывание локальных дублей категорий/источников по (user_id, name) c
     // перепривязкой ссылок (расходы/доходы/бюджеты/план) и UNIQUE-индексы против повторного
     // появления. Для свежих БД индексы уже есть из схемы (.sq), здесь — путь для существующих
