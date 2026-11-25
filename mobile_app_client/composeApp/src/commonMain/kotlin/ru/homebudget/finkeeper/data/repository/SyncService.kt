@@ -12,6 +12,9 @@ import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
+import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.local.dao.MonthDao
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
 import ru.homebudget.finkeeper.data.network.ServerLinkState
@@ -27,6 +30,7 @@ class SyncService(
     private val monthDao: MonthDao,
     private val tokenStorage: TokenStorage,
     private val serverLinkState: ServerLinkState,
+    private val analyticsTracker: AnalyticsTracker = NoOpAnalyticsTracker,
 ) {
     // Своя Job на каждый запуск: после stop() сервис можно запустить снова (iOS останавливает
     // его при уходе в фон). Отменённый навсегда общий scope молча глушил бы все подписки
@@ -48,8 +52,15 @@ class SyncService(
         networkMonitor.startMonitoring()
 
         // Подписываемся на изменения состояния сети
+        var previousOnline: Boolean? = null
         networkMonitor.isOnline
             .onEach { isOnline ->
+                if (previousOnline != null && previousOnline != isOnline) {
+                    analyticsTracker.logEvent(
+                        if (isOnline) AnalyticsEvents.NETWORK_ONLINE else AnalyticsEvents.NETWORK_OFFLINE,
+                    )
+                }
+                previousOnline = isOnline
                 if (isOnline) {
                     // При появлении интернета запускаем синхронизацию
                     val monthId = getCurrentMonthLocalId()
@@ -63,12 +74,29 @@ class SyncService(
         serverLinkState.isUnreachable
             .onEach { unreachable ->
                 if (unreachable) {
+                    if (!wasServerUnreachable) {
+                        analyticsTracker.logEvent(AnalyticsEvents.SERVER_UNREACHABLE)
+                    }
                     wasServerUnreachable = true
                 } else if (wasServerUnreachable) {
                     wasServerUnreachable = false
+                    analyticsTracker.logEvent(AnalyticsEvents.SERVER_REACHABLE)
                     println("[SYNC-SERVICE] Server is reachable again, syncing")
                     syncManager.syncAll(getCurrentMonthLocalId())
                 }
+            }.launchIn(scope)
+
+        // Отслеживаем ошибки синхронизации (только переходы на новое непустое сообщение)
+        var lastReportedSyncError: String? = null
+        syncManager.lastSyncError
+            .onEach { syncError ->
+                if (syncError != null && syncError != lastReportedSyncError) {
+                    analyticsTracker.logEvent(
+                        AnalyticsEvents.SYNC_FAILED,
+                        mapOf(AnalyticsEvents.Params.REASON to syncError.take(120)),
+                    )
+                }
+                lastReportedSyncError = syncError
             }.launchIn(scope)
 
         // Поллинг: ждём появления userId после логина и запускаем полную синхронизацию

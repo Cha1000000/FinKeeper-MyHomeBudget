@@ -42,6 +42,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.koinInject
+import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.data.update.AppUpdateChecker
 import ru.homebudget.finkeeper.data.update.AppUpdateStatus
@@ -99,6 +101,7 @@ fun AppNavigation(
     onUiScaleChange: (Float?) -> Unit,
 ) {
     val tokenStorage = koinInject<TokenStorage>()
+    val analyticsTracker = koinInject<AnalyticsTracker>()
     val securityOnboardingPromptState = remember { SecurityOnboardingPromptState(tokenStorage) }
     val appUpdateChecker = koinInject<AppUpdateChecker>()
     val appUpdatePromptState = remember { AppUpdatePromptState() }
@@ -109,6 +112,14 @@ fun AppNavigation(
     var settingsFocusAccountProtection by remember { mutableStateOf(false) }
     LaunchedEffect(currentScreen) {
         if (currentScreen != Screen.Settings) settingsFocusAccountProtection = false
+        val screenName = when (currentScreen) {
+            Screen.Dashboard -> AnalyticsEvents.Screens.DASHBOARD
+            Screen.MonthView -> AnalyticsEvents.Screens.MONTH_VIEW
+            Screen.Categories -> AnalyticsEvents.Screens.CATEGORIES
+            Screen.Savings -> AnalyticsEvents.Screens.SAVINGS
+            Screen.Settings -> AnalyticsEvents.Screens.SETTINGS
+        }
+        analyticsTracker.logScreen(screenName)
     }
     var securityPromptShownThisSession by remember { mutableStateOf(false) }
     var securityPromptSessionUserId by remember { mutableStateOf<Int?>(null) }

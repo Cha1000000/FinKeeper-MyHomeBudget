@@ -1,0 +1,9 @@
+# Путь к Android SDK
+sdk.dir=/path/to/Android/Sdk
+
+# Yandex AppMetrica (получить в https://appmetrica.yandex.ru/ -> Настройки -> Основное)
+# API key для SDK (обязателен для сбора аналитики и крашей в Android release)
+APPMETRICA_API_KEY=
+
+# Post API key для автозагрузки R8 mapping.txt при сборке release APK (опционально)
+APPMETRICA_POST_API_KEY=

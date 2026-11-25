@@ -1,6 +1,8 @@
 package ru.homebudget.finkeeper
 
 import android.app.Application
+import io.appmetrica.analytics.AppMetrica
+import io.appmetrica.analytics.AppMetricaConfig
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.GlobalContext
@@ -14,6 +16,8 @@ import ru.homebudget.finkeeper.di.appModule
 class FinKeeper24App : Application() {
     override fun onCreate() {
         super.onCreate()
+
+        initAppMetrica()
 
         startKoin {
             androidLogger(Level.ERROR)
@@ -44,6 +48,26 @@ class FinKeeper24App : Application() {
             webSocketService?.stop()
         } catch (e: Exception) {
             android.util.Log.e("FinKeeper24App", "Failed to stop sync service: ${e.message}")
+        }
+    }
+
+    private fun initAppMetrica() {
+        if (!BuildConfig.APPMETRICA_ENABLED || BuildConfig.APPMETRICA_API_KEY.isBlank()) {
+            return
+        }
+        try {
+            val builder = AppMetricaConfig.newConfigBuilder(BuildConfig.APPMETRICA_API_KEY)
+                .withCrashReporting(true)
+                .withAnrMonitoring(true)
+                .withSessionTimeout(300)
+                .withAppVersion(BuildConfig.APP_VERSION.removePrefix("v"))
+            if (BuildConfig.IS_DEBUG) {
+                builder.withLogs()
+            }
+            AppMetrica.activate(this, builder.build())
+            AppMetrica.enableActivityAutoTracking(this)
+        } catch (e: Exception) {
+            android.util.Log.e("FinKeeper24App", "Failed to initialize AppMetrica SDK: ${e.message}")
         }
     }
 }

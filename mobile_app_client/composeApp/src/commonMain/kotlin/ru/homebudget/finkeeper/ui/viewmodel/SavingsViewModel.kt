@@ -12,6 +12,9 @@ import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
+import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.network.isConnectivityFailure
@@ -48,6 +51,7 @@ class SavingsViewModel(
     private val tokenStorage: TokenStorage,
     private val syncManager: SyncManager,
     private val serverLinkState: ServerLinkState,
+    private val analyticsTracker: AnalyticsTracker = NoOpAnalyticsTracker,
 ) : ViewModel() {
     private val currentUserId: Long get() = tokenStorage.userId
     private val _state = MutableStateFlow(SavingsState())
@@ -192,6 +196,7 @@ class SavingsViewModel(
                     name = name,
                     targetAmount = targetAmount,
                 ).getOrThrow()
+                analyticsTracker.logEvent(AnalyticsEvents.SAVINGS_GOAL_CREATED)
 
                 loadData(showLoader = false, syncFromServer = false)
                 notifySavingsUpdated()
@@ -232,6 +237,7 @@ class SavingsViewModel(
             try {
                 // Удаляем локально через репозиторий
                 savingsGoalRepository.deleteSavingsGoal(id.toLong()).getOrThrow()
+                analyticsTracker.logEvent(AnalyticsEvents.SAVINGS_GOAL_DELETED)
 
                 loadData(showLoader = false, syncFromServer = false)
                 notifySavingsUpdated()
@@ -285,6 +291,10 @@ class SavingsViewModel(
                         date = currentIsoDate(),
                         type = if (amount >= 0) "deposit" else "withdrawal",
                     ).getOrThrow()
+                    analyticsTracker.logEvent(
+                        AnalyticsEvents.SAVINGS_TX_ADDED,
+                        mapOf(AnalyticsEvents.Params.TYPE to if (amount >= 0) "deposit" else "withdraw"),
+                    )
                 } catch (e: CancellationException) {
                     // Не откатываем: запись могла успеть сохраниться до отмены
                     throw e

@@ -1,6 +1,6 @@
 buildscript {
     ext {
-        app_version = '2.2.5'
+        app_version = '2.2.6'
     }
 }
 
@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.sqldelight)
+    alias(libs.plugins.appmetrica)
 }
 
 sqldelight {
@@ -96,6 +97,9 @@ kotlin {
 
                 // RuStore In-app Update SDK (оповещение о новой версии в RuStore)
                 implementation libs.rustore.appupdate
+
+                // Yandex AppMetrica SDK (аналитика, краши, ANR)
+                implementation libs.appmetrica.analytics
             }
         }
         iosMain {
@@ -141,6 +145,39 @@ kotlin {
     }
 }
 
+def requestedTaskNames = gradle.startParameter.taskNames.collect { it.toLowerCase() }
+def isReleaseLikeBuild = requestedTaskNames.any {
+    it.contains("release") || it.contains("package") || it.contains("distribut") || it.contains("publish")
+}
+
+// Загрузка AppMetrica ключей из local.properties (с fallback на Gradle property / env)
+def localPropsTextProvider = providers.fileContents(rootProject.layout.projectDirectory.file("local.properties")).asText
+def readLocalProperty = { String key ->
+    def text = localPropsTextProvider.orNull
+    if (text != null) {
+        def props = new Properties()
+        props.load(new StringReader(text))
+        def val = props.getProperty(key)
+        if (val != null && !val.trim().isEmpty()) {
+            return val.trim()
+        }
+    }
+    return null
+}
+def appmetricaApiKeyStr = providers.gradleProperty("APPMETRICA_API_KEY")
+    .orElse(providers.environmentVariable("APPMETRICA_API_KEY"))
+    .orNull?.trim() ?: (readLocalProperty("APPMETRICA_API_KEY") ?: "")
+def appmetricaPostApiKeyStr = providers.gradleProperty("APPMETRICA_POST_API_KEY")
+    .orElse(providers.environmentVariable("APPMETRICA_POST_API_KEY"))
+    .orNull?.trim() ?: (readLocalProperty("APPMETRICA_POST_API_KEY") ?: "")
+
+appmetrica {
+    enable.set(isReleaseLikeBuild && !appmetricaPostApiKeyStr.isEmpty())
+    if (!appmetricaPostApiKeyStr.isEmpty()) {
+        postApiKey.set(appmetricaPostApiKeyStr)
+    }
+}
+
 android {
     namespace 'ru.homebudget.finkeeper'
     compileSdk = libs.versions.android.compileSdk.get().toInteger()
@@ -149,7 +186,7 @@ android {
         applicationId "ru.homebudget.finkeeper"
         minSdk = libs.versions.android.minSdk.get().toInteger()
         targetSdk = libs.versions.android.targetSdk.get().toInteger()
-        versionCode = 12
+        versionCode = 13
         versionName = app_version
     }
 
@@ -199,10 +236,6 @@ android {
 // Generate BuildConfig with app version for commonMain
 def generatedDir = layout.buildDirectory.dir("generated/buildconfig/commonMain/kotlin")
 def appVersionStr = app_version
-def requestedTaskNames = gradle.startParameter.taskNames.collect { it.toLowerCase() }
-def isReleaseLikeBuild = requestedTaskNames.any {
-    it.contains("release") || it.contains("package") || it.contains("distribut") || it.contains("publish")
-}
 def buildConfigDefaultServerUrlProvider = providers
     .gradleProperty("DEFAULT_SERVER_URL")
     .orElse(providers.environmentVariable("DEFAULT_SERVER_URL"))
@@ -211,15 +244,25 @@ def buildConfigShowServerSettingsProvider = providers
     .orElse(providers.environmentVariable("SHOW_SERVER_SETTINGS"))
 def defaultServerUrlStr = buildConfigDefaultServerUrlProvider.getOrElse("https://app.finkeeper24.ru").trim()
 def showServerSettingsStr = buildConfigShowServerSettingsProvider.getOrElse((!isReleaseLikeBuild).toString())
+def appmetricaDebugProvider = providers
+    .gradleProperty("APPMETRICA_DEBUG")
+    .orElse(providers.environmentVariable("APPMETRICA_DEBUG"))
+def appmetricaEnabledBool = (isReleaseLikeBuild || appmetricaDebugProvider.getOrElse("false").toBoolean()) && !appmetricaApiKeyStr.isEmpty()
 
 tasks.register('generateBuildConfig') {
     def outputDir = generatedDir
     def version = appVersionStr
     def defaultServerUrl = defaultServerUrlStr.endsWith("/") ? defaultServerUrlStr[0..-2] : defaultServerUrlStr
     def showServerSettings = showServerSettingsStr.toBoolean()
+    def appmetricaApiKey = appmetricaApiKeyStr
+    def appmetricaEnabled = appmetricaEnabledBool
+    def isDebug = !isReleaseLikeBuild
     inputs.property("buildConfigVersion", version)
     inputs.property("buildConfigDefaultServerUrl", defaultServerUrl)
     inputs.property("buildConfigShowServerSettings", showServerSettings)
+    inputs.property("buildConfigAppmetricaApiKey", appmetricaApiKey)
+    inputs.property("buildConfigAppmetricaEnabled", appmetricaEnabled)
+    inputs.property("buildConfigIsDebug", isDebug)
     outputs.dir(outputDir)
     doLast {
         def dir = new File(outputDir.get().asFile, "ru/homebudget/finkeeper")
@@ -231,6 +274,9 @@ object BuildConfig {
     const val APP_VERSION = "v${version}"
     const val DEFAULT_SERVER_URL = "${defaultServerUrl}"
     const val SHOW_SERVER_SETTINGS = ${showServerSettings}
+    const val APPMETRICA_API_KEY = "${appmetricaApiKey}"
+    const val APPMETRICA_ENABLED = ${appmetricaEnabled}
+    const val IS_DEBUG = ${isDebug}
 }
 """
     }

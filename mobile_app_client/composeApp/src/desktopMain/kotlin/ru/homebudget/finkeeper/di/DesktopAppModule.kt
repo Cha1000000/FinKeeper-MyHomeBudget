@@ -2,6 +2,8 @@ package ru.homebudget.finkeeper.di
 
 import app.cash.sqldelight.db.SqlDriver
 import org.koin.dsl.module
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
+import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.local.database.DatabaseProvider
 import ru.homebudget.finkeeper.data.local.database.createDesktopDatabaseDriver
 import ru.homebudget.finkeeper.data.remote.DesktopSocialAuthLauncher
@@ -31,4 +33,7 @@ val desktopAppModule = module {
 
     // Network Monitor
     single { NetworkMonitor() }
+
+    // Analytics (no-op на Desktop — официального JVM SDK у AppMetrica нет)
+    single<AnalyticsTracker> { NoOpAnalyticsTracker }
 }

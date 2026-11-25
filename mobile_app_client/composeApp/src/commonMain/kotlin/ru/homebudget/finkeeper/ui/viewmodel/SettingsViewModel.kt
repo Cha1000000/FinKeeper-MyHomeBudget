@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
+import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.model.BackupEntry
 import ru.homebudget.finkeeper.data.model.DebugTokenPreview
 import ru.homebudget.finkeeper.data.model.User
@@ -37,6 +40,7 @@ class SettingsViewModel(
     private val apiClient: ApiClient,
     private val syncManager: SyncManager,
     private val networkMonitor: NetworkMonitor,
+    private val analyticsTracker: AnalyticsTracker = NoOpAnalyticsTracker,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SettingsState())
     val state: StateFlow<SettingsState> = _state.asStateFlow()
@@ -301,6 +305,7 @@ class SettingsViewModel(
                     withRetry(config = RetryConfig(maxAttempts = 3)) {
                         apiClient.requestEmailVerification()
                     }
+                analyticsTracker.logEvent(AnalyticsEvents.EMAIL_VERIFICATION_REQUESTED)
                 onSuccess(response.user)
                 val verificationDeliveryFailed = response.verificationRequired && response.delivery?.delivered == false
                 _state.value =
@@ -335,6 +340,7 @@ class SettingsViewModel(
                 withRetry(config = RetryConfig(maxAttempts = 3)) {
                     apiClient.createManualBackup()
                 }
+                analyticsTracker.logEvent(AnalyticsEvents.BACKUP_CREATED)
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
@@ -369,6 +375,7 @@ class SettingsViewModel(
                 withRetry(config = RetryConfig(maxAttempts = 3)) {
                     apiClient.restoreBackup(backupId, confirmationText)
                 }
+                analyticsTracker.logEvent(AnalyticsEvents.BACKUP_RESTORED)
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
@@ -409,6 +416,7 @@ class SettingsViewModel(
                 )
             return
         }
+        analyticsTracker.logEvent(AnalyticsEvents.SYNC_MANUAL_RETRY)
         syncManager.retryFailed()
         syncManager.syncAll()
         _state.value =

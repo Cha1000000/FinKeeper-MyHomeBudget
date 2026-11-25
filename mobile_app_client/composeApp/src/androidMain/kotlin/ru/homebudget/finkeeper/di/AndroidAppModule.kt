@@ -4,6 +4,9 @@ import android.content.Context
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import org.koin.dsl.module
+import ru.homebudget.finkeeper.BuildConfig
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
+import ru.homebudget.finkeeper.data.analytics.AppMetricaAnalyticsTracker
 import ru.homebudget.finkeeper.data.local.database.DatabaseProvider
 import ru.homebudget.finkeeper.data.local.database.FinKeeperDatabase
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
@@ -38,4 +41,11 @@ val androidAppModule =
 
         // Network Monitor
         single { NetworkMonitor(get()) }
+
+        // Analytics (Yandex AppMetrica)
+        single<AnalyticsTracker> {
+            AppMetricaAnalyticsTracker(
+                enabled = BuildConfig.APPMETRICA_ENABLED && BuildConfig.APPMETRICA_API_KEY.isNotBlank(),
+            )
+        }
     }

@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
+import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.model.Category
 import ru.homebudget.finkeeper.data.model.IncomeSource
 import ru.homebudget.finkeeper.data.network.ServerLinkState
@@ -49,6 +52,7 @@ class CategoriesViewModel(
     private val tokenStorage: TokenStorage,
     private val syncManager: SyncManager,
     private val serverLinkState: ServerLinkState,
+    private val analyticsTracker: AnalyticsTracker = NoOpAnalyticsTracker,
 ) : ViewModel() {
     private val currentUserId: Long get() = tokenStorage.userId
     private val _state = MutableStateFlow(CategoriesState())
@@ -220,6 +224,10 @@ class CategoriesViewModel(
                     name = name,
                     type = "expense",
                 ).getOrThrow()
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.CATEGORY_ADDED,
+                    mapOf(AnalyticsEvents.Params.IS_FIXED to false),
+                )
 
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
@@ -257,6 +265,10 @@ class CategoriesViewModel(
                     id = id.toLong(),
                     isActive = false,
                 ).getOrThrow()
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.CATEGORY_DELETED,
+                    mapOf(AnalyticsEvents.Params.IS_FIXED to false),
+                )
 
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
@@ -274,6 +286,10 @@ class CategoriesViewModel(
                     userId = currentUserId,
                     name = name,
                 ).getOrThrow()
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.INCOME_SOURCE_ADDED,
+                    mapOf(AnalyticsEvents.Params.IS_FIXED to false),
+                )
 
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
@@ -311,6 +327,10 @@ class CategoriesViewModel(
                     id = id.toLong(),
                     isActive = false,
                 ).getOrThrow()
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.INCOME_SOURCE_DELETED,
+                    mapOf(AnalyticsEvents.Params.IS_FIXED to false),
+                )
 
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
@@ -357,6 +377,10 @@ class CategoriesViewModel(
                     autoDay = autoDay,
                     requireConfirm = requireConfirm,
                 ).getOrThrow()
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.CATEGORY_ADDED,
+                    mapOf(AnalyticsEvents.Params.IS_FIXED to true),
+                )
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(actionError = e.toActionError(Strings.ERROR_CREATING_FIXED_CATEGORY)) }
@@ -391,6 +415,10 @@ class CategoriesViewModel(
                     id = id.toLong(),
                     isActive = false,
                 ).getOrThrow()
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.CATEGORY_DELETED,
+                    mapOf(AnalyticsEvents.Params.IS_FIXED to true),
+                )
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(actionError = e.toActionError(Strings.ERROR_DELETING_FIXED_CATEGORY)) }
@@ -412,6 +440,10 @@ class CategoriesViewModel(
                     autoDay = autoDay,
                     requireConfirm = requireConfirm,
                 ).getOrThrow()
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.INCOME_SOURCE_ADDED,
+                    mapOf(AnalyticsEvents.Params.IS_FIXED to true),
+                )
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(actionError = e.toActionError(Strings.ERROR_CREATING_FIXED_INCOME_SOURCE)) }
@@ -446,6 +478,10 @@ class CategoriesViewModel(
                     id = id.toLong(),
                     isActive = false,
                 ).getOrThrow()
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.INCOME_SOURCE_DELETED,
+                    mapOf(AnalyticsEvents.Params.IS_FIXED to true),
+                )
                 loadData(showLoader = false, syncFromServer = false)
             } catch (e: Exception) {
                 _state.update { it.copy(actionError = e.toActionError(Strings.ERROR_DELETING_FIXED_INCOME_SOURCE)) }
