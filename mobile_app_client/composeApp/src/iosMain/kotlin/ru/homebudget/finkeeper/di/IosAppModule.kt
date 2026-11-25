@@ -2,6 +2,8 @@ package ru.homebudget.finkeeper.di
 
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import org.koin.dsl.module
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
+import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.local.database.DatabaseProvider
 import ru.homebudget.finkeeper.data.local.database.FinKeeperDatabase
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
@@ -35,4 +37,7 @@ val iosAppModule =
 
         // Network Monitor
         single { NetworkMonitor() }
+
+        // Analytics (no-op на iOS)
+        single<AnalyticsTracker> { NoOpAnalyticsTracker }
     }

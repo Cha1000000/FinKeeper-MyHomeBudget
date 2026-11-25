@@ -1,3 +1,6 @@
+# Keep stack trace file names and line numbers for crash deobfuscation (AppMetrica / R8)
+-keepattributes SourceFile,LineNumberTable
+
 # Keep Kotlin serialization
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt

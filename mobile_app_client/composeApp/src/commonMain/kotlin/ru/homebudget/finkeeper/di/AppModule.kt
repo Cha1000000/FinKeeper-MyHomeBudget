@@ -88,15 +88,15 @@ val appModule =
         }
 
         // ViewModels
-        factory { AuthViewModel(get(), get(), get<SocialAuthLauncher>()) }
+        factory { AuthViewModel(get(), get(), get<SocialAuthLauncher>(), get()) }
         factory { DashboardViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-        factory { MonthViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-        factory { CategoriesViewModel(get(), get(), get(), get(), get()) }
-        factory { SavingsViewModel(get(), get(), get(), get(), get(), get()) }
-        factory { SettingsViewModel(get(), get(), get()) }
+        factory { MonthViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        factory { CategoriesViewModel(get(), get(), get(), get(), get(), get()) }
+        factory { SavingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
+        factory { SettingsViewModel(get(), get(), get(), get()) }
 
         // Сервис авто-синхронизации
-        single { SyncService(get(), get(), get(), get(), get()) }
+        single { SyncService(get(), get(), get(), get(), get(), get()) }
 
         // WebSocket сервис для real-time обновлений
         single { WebSocketService(get(), get()) }

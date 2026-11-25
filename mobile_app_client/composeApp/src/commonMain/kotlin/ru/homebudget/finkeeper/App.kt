@@ -17,6 +17,8 @@ import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.ui.navigation.DesktopWindowControls
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
+import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
 import ru.homebudget.finkeeper.data.remote.TokenStorage
 import ru.homebudget.finkeeper.ui.navigation.AppNavigation
 import ru.homebudget.finkeeper.ui.screens.LoginScreen
@@ -28,6 +30,7 @@ import ru.homebudget.finkeeper.ui.viewmodel.*
 @Composable
 fun App() {
     val tokenStorage = koinInject<TokenStorage>()
+    val analyticsTracker = koinInject<AnalyticsTracker>()
     var themeMode by remember { mutableStateOf(tokenStorage.themeMode) }
     // null = режим «Авто» (следуем системному scale); число = ручной множитель.
     var uiScalePref by remember { mutableStateOf(tokenStorage.uiScale) }
@@ -55,20 +58,25 @@ fun App() {
         val content: @Composable () -> Unit = {
             when {
                 authState.isLoading || !isSplashTimeFinished -> SplashScreen(version = BuildConfig.APP_VERSION)
-                authState.user == null -> LoginScreen(
-                    state = authState,
-                    onLogin = { u, p -> authViewModel.login(u, p) },
-                    onRegister = { u, p -> authViewModel.register(u, p) },
-                    onLoginWithSocial = { provider -> authViewModel.loginWithSocial(provider) },
-                    onRequestPasswordRecovery = { email -> authViewModel.requestPasswordRecovery(email) },
-                    onConfirmPasswordRecovery = { token, newPassword, onSuccess ->
-                        authViewModel.confirmPasswordRecovery(token, newPassword, onSuccess)
-                    },
-                    onClearError = { authViewModel.clearError() },
-                    onServerUrlChange = { authViewModel.updateServerUrl(it) },
-                    currentServerUrl = authViewModel.currentServerUrl,
-                    showServerSettingsEnabled = BuildConfig.SHOW_SERVER_SETTINGS,
-                )
+                authState.user == null -> {
+                    LaunchedEffect(Unit) {
+                        analyticsTracker.logScreen(AnalyticsEvents.Screens.LOGIN)
+                    }
+                    LoginScreen(
+                        state = authState,
+                        onLogin = { u, p -> authViewModel.login(u, p) },
+                        onRegister = { u, p -> authViewModel.register(u, p) },
+                        onLoginWithSocial = { provider -> authViewModel.loginWithSocial(provider) },
+                        onRequestPasswordRecovery = { email -> authViewModel.requestPasswordRecovery(email) },
+                        onConfirmPasswordRecovery = { token, newPassword, onSuccess ->
+                            authViewModel.confirmPasswordRecovery(token, newPassword, onSuccess)
+                        },
+                        onClearError = { authViewModel.clearError() },
+                        onServerUrlChange = { authViewModel.updateServerUrl(it) },
+                        currentServerUrl = authViewModel.currentServerUrl,
+                        showServerSettingsEnabled = BuildConfig.SHOW_SERVER_SETTINGS,
+                    )
+                }
                 else -> {
                     val dashboardViewModel = koinInject<DashboardViewModel>()
                     val monthViewModel = koinInject<MonthViewModel>()
@@ -87,6 +95,10 @@ fun App() {
                         onThemeModeChange = { mode ->
                             tokenStorage.themeMode = mode
                             themeMode = mode
+                            analyticsTracker.logEvent(
+                                AnalyticsEvents.THEME_CHANGED,
+                                mapOf(AnalyticsEvents.Params.THEME to mode),
+                            )
                         },
                         currentUiScale = uiScalePref,
                         onUiScaleChange = { pref ->

@@ -12,6 +12,9 @@ import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
+import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.repository.SAVINGS_EXPENSE_CATEGORY_NAME
 import ru.homebudget.finkeeper.data.repository.budget.BudgetRepository
@@ -133,6 +136,7 @@ class MonthViewModel(
     private val syncManager: SyncManager,
     private val savingsTransactionRepository: SavingsTransactionRepository,
     private val serverLinkState: ServerLinkState,
+    private val analyticsTracker: AnalyticsTracker = NoOpAnalyticsTracker,
 ) : ViewModel() {
     private val currentUserId: Long get() = tokenStorage.userId
     private val _state = MutableStateFlow(MonthViewState())
@@ -443,6 +447,7 @@ class MonthViewModel(
                     amount = amount,
                     date = currentIsoDate(),
                 ).getOrThrow()
+                analyticsTracker.logEvent(AnalyticsEvents.INCOME_ADDED)
                 println("[MONTH-VM] addIncome: createIncome completed")
 
                 loadData(syncFromServer = false, showLoader = false)
@@ -470,6 +475,7 @@ class MonthViewModel(
             amount = amount,
             date = currentIsoDate(),
         ).getOrThrow()
+        analyticsTracker.logEvent(AnalyticsEvents.INCOME_ADDED)
         loadData(syncFromServer = false, showLoader = false)
     }
 
@@ -552,6 +558,7 @@ class MonthViewModel(
                     description = comment,
                     date = currentIsoDate(),
                 ).getOrThrow()
+                analyticsTracker.logEvent(AnalyticsEvents.EXPENSE_ADDED)
                 println("[MONTH-VM] addExpense: createExpense completed")
 
                 loadData(syncFromServer = false, showLoader = false)
@@ -573,6 +580,7 @@ class MonthViewModel(
                     id = id.toLong(),
                     amount = amount,
                 ).getOrThrow()
+                analyticsTracker.logEvent(AnalyticsEvents.INCOME_UPDATED)
 
                 loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
@@ -596,6 +604,7 @@ class MonthViewModel(
                     description = description,
                     updateDescription = true,
                 ).getOrThrow()
+                analyticsTracker.logEvent(AnalyticsEvents.EXPENSE_UPDATED)
 
                 loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
@@ -610,6 +619,7 @@ class MonthViewModel(
             try {
                 // Удаляем локально через репозиторий
                 incomeRepository.deleteIncome(id.toLong()).getOrThrow()
+                analyticsTracker.logEvent(AnalyticsEvents.INCOME_DELETED)
 
                 loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
@@ -624,6 +634,7 @@ class MonthViewModel(
             try {
                 // Удаляем локально через репозиторий
                 expenseRepository.deleteExpense(id.toLong()).getOrThrow()
+                analyticsTracker.logEvent(AnalyticsEvents.EXPENSE_DELETED)
 
                 loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
@@ -646,6 +657,7 @@ class MonthViewModel(
                     categoryId = categoryId.toLong(),
                     limitAmount = limit,
                 ).getOrThrow()
+                analyticsTracker.logEvent(AnalyticsEvents.BUDGET_SET)
 
                 loadData(syncFromServer = false, showLoader = false)
             } catch (e: Exception) {
@@ -724,6 +736,10 @@ class MonthViewModel(
                 amountCents = amount?.let { (it * 100).toLong() },
             )
             if (result.isSuccess) {
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.PLANNED_CONFIRMED,
+                    mapOf(AnalyticsEvents.Params.TYPE to item.templateType),
+                )
                 loadData(syncFromServer = true, showLoader = false)
             } else {
                 val error = (result as? ru.homebudget.finkeeper.data.repository.Result.Error)?.exception
@@ -738,7 +754,17 @@ class MonthViewModel(
     fun skipPlanned(item: PlannedUiItem, skipped: Boolean) {
         val md = _state.value.monthData ?: return
         runPlannedAction {
-            plannedRepository.setSkipped(md.localId, item.templateType, item.templateId, skipped)
+            plannedRepository.setSkipped(md.localId, item.templateType, item.templateId, skipped).also {
+                if (it.isSuccess) {
+                    analyticsTracker.logEvent(
+                        AnalyticsEvents.PLANNED_SKIPPED,
+                        mapOf(
+                            AnalyticsEvents.Params.TYPE to item.templateType,
+                            AnalyticsEvents.Params.SKIPPED to skipped,
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -752,7 +778,14 @@ class MonthViewModel(
                 templateId = item.templateId,
                 amountCents = if (amount == item.originalAmount) null else (amount * 100).toLong(),
                 day = day,
-            )
+            ).also {
+                if (it.isSuccess) {
+                    analyticsTracker.logEvent(
+                        AnalyticsEvents.PLANNED_OVERRIDDEN,
+                        mapOf(AnalyticsEvents.Params.TYPE to item.templateType),
+                    )
+                }
+            }
         }
     }
 
@@ -760,7 +793,14 @@ class MonthViewModel(
     fun resetPlanned(item: PlannedUiItem) {
         val md = _state.value.monthData ?: return
         runPlannedAction {
-            plannedRepository.resetOverride(md.localId, item.templateType, item.templateId)
+            plannedRepository.resetOverride(md.localId, item.templateType, item.templateId).also {
+                if (it.isSuccess) {
+                    analyticsTracker.logEvent(
+                        AnalyticsEvents.PLANNED_RESET,
+                        mapOf(AnalyticsEvents.Params.TYPE to item.templateType),
+                    )
+                }
+            }
         }
     }
 

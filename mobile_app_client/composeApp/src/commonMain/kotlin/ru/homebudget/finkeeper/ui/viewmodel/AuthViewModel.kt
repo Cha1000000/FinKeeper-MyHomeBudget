@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
+import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
+import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.model.AuthData
 import ru.homebudget.finkeeper.data.model.DebugTokenPreview
 import ru.homebudget.finkeeper.data.model.SocialProvider
@@ -37,6 +40,7 @@ class AuthViewModel(
     private val apiClient: ApiClient,
     private val tokenStorage: TokenStorage,
     private val socialAuthLauncher: SocialAuthLauncher,
+    private val analyticsTracker: AnalyticsTracker = NoOpAnalyticsTracker,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AuthState())
     val state: StateFlow<AuthState> = _state.asStateFlow()
@@ -66,6 +70,7 @@ class AuthViewModel(
         tokenStorage.userId = authData.user.id.toLong()
         tokenStorage.username = authData.user.username
         tokenStorage.email = authData.user.email
+        analyticsTracker.setUserId(authData.user.id.toLong())
     }
 
     private fun observeAuthEvents() {
@@ -97,6 +102,7 @@ class AuthViewModel(
         // а сессию проверяем в фоне. Иначе на «зависшей» сети Splash ждёт getMe по 30+ секунд.
         val hasLocalUser = tokenStorage.userId > 0L
         if (hasLocalUser) {
+            analyticsTracker.setUserId(tokenStorage.userId)
             _state.value = _state.value.copy(user = cachedUser(), isLoading = false, isAuthenticated = true, error = null)
         }
         viewModelScope.launch {
@@ -223,6 +229,11 @@ class AuthViewModel(
                         throw ApiException(400, Strings.SOCIAL_LOGIN_TIMEOUT)
                     }
                     val authData = apiClient.exchangeSocialAuthCode(code)
+                    analyticsTracker.setUserId(authData.user.id.toLong())
+                    analyticsTracker.logEvent(
+                        AnalyticsEvents.AUTH_SOCIAL_SUCCESS,
+                        mapOf(AnalyticsEvents.Params.PROVIDER to provider),
+                    )
                     _state.value =
                         _state.value.copy(
                             user = authData.user,
@@ -287,6 +298,7 @@ class AuthViewModel(
                         apiClient.login(trimmedUsername, password)
                     }
                 persistAuthData(authData)
+                analyticsTracker.logEvent(AnalyticsEvents.AUTH_LOGIN_SUCCESS)
                 _state.value =
                     _state.value.copy(
                         user = authData.user,
@@ -298,12 +310,21 @@ class AuthViewModel(
                         socialLoginProvider = null,
                     )
             } catch (e: ApiException) {
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.AUTH_LOGIN_FAILED,
+                    mapOf(AnalyticsEvents.Params.REASON to "http_${e.statusCode}"),
+                )
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
                         error = if (e.statusCode == 401) Strings.INVALID_USERNAME_OR_PASSWORD else e.message,
                     )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.AUTH_LOGIN_FAILED,
+                    mapOf(AnalyticsEvents.Params.REASON to "network"),
+                )
+                analyticsTracker.logError(e, "auth_login")
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
@@ -341,6 +362,7 @@ class AuthViewModel(
                         apiClient.register(trimmedUsername, password)
                     }
                 persistAuthData(authData)
+                analyticsTracker.logEvent(AnalyticsEvents.AUTH_REGISTER_SUCCESS)
                 _state.value =
                     _state.value.copy(
                         user = authData.user,
@@ -352,12 +374,21 @@ class AuthViewModel(
                         socialLoginProvider = null,
                     )
             } catch (e: ApiException) {
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.AUTH_REGISTER_FAILED,
+                    mapOf(AnalyticsEvents.Params.REASON to "http_${e.statusCode}"),
+                )
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
                         error = if (e.statusCode == 401) Strings.INVALID_USERNAME_OR_PASSWORD else e.message,
                     )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.AUTH_REGISTER_FAILED,
+                    mapOf(AnalyticsEvents.Params.REASON to "network"),
+                )
+                analyticsTracker.logError(e, "auth_register")
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
@@ -368,6 +399,10 @@ class AuthViewModel(
     }
 
     fun loginWithSocial(provider: String) {
+        analyticsTracker.logEvent(
+            AnalyticsEvents.AUTH_SOCIAL_START,
+            mapOf(AnalyticsEvents.Params.PROVIDER to provider),
+        )
         _state.value =
             _state.value.copy(
                 isLoading = true,
@@ -381,6 +416,13 @@ class AuthViewModel(
             try {
                 completeSocialLogin(provider)
             } catch (e: ApiException) {
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.AUTH_SOCIAL_FAILED,
+                    mapOf(
+                        AnalyticsEvents.Params.PROVIDER to provider,
+                        AnalyticsEvents.Params.REASON to "http_${e.statusCode}",
+                    ),
+                )
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
@@ -388,7 +430,15 @@ class AuthViewModel(
                         error = e.message,
                         infoMessage = null,
                     )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                analyticsTracker.logEvent(
+                    AnalyticsEvents.AUTH_SOCIAL_FAILED,
+                    mapOf(
+                        AnalyticsEvents.Params.PROVIDER to provider,
+                        AnalyticsEvents.Params.REASON to "network",
+                    ),
+                )
+                analyticsTracker.logError(e, "auth_social_$provider")
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
@@ -426,6 +476,7 @@ class AuthViewModel(
                     withRetry(config = RetryConfig(maxAttempts = 3)) {
                         apiClient.requestPasswordRecovery(normalizedEmail)
                     }
+                analyticsTracker.logEvent(AnalyticsEvents.AUTH_PASSWORD_RECOVERY_REQUESTED)
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
@@ -490,6 +541,7 @@ class AuthViewModel(
                 withRetry(config = RetryConfig(maxAttempts = 3)) {
                     apiClient.confirmPasswordRecovery(normalizedToken, newPassword)
                 }
+                analyticsTracker.logEvent(AnalyticsEvents.AUTH_PASSWORD_RECOVERY_CONFIRMED)
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
@@ -522,6 +574,8 @@ class AuthViewModel(
                 apiClient.logout()
             } catch (_: Exception) {
             } finally {
+                analyticsTracker.logEvent(AnalyticsEvents.AUTH_LOGOUT)
+                analyticsTracker.setUserId(null)
                 tokenStorage.clear()
                 updateLoggedOutState()
             }
