@@ -1,6 +1,7 @@
 package ru.homebudget.finkeeper.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,14 +9,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,7 +61,7 @@ fun PlannedSectionCard(
 
     // На мобильном длинный план по умолчанию свёрнут, на desktop всегда раскрыт
     var expanded by rememberSaveable(title) { mutableStateOf(isDesktop || items.size <= 3) }
-    val semantic = AppTheme.semanticColors
+    val chevronRotation by animateFloatAsState(if (expanded) 0f else -90f)
 
     GlassyCard(
         modifier = modifier.fillMaxWidth(),
@@ -78,10 +79,16 @@ fun PlannedSectionCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (expanded) "▾" else "▸", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.sizeIn(minWidth = 8.dp))
+                    IconExpandChevron(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        size = 16.dp,
+                        modifier = Modifier.rotate(chevronRotation),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconScheduleGlass(size = 18.dp)
+                    Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "🕐 $title",
+                        text = title,
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -193,7 +200,10 @@ private fun PlannedItemRow(
             }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
-                    Text("⋯", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    IconMoreDots(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        size = 18.dp,
+                    )
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(

@@ -12,6 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,10 +21,8 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -34,7 +34,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.verticalScroll
@@ -42,7 +41,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -58,17 +56,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.Icon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
@@ -79,14 +70,25 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.ui.components.AmountInputWithExpression
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.DesktopAddButton
+import ru.homebudget.finkeeper.ui.components.FloatingAddButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.EmptyState
-import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.ui.components.IconCheckMark
+import ru.homebudget.finkeeper.ui.components.IconChevronLeft
+import ru.homebudget.finkeeper.ui.components.IconChevronRight
+import ru.homebudget.finkeeper.ui.components.IconEditPen
+import ru.homebudget.finkeeper.ui.components.IconExpandChevron
+import ru.homebudget.finkeeper.ui.components.IconInfoGlass
+import ru.homebudget.finkeeper.ui.components.IconLimitsGaugeGlass
+import ru.homebudget.finkeeper.ui.components.IconScheduleGlass
+import ru.homebudget.finkeeper.ui.components.IconTrash
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
+import ru.homebudget.finkeeper.ui.components.LocalHeaderPullToRefreshModifier
 import ru.homebudget.finkeeper.ui.components.ProgressBar
 import ru.homebudget.finkeeper.ui.components.PlannedSectionCard
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
@@ -99,7 +101,6 @@ import ru.homebudget.finkeeper.ui.viewmodel.GroupedExpense
 import ru.homebudget.finkeeper.ui.viewmodel.MonthViewState
 import ru.homebudget.finkeeper.util.evalAmount
 import ru.homebudget.finkeeper.util.formatCurrency
-import ru.homebudget.finkeeper.util.isAmountExpression
 import ru.homebudget.finkeeper.util.formatDate
 import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.util.monthName
@@ -150,21 +151,9 @@ fun MonthViewScreen(
     LaunchedEffect(Unit) { onRefresh() }
 
     val semantic = AppTheme.semanticColors
-    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val useFloatingAddButton = !isDesktop
-    val floatingActionButtonBottomPadding = if (useFloatingAddButton) 20.dp else 24.dp
-    val listBottomPadding = if (useFloatingAddButton) 104.dp else 8.dp
-    val floatingActionShape = RoundedCornerShape(percent = 50)
-    val floatingActionBlurTint =
-        if (isDarkTheme) {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.42f)
-        } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.64f)
-        }
-    val floatingActionPlateTint =
-        MaterialTheme.colorScheme.primaryContainer.copy(
-            alpha = if (isDarkTheme) 0.22f else 0.18f
-        )
+    val floatingActionButtonBottomPadding = 16.dp
+    val listBottomPadding = if (useFloatingAddButton) 88.dp else 8.dp
 
     if (state.isLoading) {
         LoadingScreen()
@@ -174,6 +163,9 @@ fun MonthViewScreen(
     Column(modifier = Modifier.fillMaxSize().then(
         if (ru.homebudget.finkeeper.util.isDesktop) Modifier.padding(top = 16.dp) else Modifier
     )) {
+        // Верхняя статичная часть экрана: свайп вниз здесь вызывает pull-to-refresh,
+        // а скролл списка расходов/доходов ниже его не триггерит.
+        Column(modifier = Modifier.fillMaxWidth().then(LocalHeaderPullToRefreshModifier.current)) {
         ScreenHeader(title = Strings.MONTH_TITLE)
 
         if (state.isOffline) {
@@ -209,7 +201,7 @@ fun MonthViewScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onPrevMonth) {
-                    Text(Strings.PREV_MONTH_ICON, style = MaterialTheme.typography.bodyLarge)
+                    IconChevronLeft(color = MaterialTheme.colorScheme.primary, size = 26.dp)
                 }
                 Text(
                     text = "${monthName(state.month)} ${state.year}",
@@ -217,7 +209,7 @@ fun MonthViewScreen(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 TextButton(onClick = onNextMonth) {
-                    Text(Strings.NEXT_MONTH_ICON, style = MaterialTheme.typography.bodyLarge)
+                    IconChevronRight(color = MaterialTheme.colorScheme.primary, size = 26.dp)
                 }
             }
         }
@@ -237,7 +229,10 @@ fun MonthViewScreen(
                 contentColor = semantic.incomeColor,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 subtitle = if (state.plannedIncomesTotal > 0) {
-                    "🕐 " + Strings.PLANNED_AWAITING_INCOME.replace("%s", formatCurrency(state.plannedIncomesTotal))
+                    Strings.PLANNED_AWAITING_INCOME.replace("%s", formatCurrency(state.plannedIncomesTotal))
+                } else null,
+                subtitleIcon = if (state.plannedIncomesTotal > 0) {
+                    { IconScheduleGlass(size = 14.dp) }
                 } else null,
             )
             SummaryCard(
@@ -247,7 +242,10 @@ fun MonthViewScreen(
                 contentColor = semantic.expenseColor,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 subtitle = if (state.plannedExpensesTotal > 0) {
-                    "🕐 " + Strings.PLANNED_BY_PLAN.replace("%s", formatCurrency(state.plannedExpensesTotal))
+                    Strings.PLANNED_BY_PLAN.replace("%s", formatCurrency(state.plannedExpensesTotal))
+                } else null,
+                subtitleIcon = if (state.plannedExpensesTotal > 0) {
+                    { IconScheduleGlass(size = 14.dp) }
                 } else null,
             )
         }
@@ -275,43 +273,32 @@ fun MonthViewScreen(
                                 accentColor = semantic.warningColor,
                             )
                         }
+                        LimitsChipButton(onClick = { showBudgetDialog = true })
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    ProgressBar(
+                        progress = if (state.totalLimit > 0) (state.totalAllExpenses / state.totalLimit).toFloat() else 0f,
+                        color = if (state.totalAllExpenses > state.totalLimit) MaterialTheme.colorScheme.error else semantic.warningColor,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Text(
                             "${formatCurrency(state.totalAllExpenses)} / ${formatCurrency(state.totalLimit)}",
                             style = MaterialTheme.typography.labelMedium,
                             color = semantic.warningColor,
                         )
+                        Text(
+                            text = "${Strings.REMAINDER} ${formatCurrency(maxOf(0.0, state.totalLimit - state.totalAllExpenses))}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = semantic.warningColor.copy(alpha = 0.85f),
+                        )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    ProgressBar(
-                        progress = if (state.totalLimit > 0) (state.totalAllExpenses / state.totalLimit).toFloat() else 0f,
-                        color = if (state.totalAllExpenses > state.totalLimit) MaterialTheme.colorScheme.error else semantic.warningColor,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${Strings.REMAINDER} ${formatCurrency(maxOf(0.0, state.totalLimit - state.totalAllExpenses))}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = semantic.warningColor.copy(alpha = 0.8f),
-                    )
                 }
             }
-        }
-
-        val budgetButtonVerticalPadding = if (state.totalLimit > 0) 2.dp else 4.dp
-        // Кнопка Лимиты
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = budgetButtonVerticalPadding).padding(end = 16.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AppButton(
-                text = Strings.BUDGET,
-                onClick = { showBudgetDialog = true },
-                containerColor = Color(0xFF0D47A1),
-                contentColor = Color.White,
-                style = GlassyButtonStyle.Glassy,
-                modifier = Modifier.height(32.dp).widthIn(min = 90.dp),
-                textStyle = MaterialTheme.typography.labelLarge
-            )
         }
 
         // Tabs
@@ -327,6 +314,7 @@ fun MonthViewScreen(
             Tab(selected = state.activeTab == 1, onClick = { onSetActiveTab(1) }) {
                 Text(Strings.INCOMES_TAB, modifier = Modifier.padding(12.dp))
             }
+        }
         }
 
         // Content
@@ -353,25 +341,26 @@ fun MonthViewScreen(
                 if (state.activeTab == 0) {
                     // Expenses tab
                     item {
-                        if (useFloatingAddButton) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Text(
                                 text = Strings.EXPENSES_BY_CATEGORIES,
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(vertical = 4.dp),
                             )
-                        } else {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    Strings.EXPENSES_BY_CATEGORIES,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                DesktopAddButton(onClick = { showAddDialog = true })
+                                if (state.totalLimit <= 0) {
+                                    LimitsChipButton(onClick = { showBudgetDialog = true })
+                                }
+                                if (!useFloatingAddButton) {
+                                    DesktopAddButton(onClick = { showAddDialog = true })
+                                }
                             }
                         }
                     }
@@ -484,38 +473,12 @@ fun MonthViewScreen(
             }
 
             if (useFloatingAddButton) {
-                Box(
+                FloatingAddButton(
+                    onClick = { showAddDialog = true },
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = floatingActionButtonBottomPadding)
-                        .height(56.dp)
-                        .sizeIn(minWidth = 116.dp, maxWidth = 122.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                            .blur(26.dp)
-                            .clip(floatingActionShape)
-                            .background(floatingActionBlurTint),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 2.dp, vertical = 1.dp)
-                            .clip(floatingActionShape)
-                            .background(floatingActionPlateTint),
-                    )
-                    AppButton(
-                        text = Strings.ADD,
-                        onClick = { showAddDialog = true },
-                        modifier = Modifier.fillMaxSize(),
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = GlassyButtonStyle.Glassy,
-                        textStyle = MaterialTheme.typography.titleMedium,
-                    )
-                }
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = floatingActionButtonBottomPadding),
+                )
             }
         }
     }
@@ -721,10 +684,10 @@ private fun ExpenseGroupCard(
                         style = MaterialTheme.typography.titleMedium,
                         color = if (group.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                     )
-                    Text(
-                        text = Strings.EXPAND_ICON,
-                        modifier = Modifier.padding(start = 8.dp).rotate(chevronRotation),
+                    IconExpandChevron(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        size = 18.dp,
+                        modifier = Modifier.padding(start = 8.dp).rotate(chevronRotation),
                     )
                 }
 
@@ -796,20 +759,29 @@ private fun ExpenseGroupCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             if (isAutoApplied) {
-                                Text(
-                                    text = Strings.AUTO_APPLIED_LABEL,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    IconScheduleGlass(size = 12.dp)
+                                    Text(
+                                        text = Strings.AUTO_APPLIED_LABEL,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
                             }
                         }
-                        // Лёгкие кнопки-иконки вместо Material TextButton — дешевле компоновка/измерение.
                         // У записи, отмеченной автоматически, строки в БД ещё нет — вместо правки пояснение
-                        RowGlyphButton(glyph = Strings.EDIT_ICON, tint = MaterialTheme.colorScheme.primary) {
+                        RowActionIconButton(onClick = {
                             if (isAutoApplied) onAutoAppliedClick() else onEditExpense(expense.id, expense.amount, expense.comment)
+                        }) {
+                            IconEditPen(color = MaterialTheme.colorScheme.primary, size = 18.dp)
                         }
-                        RowGlyphButton(glyph = Strings.DELETE_ICON, tint = MaterialTheme.colorScheme.error) {
+                        RowActionIconButton(onClick = {
                             if (isAutoApplied) onAutoAppliedClick() else onDeleteExpense(expense.id)
+                        }) {
+                            IconTrash(color = MaterialTheme.colorScheme.error, size = 18.dp)
                         }
                     }
                     if (expense != group.items.last()) {
@@ -821,21 +793,46 @@ private fun ExpenseGroupCard(
     }
 }
 
-/** Лёгкая «кнопка-иконка» из глифа: без оверхеда Material TextButton (ripple/min-target/colors). */
+/** Лёгкая кнопка-иконка без лишнего отступа TextButton. */
 @Composable
-private fun RowGlyphButton(
-    glyph: String,
-    tint: Color,
+private fun RowActionIconButton(
     onClick: () -> Unit,
+    icon: @Composable () -> Unit,
 ) {
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(38.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = glyph, style = MaterialTheme.typography.bodyLarge, color = tint)
+        icon()
+    }
+}
+
+/** Компактный тематический чип «Лимиты» со стеклянной иконкой шкалы. */
+@Composable
+private fun LimitsChipButton(
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(percent = 50),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            IconLimitsGaugeGlass(color = MaterialTheme.colorScheme.onPrimaryContainer, size = 15.dp)
+            Text(
+                text = Strings.BUDGET,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
     }
 }
 
@@ -873,11 +870,17 @@ private fun IncomeItemCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (isAutoApplied) {
-                    Text(
-                        text = Strings.AUTO_APPLIED_LABEL,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        IconScheduleGlass(size = 12.dp)
+                        Text(
+                            text = Strings.AUTO_APPLIED_LABEL,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
             Text(
@@ -885,28 +888,19 @@ private fun IncomeItemCard(
                 style = MaterialTheme.typography.titleMedium,
                 color = AppTheme.semanticColors.incomeColor,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                TextButton(
-                    onClick = onEdit,
-                    modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                ) {
-                    Text(Strings.EDIT_ICON, style = MaterialTheme.typography.bodyLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                RowActionIconButton(onClick = onEdit) {
+                    IconEditPen(color = MaterialTheme.colorScheme.primary, size = 18.dp)
                 }
-                TextButton(
-                    onClick = onDelete,
-                    modifier = Modifier.defaultMinSize(minWidth = 36.dp, minHeight = 36.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge)
+                RowActionIconButton(onClick = onDelete) {
+                    IconTrash(color = MaterialTheme.colorScheme.error, size = 18.dp)
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddEntryDialog(
     isExpense: Boolean,
@@ -947,81 +941,64 @@ private fun AddEntryDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                AmountInputWithExpression(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    parsed = parsedAmount,
+                    onSubmit = submit,
+                    autoFocus = true,
+                )
+
                 if (isExpense) {
-                    Text(Strings.CATEGORY, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                    Text(
+                        text = Strings.CATEGORY,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        LazyColumn(modifier = Modifier.padding(4.dp)) {
-                            items(categories, key = { it.id }) { cat ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { selectedCategoryId = cat.id }
-                                        .padding(vertical = 4.dp, horizontal = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    RadioButton(
-                                        selected = selectedCategoryId == cat.id,
-                                        onClick = { selectedCategoryId = cat.id },
-                                    )
-                                    Text(cat.name, modifier = Modifier.padding(start = 8.dp))
-                                }
-                            }
+                        categories.forEach { cat ->
+                            SelectableChoiceChip(
+                                label = cat.name,
+                                selected = selectedCategoryId == cat.id,
+                                onClick = { selectedCategoryId = cat.id },
+                            )
                         }
                     }
+                    AppTextField(
+                        value = comment,
+                        onValueChange = { comment = it },
+                        label = Strings.COMMENT_OPTIONAL,
+                    )
                 } else {
-                    Text(Strings.SOURCE, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                    Text(
+                        text = Strings.SOURCE,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        LazyColumn(modifier = Modifier.padding(4.dp)) {
-                            items(incomeSources, key = { it.id }) { src ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedSource = src.name
-                                            useCustomSource = false
-                                        }.padding(vertical = 4.dp, horizontal = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    RadioButton(
-                                        selected = !useCustomSource && selectedSource == src.name,
-                                        onClick = {
-                                            selectedSource = src.name
-                                            useCustomSource = false
-                                        },
-                                    )
-                                    Text(src.name, modifier = Modifier.padding(start = 8.dp))
-                                }
-                            }
-                            item {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { useCustomSource = true }
-                                        .padding(vertical = 4.dp, horizontal = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    RadioButton(
-                                        selected = useCustomSource,
-                                        onClick = { useCustomSource = true },
-                                    )
-                                    Text("${Strings.OTHER}:", modifier = Modifier.padding(start = 8.dp))
-                                }
-                            }
+                        incomeSources.forEach { src ->
+                            SelectableChoiceChip(
+                                label = src.name,
+                                selected = !useCustomSource && selectedSource == src.name,
+                                onClick = {
+                                    selectedSource = src.name
+                                    useCustomSource = false
+                                },
+                            )
                         }
+                        SelectableChoiceChip(
+                            label = Strings.OTHER,
+                            selected = useCustomSource,
+                            onClick = { useCustomSource = true },
+                        )
                     }
                     if (useCustomSource) {
                         AppTextField(
@@ -1030,21 +1007,6 @@ private fun AddEntryDialog(
                             label = Strings.NEW_SOURCE,
                         )
                     }
-                }
-
-                AmountInputWithExpression(
-                    amount = amount,
-                    onAmountChange = { amount = it },
-                    parsed = parsedAmount,
-                    onSubmit = submit,
-                )
-
-                if (isExpense) {
-                    AppTextField(
-                        value = comment,
-                        onValueChange = { comment = it },
-                        label = Strings.COMMENT_OPTIONAL,
-                    )
                 }
             }
         },
@@ -1062,140 +1024,49 @@ private fun AddEntryDialog(
     )
 }
 
-/**
- * Поле ввода суммы с поддержкой арифметических выражений (Excel-стиль):
- * на мобиле — ряд операторов НАД полем (клавиатура не перекрывает), под полем — live-превью.
- * На десктопе ряд операторов не нужен (есть физическая клавиатура), остаётся только превью под полем.
- * Внутренний отступ 6dp (вдвое меньше межблочного 12dp).
- */
 @Composable
-private fun AmountInputWithExpression(
-    amount: String,
-    onAmountChange: (String) -> Unit,
-    parsed: Double?,
-    onSubmit: () -> Unit,
-) {
-    // Поле работает на TextFieldValue, чтобы управлять позицией курсора: при вставке
-    // оператора кнопкой он добавляется в позицию курсора, а курсор сдвигается за него.
-    var fieldValue by remember { mutableStateOf(TextFieldValue(amount, TextRange(amount.length))) }
-    // Синхронизация при внешнем изменении amount (например, программный сброс формы).
-    if (fieldValue.text != amount) {
-        fieldValue = TextFieldValue(amount, TextRange(amount.length))
-    }
-
-    fun applyText(newText: String, cursor: Int) {
-        fieldValue = TextFieldValue(newText, TextRange(cursor))
-        onAmountChange(newText)
-    }
-
-    fun insert(op: String) {
-        val sel = fieldValue.selection
-        val text = fieldValue.text
-        val newText = text.substring(0, sel.start) + op + text.substring(sel.end)
-        applyText(newText, sel.start + op.length)
-    }
-
-    fun backspace() {
-        val sel = fieldValue.selection
-        val text = fieldValue.text
-        when {
-            sel.start != sel.end -> applyText(text.substring(0, sel.start) + text.substring(sel.end), sel.start)
-            sel.start > 0 -> applyText(text.substring(0, sel.start - 1) + text.substring(sel.start), sel.start - 1)
-        }
-    }
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        if (!isDesktop) {
-            AmountOperatorRow(
-                onInsert = { insert(it) },
-                onBackspace = { backspace() },
-            )
-        }
-        AppTextField(
-            value = fieldValue,
-            onValueChange = {
-                fieldValue = it
-                onAmountChange(it.text)
-            },
-            label = Strings.AMOUNT,
-            keyboardType = KeyboardType.Decimal,
-            imeAction = ImeAction.Done,
-            onImeAction = onSubmit,
-        )
-        AmountExpressionPreview(amount = amount, parsed = parsed)
-    }
-}
-
-/**
- * Ряд кнопок-операторов для ввода выражений на мобильной клавиатуре (нет +, −, ×, ÷ на Decimal).
- */
-@Composable
-private fun AmountOperatorRow(
-    onInsert: (String) -> Unit,
-    onBackspace: () -> Unit,
-) {
-    val operators = listOf(
-        "+" to "+",
-        "−" to "-",
-        "×" to "*",
-        "÷" to "/",
-        "(" to "(",
-        ")" to ")",
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        operators.forEach { (label, value) ->
-            OperatorChip(label = label, modifier = Modifier.weight(1f)) { onInsert(value) }
-        }
-        OperatorChip(label = "⌫", modifier = Modifier.weight(1f), onClick = onBackspace)
-    }
-}
-
-/**
- * Live-превью вычисленного результата выражения (Excel-стиль). Показывается, только если
- * ввод похож на выражение.
- */
-@Composable
-private fun AmountExpressionPreview(
-    amount: String,
-    parsed: Double?,
-) {
-    if (!isAmountExpression(amount)) return
-
-    if (parsed != null && parsed > 0) {
-        Text(
-            text = "= ${formatCurrency(parsed)}",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    } else {
-        Text(
-            text = Strings.AMOUNT_EXPRESSION_INVALID,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.error,
-        )
-    }
-}
-
-@Composable
-private fun OperatorChip(
+private fun SelectableChoiceChip(
     label: String,
-    modifier: Modifier = Modifier,
+    selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val bgColor = if (selected) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+    }
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    }
+    val contentColor = if (selected) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
     Surface(
-        modifier = modifier.height(40.dp).clickable { onClick() },
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+        onClick = onClick,
+        shape = RoundedCornerShape(percent = 50),
+        color = bgColor,
+        border = BorderStroke(1.dp, borderColor),
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(label, style = MaterialTheme.typography.titleMedium)
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            if (selected) {
+                IconCheckMark(color = MaterialTheme.colorScheme.primary, size = 14.dp)
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -1220,11 +1091,9 @@ private fun LimitInfoButton(
                 .clickable { showInfo = !showInfo },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Info,
-                contentDescription = Strings.LIMIT_INFO_TITLE,
-                tint = accentColor.copy(alpha = 0.7f),
-                modifier = Modifier.size(18.dp),
+            IconInfoGlass(
+                color = accentColor.copy(alpha = 0.85f),
+                size = 18.dp,
             )
         }
         if (showInfo) {
@@ -1255,11 +1124,9 @@ private fun LimitInfoContent(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(18.dp),
+                IconInfoGlass(
+                    color = accentColor,
+                    size = 18.dp,
                 )
                 Spacer(modifier = Modifier.size(6.dp))
                 Text(Strings.LIMIT_INFO_TITLE, style = MaterialTheme.typography.titleSmall, color = accentColor)
@@ -1342,8 +1209,8 @@ private fun BudgetDialog(
         title = { Text(Strings.BUDGET_SETTINGS) },
         text = {
             val semantic = AppTheme.semanticColors
-            // Сумма всех введённых лимитов — обновляется на лету при вводе.
-            val totalLimit = budgetValues.values.sumOf { it.toDoubleOrNull() ?: 0.0 }
+            // Сумма всех введённых лимитов (поддерживает выражения вроде 10000+2500) — обновляется на лету.
+            val totalLimit = budgetValues.values.sumOf { (evalAmount(it) ?: 0.0).coerceAtLeast(0.0) }
             Column(
                 modifier = if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier,
             ) {
@@ -1393,7 +1260,7 @@ private fun BudgetDialog(
         confirmButton = {
             TextButton(onClick = {
                 budgetValues.forEach { (catId, value) ->
-                    val limit = value.toDoubleOrNull() ?: 0.0
+                    val limit = (evalAmount(value) ?: 0.0).coerceAtLeast(0.0)
                     onSetBudget(catId, limit)
                 }
                 onDismiss()
@@ -1436,6 +1303,7 @@ private fun AddExpenseForCategoryDialog(
                     onAmountChange = { amount = it },
                     parsed = parsedAmount,
                     onSubmit = submit,
+                    autoFocus = true,
                 )
                 AppTextField(
                     value = comment,
@@ -1468,6 +1336,13 @@ private fun EditEntryDialog(
 ) {
     var amount by remember { mutableStateOf(currentAmount.toLong().toString()) }
     var comment by remember { mutableStateOf(currentComment ?: "") }
+    val parsedAmount = evalAmount(amount)
+    val submit: () -> Unit = {
+        val amountVal = parsedAmount
+        if (amountVal != null && amountVal > 0) {
+            onSave(amountVal, if (isIncome) null else comment.ifBlank { null })
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1477,11 +1352,12 @@ private fun EditEntryDialog(
                 modifier = Modifier.then(if (isDesktop) Modifier.padding(vertical = 32.dp) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                AppTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = Strings.AMOUNT,
-                    keyboardType = KeyboardType.Decimal,
+                AmountInputWithExpression(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    parsed = parsedAmount,
+                    onSubmit = submit,
+                    autoFocus = true,
                 )
                 // Комментарий — только у расходов (у доходов на сервере его негде хранить)
                 if (!isIncome) {
@@ -1495,11 +1371,8 @@ private fun EditEntryDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    val amountVal = evalAmount(amount) ?: return@TextButton
-                    onSave(amountVal, if (isIncome) null else comment.ifBlank { null })
-                },
-                enabled = evalAmount(amount)?.let { it > 0 } == true,
+                onClick = submit,
+                enabled = parsedAmount != null && parsedAmount > 0,
             ) {
                 Text(Strings.SAVE)
             }
@@ -1527,6 +1400,13 @@ private fun ConfirmPlannedDialog(
 ) {
     val isIncome = item.templateType == "income_source"
     var amount by remember { mutableStateOf(item.amount.toLong().toString()) }
+    val parsedAmount = evalAmount(amount)
+    val submit: () -> Unit = {
+        val amountVal = parsedAmount
+        if (amountVal != null && amountVal > 0) {
+            onConfirm(if (amountVal == item.amount) null else amountVal)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1541,21 +1421,19 @@ private fun ConfirmPlannedDialog(
                         .replace("%s", item.name),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                AppTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = Strings.AMOUNT,
-                    keyboardType = KeyboardType.Decimal,
+                AmountInputWithExpression(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    parsed = parsedAmount,
+                    onSubmit = submit,
+                    autoFocus = true,
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    val amountVal = evalAmount(amount) ?: return@TextButton
-                    onConfirm(if (amountVal == item.amount) null else amountVal)
-                },
-                enabled = (evalAmount(amount) ?: 0.0) > 0,
+                onClick = submit,
+                enabled = (parsedAmount ?: 0.0) > 0,
             ) {
                 Text(if (isIncome) Strings.PLANNED_RECEIVE_BUTTON else Strings.PLANNED_PAY_BUTTON)
             }
@@ -1574,6 +1452,14 @@ private fun OverridePlannedDialog(
 ) {
     var amount by remember { mutableStateOf(item.amount.toLong().toString()) }
     var day by remember { mutableStateOf(item.dueDay.toString()) }
+    val parsedAmount = evalAmount(amount)
+    val submit: () -> Unit = {
+        val amountVal = parsedAmount
+        val dayVal = day.toIntOrNull()
+        if (amountVal != null && amountVal > 0 && dayVal != null && dayVal in 1..31) {
+            onSave(amountVal, dayVal)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1588,11 +1474,12 @@ private fun OverridePlannedDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                AppTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
+                AmountInputWithExpression(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    parsed = parsedAmount,
+                    onSubmit = submit,
                     label = Strings.AMOUNT + " (" + Strings.PLANNED_OVERRIDE_ORIGINAL.replace("%s", formatCurrency(item.originalAmount)) + ")",
-                    keyboardType = KeyboardType.Decimal,
                 )
                 AppTextField(
                     value = day,
@@ -1604,12 +1491,8 @@ private fun OverridePlannedDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    val amountVal = evalAmount(amount) ?: return@TextButton
-                    val dayVal = day.toIntOrNull() ?: return@TextButton
-                    onSave(amountVal, dayVal)
-                },
-                enabled = (evalAmount(amount) ?: 0.0) > 0 && (day.toIntOrNull() ?: 0) in 1..31,
+                onClick = submit,
+                enabled = (parsedAmount ?: 0.0) > 0 && (day.toIntOrNull() ?: 0) in 1..31,
             ) {
                 Text(Strings.SAVE)
             }

@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 
@@ -42,12 +43,16 @@ fun GlassyCard(
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     
-    // Градиент фона: радиальный градиент из левого верхнего угла
+    // Градиент фона: лёгкий блик в левом верхнем углу поверх плотной тонированной основы,
+    // чтобы даже на акцентных плашках (Всего активов / накоплений) текст слева не терял контраст.
+    val topLeftGlow = highlightColor
+        .copy(alpha = if (isDark) 0.14f else 0.18f)
+        .compositeOver(baseColor.copy(alpha = if (isDark) 0.78f else 0.88f))
     val bgBrush = Brush.radialGradient(
         colors = listOf(
-            highlightColor.copy(alpha = if (isDark) 0.1f else 0.15f),
-            baseColor.copy(alpha = if (isDark) 0.7f else 0.8f),
-            baseColor.copy(alpha = if (isDark) 0.85f else 0.95f)
+            topLeftGlow,
+            baseColor.copy(alpha = if (isDark) 0.75f else 0.88f),
+            baseColor.copy(alpha = if (isDark) 0.88f else 0.96f)
         ),
         center = Offset(0f, 0f),
         radius = 800f
@@ -129,23 +134,37 @@ fun GlassyButton(
             ButtonContent(text, isLoading, textColor, icon, textStyle)
         }
     } else {
-        // Улучшенный Glassmorphism для Glassy стиля
-        val bgAlpha = if (isDark) 0.15f else 0.35f
-        val borderAlpha = if (isDark) 0.4f else 0.5f
-        
+        // Улучшенный Glassmorphism для Glassy стиля.
+        // В светлой теме при светлом (белом) тексте делаем подложку плотнее,
+        // чтобы сохранялся эффект глянцевого стекла и контраст >= 4.5:1.
+        val needsHighContrastLightFill = !isDark && textColor.luminance() > 0.7f
+        val baseAlpha = when {
+            isDark -> 0.15f
+            needsHighContrastLightFill -> 0.80f
+            else -> 0.42f
+        }
+        val effectiveAlpha = if (enabled) baseAlpha else baseAlpha * 0.45f
+        val borderAlpha = when {
+            isDark -> 0.4f
+            needsHighContrastLightFill -> 0.65f
+            else -> 0.5f
+        }
+
         val bgBrush = Brush.verticalGradient(
             colors = listOf(
-                color.copy(alpha = bgAlpha + 0.1f),
-                color.copy(alpha = bgAlpha)
+                color.copy(alpha = (effectiveAlpha + 0.12f).coerceAtMost(0.96f)),
+                color.copy(alpha = effectiveAlpha),
             )
         )
-        
+
         val borderBrush = Brush.verticalGradient(
             colors = listOf(
                 Color.White.copy(alpha = borderAlpha),
-                color.copy(alpha = 0.15f)
+                color.copy(alpha = if (needsHighContrastLightFill) 0.35f else 0.15f),
             )
         )
+
+        val effectiveTextColor = if (enabled) textColor else textColor.copy(alpha = 0.55f)
 
         Box(
             modifier = modifier
@@ -153,7 +172,10 @@ fun GlassyButton(
                     // Эффект внутреннего свечения (блеска)
                     drawRoundRect(
                         brush = Brush.verticalGradient(
-                            colors = listOf(Color.White.copy(alpha = 0.1f), Color.Transparent)
+                            colors = listOf(
+                                Color.White.copy(alpha = if (needsHighContrastLightFill) 0.22f else 0.1f),
+                                Color.Transparent,
+                            )
                         ),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2),
                         style = Stroke(width = 2f)
@@ -165,7 +187,7 @@ fun GlassyButton(
                 .clickable(enabled = enabled && !isLoading, onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
-            ButtonContent(text, isLoading, textColor, icon, textStyle)
+            ButtonContent(text, isLoading, effectiveTextColor, icon, textStyle)
         }
     }
 }

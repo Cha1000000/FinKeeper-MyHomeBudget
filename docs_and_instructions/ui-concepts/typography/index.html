@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinKeeper24 — Сравнение шрифтов и типографики</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050806;
+      --surface: rgba(15, 20, 17, 0.92);
+      --surface-2: rgba(26, 33, 29, 0.72);
+      --border: rgba(0, 230, 118, 0.22);
+      --text: #E0E6E2;
+      --muted: #8DA396;
+      --primary: #00E676;
+      --income-bg: rgba(10, 31, 20, 0.92);
+      --income: #00E676;
+      --expense-bg: rgba(44, 16, 20, 0.92);
+      --expense: #FF5252;
+      --warn-bg: rgba(31, 26, 8, 0.92);
+      --warn: #FFD740;
+      --nav-bg: #080C0A;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+      --font-display: 'Manrope', sans-serif;
+      --font-body: 'Manrope', sans-serif;
+      --num-feat: 'tnum' 1, 'lnum' 1;
+    }
+
+    body.light {
+      --bg: #ECFDF5;
+      --surface: rgba(255, 255, 255, 0.92);
+      --surface-2: rgba(209, 250, 229, 0.45);
+      --border: rgba(27, 144, 91, 0.22);
+      --text: #064E3B;
+      --muted: #4B7466;
+      --primary: #1B905B;
+      --income-bg: rgba(209, 250, 229, 0.8);
+      --income: #047857;
+      --expense-bg: rgba(254, 226, 226, 0.8);
+      --expense: #DC2626;
+      --warn-bg: rgba(254, 243, 199, 0.85);
+      --warn: #B45309;
+      --nav-bg: linear-gradient(90deg, #064E3B, #047857, #134E4A);
+      --shadow: 0 14px 32px rgba(6, 78, 59, 0.10);
+    }
+
+    body.no-tnum {
+      --num-feat: 'tnum' 0;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      transition: background 0.25s ease, color 0.25s ease;
+      line-height: 1.4;
+    }
+
+    .wrap {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 24px 20px 64px;
+    }
+
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      margin: 0 0 4px;
+      font-size: 24px;
+      font-family: var(--font-display);
+      letter-spacing: -0.02em;
+    }
+
+    .header p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .seg {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .seg button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .seg button.active {
+      background: var(--primary);
+      color: #042F1E;
+    }
+
+    body.light .seg button.active {
+      color: #FFFFFF;
+    }
+
+    .section-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin: 28px 0 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--primary);
+      border: 1px solid var(--border);
+    }
+
+    /* 4-column side by side */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 16px;
+    }
+
+    .phone-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+    }
+
+    .phone-card.recommended {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px var(--primary), var(--shadow);
+    }
+
+    .font-tag {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .font-tag strong {
+      font-size: 15px;
+    }
+
+    .font-tag span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .rec-chip {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(0, 230, 118, 0.16);
+      color: var(--primary);
+    }
+
+    /* Font scopes */
+    .f-roboto { --fd: 'Roboto', sans-serif; --fb: 'Roboto', sans-serif; --track-h: 0em; }
+    .f-manrope { --fd: 'Manrope', sans-serif; --fb: 'Manrope', sans-serif; --track-h: -0.02em; }
+    .f-onest { --fd: 'Onest', sans-serif; --fb: 'Onest', sans-serif; --track-h: -0.015em; }
+    .f-pair { --fd: 'Manrope', sans-serif; --fb: 'Inter', sans-serif; --track-h: -0.02em; }
+
+    .scope {
+      font-family: var(--fb);
+    }
+    .scope .disp {
+      font-family: var(--fd);
+      letter-spacing: var(--track-h);
+      font-feature-settings: var(--num-feat);
+    }
+    .scope .num {
+      font-feature-settings: var(--num-feat);
+    }
+
+    .screen-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .screen-top h3 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .online {
+      font-size: 11px;
+      color: var(--income);
+      font-weight: 600;
+    }
+
+    .month-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .sum-box {
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+    .sum-box.inc { background: var(--income-bg); color: var(--income); }
+    .sum-box.exp { background: var(--expense-bg); color: var(--expense); }
+    .sum-box .lbl { font-size: 13px; font-weight: 500; opacity: 0.92; }
+    .sum-box .val { font-size: 21px; font-weight: 700; margin-top: 3px; }
+    .sum-box .sub { font-size: 11px; opacity: 0.82; margin-top: 3px; }
+
+    .limit-box {
+      padding: 11px 12px;
+      border-radius: 14px;
+      background: var(--warn-bg);
+      color: var(--warn);
+      border: 1px solid rgba(255, 215, 64, 0.25);
+    }
+    .limit-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .bar {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 215, 64, 0.2);
+      margin: 7px 0;
+      overflow: hidden;
+    }
+    .bar > i {
+      display: block;
+      width: 42%;
+      height: 100%;
+      background: var(--warn);
+      border-radius: 999px;
+    }
+    .limit-bot {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      opacity: 0.9;
+    }
+
+    .cat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .cat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+    }
+    .cat-row .name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .cat-row .meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+    .cat-row .amt {
+      font-size: 15px;
+      font-weight: 600;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .nav-mock {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      padding: 8px 6px;
+      border-radius: 14px;
+      background: var(--nav-bg);
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+    body.light .nav-mock { color: #D1FAE5; }
+    .nav-mock .act {
+      color: var(--primary);
+      font-weight: 600;
+    }
+    body.light .nav-mock .act { color: #FFFFFF; }
+
+    .tnum-demo {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
+    .tnum-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+    .tnum-card .line {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 15px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .tnum-card .line:last-child { border-bottom: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <h1>Сравнение шрифтов для FinKeeper24</h1>
+        <p>Смотрим кириллицу, знак рубля ₽, читаемость цифр в таблицах (tnum) и мелких подписей 11sp вживую</p>
+      </div>
+      <div class="controls">
+        <div class="seg">
+          <button class="active" onclick="setTheme('cyber', this)">Cyberpunk</button>
+          <button onclick="setTheme('light', this)">Светлая тема</button>
+        </div>
+        <div class="seg">
+          <button class="active" onclick="setTnum(true, this)">Табличные цифры (tnum)</button>
+          <button onclick="setTnum(false, this)">Обычные цифры</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span class="pill-badge">4 варианта рядом</span>
+      Сравнение на реальном экране «Месяц»
+    </div>
+
+    <div class="compare-grid">
+      <!-- 1. Roboto (сейчас) -->
+      <div class="phone-card scope f-roboto">
+        <div class="font-tag">
+          <div>
+            <strong>1. Roboto</strong><br>
+            <span>Стандартный Android (сейчас)</span>
+          </div>
+        </div>
+        <div class="screen-top">
+          <h3 class="disp">Месяц</h3>
+          <span class="online">● В сети</span>
+        </div>
+        <div class="month-bar disp"><span>‹</span><span>Декабрь 2026</span><span>›</span></div>
+        <div class="summary-row">
+          <div class="sum-box inc">
+            <div class="lbl">Доходы</div>
+            <div class="val disp">200 000 ₽</div>
+            <div class="sub num">ожидается: 25 000 ₽</div>
+          </div>
+          <div class="sum-box exp">
+            <div class="lbl">Расходы</div>
+            <div class="val disp">44 922 ₽</div>
+            <div class="sub num">ожидается: 5 000 ₽</div>
+          </div>
+        </div>
+        <div class="limit-box">
+          <div class="limit-top"><span>Лимит трат</span><span>Лимиты</span></div>
+          <div class="bar"><i></i></div>
+          <div class="limit-bot num"><span>44 922 ₽ / 200 070 ₽</span><span>Остаток: 155 148 ₽</span></div>
+        </div>
+        <div class="cat-list">
+          <div class="cat-row">
+            <div><div class="name">Питание</div><div class="meta num">4 218 ₽ / 30 000 ₽</div></div>
+            <div class="amt num">4 218 ₽</div>
+          </div>
+          <div class="cat-row">
+            <div><div class="name">Коммуналка и связь</div><div class="meta num">1 111 ₽ / 24 000 ₽</div></div>
+            <div class="amt num">1 111 ₽</div>
+          </div>
+          <div class="cat-row">
+            <div><div class="name">Отдых и развлечения</div><div class="meta num">8 880 ₽ / 15 000 ₽</div></div>
+            <div class="amt num">8 880 ₽</div>
+          </div>
+        </div>
+        <div class="nav-mock">
+          <span>Обзор</span><span class="act">Месяц</span><span>Категории</span><span>Копилки</span><span>Настр.</span>
+        </div>
+      </div>
+
+      <!-- 2. Manrope (Рекомендую) -->
+      <div class="phone-card recommended scope f-manrope">
+        <div class="font-tag">
+          <div>
+            <strong>2. Manrope</strong><br>
+            <span>Мягкий финтех · геометрия</span>
+          </div>
+          <span class="rec-chip">Рекомендую</span>
+        </div>
+        <div class="screen-top">
+          <h3 class="disp">Месяц</h3>
+          <span class="online">● В сети</span>
+        </div>
+        <div class="month-bar disp"><span>‹</span><span>Декабрь 2026</span><span>›</span></div>
+        <div class="summary-row">
+          <div class="sum-box inc">
+            <div class="lbl">Доходы</div>
+            <div class="val disp">200 000 ₽</div>
+            <div class="sub num">ожидается: 25 000 ₽</div>
+          </div>
+          <div class="sum-box exp">
+            <div class="lbl">Расходы</div>
+            <div class="val disp">44 922 ₽</div>
+            <div class="sub num">ожидается: 5 000 ₽</div>
+          </div>
+        </div>
+        <div class="limit-box">
+          <div class="limit-top"><span>Лимит трат</span><span>Лимиты</span></div>
+          <div class="bar"><i></i></div>
+          <div class="limit-bot num"><span>44 922 ₽ / 200 070 ₽</span><span>Остаток: 155 148 ₽</span></div>
+        </div>
+        <div class="cat-list">
+          <div class="cat-row">
+            <div><div class="name">Питание</div><div class="meta num">4 218 ₽ / 30 000 ₽</div></div>
+            <div class="amt num">4 218 ₽</div>
+          </div>
+          <div class="cat-row">
+            <div><div class="name">Коммуналка и связь</div><div class="meta num">1 111 ₽ / 24 000 ₽</div></div>
+            <div class="amt num">1 111 ₽</div>
+          </div>
+          <div class="cat-row">
+            <div><div class="name">Отдых и развлечения</div><div class="meta num">8 880 ₽ / 15 000 ₽</div></div>
+            <div class="amt num">8 880 ₽</div>
+          </div>
+        </div>
+        <div class="nav-mock">
+          <span>Обзор</span><span class="act">Месяц</span><span>Категории</span><span>Копилки</span><span>Настр.</span>
+        </div>
+      </div>
+
+      <!-- 3. Onest -->
+      <div class="phone-card scope f-onest">
+        <div class="font-tag">
+          <div>
+            <strong>3. Onest</strong><br>
+            <span>Создан для русского UI</span>
+          </div>
+        </div>
+        <div class="screen-top">
+          <h3 class="disp">Месяц</h3>
+          <span class="online">● В сети</span>
+        </div>
+        <div class="month-bar disp"><span>‹</span><span>Декабрь 2026</span><span>›</span></div>
+        <div class="summary-row">
+          <div class="sum-box inc">
+            <div class="lbl">Доходы</div>
+            <div class="val disp">200 000 ₽</div>
+            <div class="sub num">ожидается: 25 000 ₽</div>
+          </div>
+          <div class="sum-box exp">
+            <div class="lbl">Расходы</div>
+            <div class="val disp">44 922 ₽</div>
+            <div class="sub num">ожидается: 5 000 ₽</div>
+          </div>
+        </div>
+        <div class="limit-box">
+          <div class="limit-top"><span>Лимит трат</span><span>Лимиты</span></div>
+          <div class="bar"><i></i></div>
+          <div class="limit-bot num"><span>44 922 ₽ / 200 070 ₽</span><span>Остаток: 155 148 ₽</span></div>
+        </div>
+        <div class="cat-list">
+          <div class="cat-row">
+            <div><div class="name">Питание</div><div class="meta num">4 218 ₽ / 30 000 ₽</div></div>
+            <div class="amt num">4 218 ₽</div>
+          </div>
+          <div class="cat-row">
+            <div><div class="name">Коммуналка и связь</div><div class="meta num">1 111 ₽ / 24 000 ₽</div></div>
+            <div class="amt num">1 111 ₽</div>
+          </div>
+          <div class="cat-row">
+            <div><div class="name">Отдых и развлечения</div><div class="meta num">8 880 ₽ / 15 000 ₽</div></div>
+            <div class="amt num">8 880 ₽</div>
+          </div>
+        </div>
+        <div class="nav-mock">
+          <span>Обзор</span><span class="act">Месяц</span><span>Категории</span><span>Копилки</span><span>Настр.</span>
+        </div>
+      </div>
+
+      <!-- 4. Manrope + Inter -->
+      <div class="phone-card scope f-pair">
+        <div class="font-tag">
+          <div>
+            <strong>4. Manrope + Inter</strong><br>
+            <span>Заголовки/суммы + плотный UI</span>
+          </div>
+        </div>
+        <div class="screen-top">
+          <h3 class="disp">Месяц</h3>
+          <span class="online">● В сети</span>
+        </div>
+        <div class="month-bar disp"><span>‹</span><span>Декабрь 2026</span><span>›</span></div>
+        <div class="summary-row">
+          <div class="sum-box inc">
+            <div class="lbl">Доходы</div>
+            <div class="val disp">200 000 ₽</div>
+            <div class="sub num">ожидается: 25 000 ₽</div>
+          </div>
+          <div class="sum-box exp">
+            <div class="lbl">Расходы</div>
+            <div class="val disp">44 922 ₽</div>
+            <div class="sub num">ожидается: 5 000 ₽</div>
+          </div>
+        </div>
+        <div class="limit-box">
+          <div class="limit-top"><span>Лимит трат</span><span>Лимиты</span></div>
+          <div class="bar"><i></i></div>
+          <div class="limit-bot num"><span>44 922 ₽ / 200 070 ₽</span><span>Остаток: 155 148 ₽</span></div>
+        </div>
+        <div class="cat-list">
+          <div class="cat-row">
+            <div><div class="name">Питание</div><div class="meta num">4 218 ₽ / 30 000 ₽</div></div>
+            <div class="amt num">4 218 ₽</div>
+          </div>
+          <div class="cat-row">
+            <div><div class="name">Коммуналка и связь</div><div class="meta num">1 111 ₽ / 24 000 ₽</div></div>
+            <div class="amt num">1 111 ₽</div>
+          </div>
+          <div class="cat-row">
+            <div><div class="name">Отдых и развлечения</div><div class="meta num">8 880 ₽ / 15 000 ₽</div></div>
+            <div class="amt num">8 880 ₽</div>
+          </div>
+        </div>
+        <div class="nav-mock">
+          <span>Обзор</span><span class="act">Месяц</span><span>Категории</span><span>Копилки</span><span>Настр.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span class="pill-badge">Выравнивание сумм</span>
+      Зачем нужны табличные цифры (tnum) — покликай переключатель сверху
+    </div>
+    <div class="tnum-demo">
+      <div class="tnum-card scope f-manrope">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Manrope — колонка сумм</div>
+        <div class="line"><span>Интернет</span><strong class="num">1 111 ₽</strong></div>
+        <div class="line"><span>Продукты</span><strong class="num">8 888 ₽</strong></div>
+        <div class="line"><span>Аренда</span><strong class="num">45 000 ₽</strong></div>
+        <div class="line"><span>Итого активов</span><strong class="num">343 200 ₽</strong></div>
+      </div>
+      <div class="tnum-card scope f-onest">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Onest — колонка сумм</div>
+        <div class="line"><span>Интернет</span><strong class="num">1 111 ₽</strong></div>
+        <div class="line"><span>Продукты</span><strong class="num">8 888 ₽</strong></div>
+        <div class="line"><span>Аренда</span><strong class="num">45 000 ₽</strong></div>
+        <div class="line"><span>Итого активов</span><strong class="num">343 200 ₽</strong></div>
+      </div>
+      <div class="tnum-card scope f-pair">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Manrope + Inter — колонка сумм</div>
+        <div class="line"><span>Интернет</span><strong class="num">1 111 ₽</strong></div>
+        <div class="line"><span>Продукты</span><strong class="num">8 888 ₽</strong></div>
+        <div class="line"><span>Аренда</span><strong class="num">45 000 ₽</strong></div>
+        <div class="line"><span>Итого активов</span><strong class="num">343 200 ₽</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function setTheme(mode, btn) {
+      document.body.classList.toggle('light', mode === 'light');
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    function setTnum(enabled, btn) {
+      document.body.classList.toggle('no-tnum', !enabled);
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

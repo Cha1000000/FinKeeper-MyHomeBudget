@@ -23,9 +23,6 @@ object Strings {
     const val LOGOUT_TITLE = "Выход"
     const val LOGOUT_CONFIRM = "Вы уверены, что хотите выйти?"
     const val LATER = "Позже"
-    const val CHECK = "✓"
-    const val PREV_MONTH = "◀"
-    const val NEXT_MONTH = "▶"
     const val NEW_SOURCE = "Новый источник"
 
     // === Экран входа (Login) ===
@@ -43,7 +40,7 @@ object Strings {
     const val SOCIAL_LOGIN_IN_PROGRESS = "Завершите вход в открывшемся браузере, затем вернитесь в приложение."
     const val ALREADY_HAVE_ACCOUNT = "Уже есть аккаунт? Войти"
     const val NO_ACCOUNT = "Нет аккаунта? Зарегистрироваться"
-    const val SERVER_SETTINGS = "⚙ Настройки сервера"
+    const val SERVER_SETTINGS = "Настройки сервера"
     const val SERVER_URL_LABEL = "URL сервера"
     const val SERVER_URL_PLACEHOLDER = "http://10.0.2.2:3002"
     const val USERNAME_HELPER = "Имя пользователя будет видно в приложении и обрезается по краям автоматически."
@@ -58,6 +55,8 @@ object Strings {
     const val PASSWORD_RECOVERY_EMAIL_LABEL = "Email для восстановления"
     const val PASSWORD_RECOVERY_REQUEST = "Подготовить восстановление"
     const val PASSWORD_RECOVERY_BACK_TO_LOGIN = "Вернуться ко входу"
+    const val PASSWORD_RECOVERY_HAVE_CODE = "У меня уже есть код"
+    const val PASSWORD_RECOVERY_RESEND = "Запросить код повторно"
     const val PASSWORD_RECOVERY_TOKEN_LABEL = "Токен восстановления"
     const val PASSWORD_RECOVERY_NEW_PASSWORD_LABEL = "Новый пароль"
     const val PASSWORD_RECOVERY_CONFIRM = "Сменить пароль"
@@ -121,11 +120,9 @@ object Strings {
     const val DELETE_CONFIRMATION = "Вы уверены? Элемент будет деактивирован."
     const val NEW_NAME = "Новая копилка"
     const val REORDER_MODE = "Режим сортировки"
-    const val DRAG_HANDLE = "Перетащить"
 
     // === Фиксированные (регулярные) категории / источники ===
     const val FIXED_SECTION = "Фиксированные"
-    const val FIXED_SECTION_ICON = "📅"
     const val FIXED_AMOUNT = "Сумма"
     const val AUTO_DAY = "День месяца"
     const val ADD_FIXED = "+ Добавить"
@@ -142,11 +139,11 @@ object Strings {
     const val REQUIRE_CONFIRM_INCOME = "Требует подтверждения получения"
     const val REQUIRE_CONFIRM_EXPENSE_HINT = "Платёж не спишется автоматически, а будет ждать кнопки «Оплачено» на экране Месяц"
     const val REQUIRE_CONFIRM_INCOME_HINT = "Доход не запишется автоматически, а будет ждать кнопки «Получено» на экране Месяц"
-    const val MANUAL_CONFIRM_BADGE = "✋ вручную"
+    const val MANUAL_CONFIRM_BADGE = "вручную"
 
     // === План-слой (запланированные платежи) ===
     // Регулярная запись, отмеченная автоматически, пока она не пришла с сервера (офлайн)
-    const val AUTO_APPLIED_LABEL = "⏳ отмечено автоматически"
+    const val AUTO_APPLIED_LABEL = "отмечено автоматически"
     const val AUTO_APPLIED_TITLE = "Отмечено автоматически"
     const val AUTO_APPLIED_OK = "Понятно"
     const val AUTO_APPLIED_TEXT_EXPENSE = "Регулярный расход «%s» отмечен автоматически по расписанию. Пока нет связи с сервером, он учитывается только в расчётах — изменить или удалить его можно после синхронизации."
@@ -362,17 +359,6 @@ object Strings {
     const val NAV_PIGGY_BANKS = "Копилки"
     const val NAV_SETTINGS = "Настр."
     const val NAV_EXIT = "Выход"
-
-    // === Навигация месяца (иконки) ===
-    const val PREV_MONTH_ICON = "◀"
-    const val NEXT_MONTH_ICON = "▶"
-    const val COLLAPSE_ICON = "▲"
-    const val EXPAND_ICON = "▼"
-
-    // === Символы действий ===
-    const val EDIT_ICON = "✍︎"
-    const val DELETE_ICON = "✕"
-    const val CHECK_ICON = "✓"
 
     // === API ошибки ===
     const val HTTP_ERROR = "HTTP %1\u0024d: %2\u0024s"

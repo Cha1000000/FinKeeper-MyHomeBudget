@@ -2,6 +2,7 @@ package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,11 +50,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.Shape
+import finkeeper24.composeapp.generated.resources.Res
+import finkeeper24.composeapp.generated.resources.app_icon
+import org.jetbrains.compose.resources.painterResource
 import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.ui.components.IconServerNodeGlass
 import ru.homebudget.finkeeper.ui.viewmodel.AuthState
 import ru.homebudget.finkeeper.util.isDesktop
 
@@ -76,8 +82,15 @@ fun LoginScreen(
     var recoveryPassword by remember { mutableStateOf("") }
     var isRegisterMode by remember { mutableStateOf(false) }
     var isRecoveryMode by remember { mutableStateOf(false) }
+    var isRecoveryStepTwo by remember { mutableStateOf(false) }
     var showServerSettings by remember { mutableStateOf(false) }
     var serverUrl by remember { mutableStateOf(currentServerUrl) }
+
+    LaunchedEffect(state.recoveryDebugToken) {
+        if (state.recoveryDebugToken != null) {
+            isRecoveryStepTwo = true
+        }
+    }
 
     val trimmedUsername = username.trim()
     val trimmedRecoveryEmail = recoveryEmail.trim().lowercase()
@@ -118,10 +131,13 @@ fun LoginScreen(
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
-            Text(
-                text = "💰",
-                style = MaterialTheme.typography.displayLarge,
-                modifier = Modifier.padding(bottom = 8.dp),
+            Image(
+                painter = painterResource(Res.drawable.app_icon),
+                contentDescription = Strings.APP_TITLE,
+                modifier = Modifier
+                    .padding(bottom = 10.dp)
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(18.dp)),
             )
             Text(
                 text = Strings.APP_TITLE,
@@ -165,64 +181,70 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     if (isRecoveryMode) {
-                        AppTextField(
-                            value = recoveryEmail,
-                            onValueChange = {
-                                recoveryEmail = it
-                                onClearError()
-                            },
-                            label = Strings.PASSWORD_RECOVERY_EMAIL_LABEL,
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = Strings.LOGIN_RECOVERY_HELPER,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        AppTextField(
-                            value = recoveryToken,
-                            onValueChange = {
-                                recoveryToken = it
-                                onClearError()
-                            },
-                            label = Strings.PASSWORD_RECOVERY_TOKEN_LABEL,
-                            imeAction = ImeAction.Next,
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        AppTextField(
-                            value = recoveryPassword,
-                            onValueChange = {
-                                recoveryPassword = it
-                                onClearError()
-                            },
-                            label = Strings.PASSWORD_RECOVERY_NEW_PASSWORD_LABEL,
-                            isPassword = true,
-                            imeAction = ImeAction.Done,
-                            onImeAction = {
-                                if (canConfirmRecovery) {
-                                    onConfirmPasswordRecovery(trimmedRecoveryToken, recoveryPassword) {
-                                        recoveryToken = ""
-                                        recoveryPassword = ""
+                        if (!isRecoveryStepTwo) {
+                            AppTextField(
+                                value = recoveryEmail,
+                                onValueChange = {
+                                    recoveryEmail = it
+                                    onClearError()
+                                },
+                                label = Strings.PASSWORD_RECOVERY_EMAIL_LABEL,
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Done,
+                                onImeAction = {
+                                    if (canRequestRecovery) {
+                                        onRequestPasswordRecovery(trimmedRecoveryEmail)
+                                        isRecoveryStepTwo = true
                                     }
-                                }
-                            },
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = recoveryPasswordError ?: Strings.PASSWORD_HELPER,
-                            color = if (recoveryPasswordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                                },
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = Strings.LOGIN_RECOVERY_HELPER,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        } else {
+                            AppTextField(
+                                value = recoveryToken,
+                                onValueChange = {
+                                    recoveryToken = it
+                                    onClearError()
+                                },
+                                label = Strings.PASSWORD_RECOVERY_TOKEN_LABEL,
+                                imeAction = ImeAction.Next,
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            AppTextField(
+                                value = recoveryPassword,
+                                onValueChange = {
+                                    recoveryPassword = it
+                                    onClearError()
+                                },
+                                label = Strings.PASSWORD_RECOVERY_NEW_PASSWORD_LABEL,
+                                isPassword = true,
+                                imeAction = ImeAction.Done,
+                                onImeAction = {
+                                    if (canConfirmRecovery) {
+                                        onConfirmPasswordRecovery(trimmedRecoveryToken, recoveryPassword) {
+                                            recoveryToken = ""
+                                            recoveryPassword = ""
+                                        }
+                                    }
+                                },
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = recoveryPasswordError ?: Strings.PASSWORD_HELPER,
+                                color = if (recoveryPasswordError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     } else {
                         AppTextField(
                             value = username,
@@ -472,19 +494,33 @@ fun LoginScreen(
                     AppButton(
                         text =
                             when {
+                                isRecoveryMode && isRecoveryStepTwo -> Strings.PASSWORD_RECOVERY_CONFIRM
                                 isRecoveryMode -> Strings.PASSWORD_RECOVERY_REQUEST
                                 isRegisterMode -> Strings.REGISTER_BUTTON
                                 else -> Strings.LOGIN_BUTTON
                             },
                         onClick = {
                             if (isRecoveryMode) {
-                                onRequestPasswordRecovery(trimmedRecoveryEmail)
+                                if (!isRecoveryStepTwo) {
+                                    onRequestPasswordRecovery(trimmedRecoveryEmail)
+                                    isRecoveryStepTwo = true
+                                } else {
+                                    onConfirmPasswordRecovery(trimmedRecoveryToken, recoveryPassword) {
+                                        recoveryToken = ""
+                                        recoveryPassword = ""
+                                        isRecoveryStepTwo = false
+                                    }
+                                }
                             } else {
                                 username = trimmedUsername
                                 if (isRegisterMode) onRegister(trimmedUsername, password) else onLogin(trimmedUsername, password)
                             }
                         },
-                        enabled = if (isRecoveryMode) canRequestRecovery else canSubmit,
+                        enabled = when {
+                            isRecoveryMode && isRecoveryStepTwo -> canConfirmRecovery
+                            isRecoveryMode -> canRequestRecovery
+                            else -> canSubmit
+                        },
                         isLoading = state.isLoading,
                         contentColor = MaterialTheme.colorScheme.primary,
                         style = GlassyButtonStyle.Glassy,
@@ -492,29 +528,32 @@ fun LoginScreen(
 
                     AnimatedVisibility(visible = isRecoveryMode) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            AppButton(
-                                text = Strings.PASSWORD_RECOVERY_CONFIRM,
+                            Spacer(modifier = Modifier.height(6.dp))
+                            TextButton(
                                 onClick = {
-                                    onConfirmPasswordRecovery(trimmedRecoveryToken, recoveryPassword) {
-                                        recoveryToken = ""
-                                        recoveryPassword = ""
-                                    }
+                                    isRecoveryStepTwo = !isRecoveryStepTwo
+                                    onClearError()
                                 },
-                                enabled = canConfirmRecovery,
-                                isLoading = state.isLoading,
-                                contentColor = MaterialTheme.colorScheme.primary,
-                                style = GlassyButtonStyle.Glassy,
-                            )
+                            ) {
+                                Text(
+                                    text = if (isRecoveryStepTwo) {
+                                        Strings.PASSWORD_RECOVERY_RESEND
+                                    } else {
+                                        Strings.PASSWORD_RECOVERY_HAVE_CODE
+                                    },
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     TextButton(
                         onClick = {
                             if (isRecoveryMode) {
                                 isRecoveryMode = false
+                                isRecoveryStepTwo = false
                                 onClearError()
                             } else {
                                 isRegisterMode = !isRegisterMode
@@ -541,6 +580,8 @@ fun LoginScreen(
                 TextButton(
                     onClick = { showServerSettings = !showServerSettings },
                 ) {
+                    IconServerNodeGlass(size = 16.dp)
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = Strings.SERVER_SETTINGS,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),

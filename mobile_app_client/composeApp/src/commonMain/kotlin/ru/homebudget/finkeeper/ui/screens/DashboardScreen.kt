@@ -23,12 +23,14 @@ import ru.homebudget.finkeeper.ui.Strings
 import ru.homebudget.finkeeper.ui.components.ExpensePieChart
 import ru.homebudget.finkeeper.ui.components.FinancialDynamicsChart
 import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.ui.components.IconChevronLeft
+import ru.homebudget.finkeeper.ui.components.IconChevronRight
+import ru.homebudget.finkeeper.ui.components.IconScheduleGlass
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ScreenErrorBanner
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.components.SummaryCard
-import androidx.compose.ui.graphics.luminance
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.DashboardState
 import ru.homebudget.finkeeper.util.formatCurrency
@@ -42,6 +44,10 @@ fun DashboardScreen(
     onPrevMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onDismissError: () -> Unit,
+    topBanner: (@Composable () -> Unit)? = null,
+    onOpenMonthExpenses: () -> Unit = {},
+    onOpenMonthIncomes: () -> Unit = {},
+    onOpenSavings: () -> Unit = {},
 ) {
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -51,8 +57,6 @@ fun DashboardScreen(
     }
 
     val semantic = AppTheme.semanticColors
-    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val assetsTextColor = if (isDarkTheme) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onPrimary
 
     LazyColumn(
         modifier = Modifier
@@ -66,6 +70,10 @@ fun DashboardScreen(
                 title = Strings.DASHBOARD_TITLE,
                 modifier = Modifier.padding(horizontal = 0.dp),
             )
+        }
+
+        if (topBanner != null) {
+            item { topBanner() }
         }
 
         if (state.isOffline) {
@@ -94,7 +102,7 @@ fun DashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = onPrevMonth) {
-                        Text(Strings.PREV_MONTH_ICON, style = MaterialTheme.typography.bodyLarge)
+                        IconChevronLeft(color = MaterialTheme.colorScheme.primary, size = 26.dp)
                     }
                     Text(
                         text = "${monthName(state.month)} ${state.year}",
@@ -102,7 +110,7 @@ fun DashboardScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     TextButton(onClick = onNextMonth) {
-                        Text(Strings.NEXT_MONTH_ICON, style = MaterialTheme.typography.bodyLarge)
+                        IconChevronRight(color = MaterialTheme.colorScheme.primary, size = 26.dp)
                     }
                 }
             }
@@ -128,7 +136,7 @@ fun DashboardScreen(
                     Text(
                         text = Strings.TOTAL_ASSETS,
                         style = MaterialTheme.typography.titleMedium,
-                        color = assetsTextColor,
+                        color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Text(
                         text = state.totalAssets?.let(::formatCurrency) ?: Strings.NO_VALUE,
@@ -153,8 +161,12 @@ fun DashboardScreen(
                         contentColor = semantic.incomeColor,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         subtitle = if (state.plannedIncomesTotal > 0) {
-                            "🕐 " + Strings.PLANNED_AWAITING_INCOME.replace("%s", formatCurrency(state.plannedIncomesTotal))
+                            Strings.PLANNED_AWAITING_INCOME.replace("%s", formatCurrency(state.plannedIncomesTotal))
                         } else null,
+                        subtitleIcon = if (state.plannedIncomesTotal > 0) {
+                            { IconScheduleGlass(size = 14.dp) }
+                        } else null,
+                        onClick = onOpenMonthIncomes,
                     )
                     SummaryCard(
                         title = Strings.EXPENSES,
@@ -163,8 +175,12 @@ fun DashboardScreen(
                         contentColor = semantic.expenseColor,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         subtitle = if (state.plannedExpensesTotal > 0) {
-                            "🕐 " + Strings.PLANNED_BY_PLAN.replace("%s", formatCurrency(state.plannedExpensesTotal))
+                            Strings.PLANNED_BY_PLAN.replace("%s", formatCurrency(state.plannedExpensesTotal))
                         } else null,
+                        subtitleIcon = if (state.plannedExpensesTotal > 0) {
+                            { IconScheduleGlass(size = 14.dp) }
+                        } else null,
+                        onClick = onOpenMonthExpenses,
                     )
                     SummaryCard(
                         title = Strings.SAVINGS,
@@ -173,6 +189,7 @@ fun DashboardScreen(
                         contentColor = semantic.tealColor,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         subtitle = Strings.SAVINGS_PERCENT_SUBTITLE.replace("%s", formatSavingsPercent(state.savingsPercent)),
+                        onClick = onOpenSavings,
                     )
                 }
             }
@@ -189,7 +206,8 @@ fun DashboardScreen(
                             else semantic.expenseCardBg,
                         contentColor = if (state.available >= 0) semantic.availableColor
                             else semantic.expenseColor,
-                        modifier = Modifier.weight(1f).fillMaxHeight()
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = onOpenMonthExpenses,
                     )
                     SummaryCard(
                         title = Strings.AVAILABLE_WITHOUT_SAVINGS,
@@ -215,8 +233,12 @@ fun DashboardScreen(
                         contentColor = semantic.incomeColor,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         subtitle = if (state.plannedIncomesTotal > 0) {
-                            "🕐 " + Strings.PLANNED_AWAITING_INCOME.replace("%s", formatCurrency(state.plannedIncomesTotal))
+                            Strings.PLANNED_AWAITING_INCOME.replace("%s", formatCurrency(state.plannedIncomesTotal))
                         } else null,
+                        subtitleIcon = if (state.plannedIncomesTotal > 0) {
+                            { IconScheduleGlass(size = 14.dp) }
+                        } else null,
+                        onClick = onOpenMonthIncomes,
                     )
                     SummaryCard(
                         title = Strings.EXPENSES,
@@ -225,8 +247,12 @@ fun DashboardScreen(
                         contentColor = semantic.expenseColor,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         subtitle = if (state.plannedExpensesTotal > 0) {
-                            "🕐 " + Strings.PLANNED_BY_PLAN.replace("%s", formatCurrency(state.plannedExpensesTotal))
+                            Strings.PLANNED_BY_PLAN.replace("%s", formatCurrency(state.plannedExpensesTotal))
                         } else null,
+                        subtitleIcon = if (state.plannedExpensesTotal > 0) {
+                            { IconScheduleGlass(size = 14.dp) }
+                        } else null,
+                        onClick = onOpenMonthExpenses,
                     )
                 }
             }
@@ -243,6 +269,7 @@ fun DashboardScreen(
                         contentColor = semantic.tealColor,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         subtitle = Strings.SAVINGS_PERCENT_SUBTITLE.replace("%s", formatSavingsPercent(state.savingsPercent)),
+                        onClick = onOpenSavings,
                     )
                     SummaryCard(
                         title = Strings.AVAILABLE,
@@ -251,7 +278,8 @@ fun DashboardScreen(
                             else semantic.expenseCardBg,
                         contentColor = if (state.available >= 0) semantic.availableColor
                             else semantic.expenseColor,
-                        modifier = Modifier.weight(1f).fillMaxHeight()
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = onOpenMonthExpenses,
                     )
                 }
             }
@@ -278,6 +306,7 @@ fun DashboardScreen(
                     contentColor = if (state.forecastFree >= 0) semantic.savingsColor else semantic.expenseColor,
                     modifier = Modifier.fillMaxWidth(),
                     subtitle = Strings.FORECAST_EXPENSES.replace("%s", formatCurrency(state.forecastExpenses)),
+                    onClick = onOpenMonthExpenses,
                 )
             }
         }
