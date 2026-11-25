@@ -33,11 +33,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.data.model.SavingsGoal
 import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.ui.components.AmountInputWithExpression
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.EmptyState
-import ru.homebudget.finkeeper.ui.components.GlassyButton
 import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.GlassyCard
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
@@ -47,6 +47,7 @@ import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.components.ServerUnreachableBanner
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SavingsState
+import ru.homebudget.finkeeper.util.evalAmount
 import ru.homebudget.finkeeper.util.formatCurrency
 import ru.homebudget.finkeeper.util.isDesktop
 
@@ -136,7 +137,7 @@ fun SavingsScreen(
                             Text(
                                 text = Strings.TOTAL_SAVINGS,
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                             )
                             Text(
                                 text = formatCurrency(state.totalSavings),
@@ -325,6 +326,11 @@ private fun CreateGoalDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var target by remember { mutableStateOf("") }
+    val parsedTarget = evalAmount(target)
+    val submit: () -> Unit = {
+        val t = parsedTarget
+        if (name.isNotBlank() && t != null && t > 0) onConfirm(name, t)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -332,21 +338,19 @@ private fun CreateGoalDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AppTextField(value = name, onValueChange = { name = it }, label = Strings.NAME)
-                AppTextField(
-                    value = target,
-                    onValueChange = { target = it },
+                AmountInputWithExpression(
+                    amount = target,
+                    onAmountChange = { target = it },
+                    parsed = parsedTarget,
+                    onSubmit = submit,
                     label = Strings.TARGET_AMOUNT,
-                    keyboardType = KeyboardType.Decimal
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    val t = target.toDoubleOrNull() ?: return@TextButton
-                    if (name.isNotBlank() && t > 0) onConfirm(name, t)
-                },
-                enabled = name.isNotBlank() && (target.toDoubleOrNull() ?: 0.0) > 0
+                onClick = submit,
+                enabled = name.isNotBlank() && (parsedTarget ?: 0.0) > 0
             ) { Text(Strings.CREATE) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.CANCEL) } }
@@ -406,8 +410,8 @@ private fun EditGoalDialog(
             TextButton(onClick = {
                 onSave(
                     name.takeIf { it != goal.name },
-                    target.toDoubleOrNull()?.takeIf { it != goal.targetAmount },
-                    current.toDoubleOrNull()?.takeIf { it != goal.currentAmount }
+                    evalAmount(target)?.takeIf { it != goal.targetAmount },
+                    evalAmount(current)?.takeIf { it != goal.currentAmount }
                 )
             }) { Text(Strings.SAVE) }
         },
@@ -423,6 +427,11 @@ private fun TransactionDialog(
     onConfirm: (Double) -> Unit
 ) {
     var amount by remember { mutableStateOf("") }
+    val parsedAmount = evalAmount(amount)
+    val submit: () -> Unit = {
+        val a = parsedAmount
+        if (a != null && a > 0) onConfirm(a)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -433,21 +442,19 @@ private fun TransactionDialog(
                     text = Strings.PIGGY_BANK_NAME.replace("%1\$s", "\"$goalName\""),
                     style = MaterialTheme.typography.bodyMedium
                 )
-                AppTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = Strings.AMOUNT,
-                    keyboardType = KeyboardType.Decimal
+                AmountInputWithExpression(
+                    amount = amount,
+                    onAmountChange = { amount = it },
+                    parsed = parsedAmount,
+                    onSubmit = submit,
+                    autoFocus = true,
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    val a = amount.toDoubleOrNull() ?: return@TextButton
-                    if (a > 0) onConfirm(a)
-                },
-                enabled = (amount.toDoubleOrNull() ?: 0.0) > 0
+                onClick = submit,
+                enabled = (parsedAmount ?: 0.0) > 0
             ) { Text(if (isDeposit) Strings.DEPOSIT else Strings.WITHDRAW) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.CANCEL) } }

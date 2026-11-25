@@ -10,3 +10,7 @@ expect val appPlatform: String
 
 @Composable
 expect fun AppLogoIcon(modifier: Modifier = Modifier)
+
+/** Настраивает цвета иконок системного статус-бара и панели навигации (Android) */
+@Composable
+expect fun ConfigureSystemBars(isDark: Boolean)

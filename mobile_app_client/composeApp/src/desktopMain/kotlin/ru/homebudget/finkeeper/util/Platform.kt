@@ -19,3 +19,8 @@ actual fun AppLogoIcon(modifier: Modifier) {
         modifier = modifier.size(28.dp),
     )
 }
+
+@Composable
+actual fun ConfigureSystemBars(isDark: Boolean) {
+    // Not used on desktop
+}

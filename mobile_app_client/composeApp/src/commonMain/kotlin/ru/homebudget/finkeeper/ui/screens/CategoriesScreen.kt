@@ -20,11 +20,19 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.ui.components.AppButton
 import ru.homebudget.finkeeper.ui.components.DesktopAddButton
+import ru.homebudget.finkeeper.ui.components.FloatingAddButton
 import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.AppTextField
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.EmptyState
 import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.ui.components.IconCheckMark
+import ru.homebudget.finkeeper.ui.components.IconCloseCross
+import ru.homebudget.finkeeper.ui.components.IconDragGrip
+import ru.homebudget.finkeeper.ui.components.IconEditPen
+import ru.homebudget.finkeeper.ui.components.IconFixedCalendarGlass
+import ru.homebudget.finkeeper.ui.components.IconManualConfirmGlass
+import ru.homebudget.finkeeper.ui.components.IconTrash
 import ru.homebudget.finkeeper.ui.components.LoadingScreen
 import ru.homebudget.finkeeper.ui.components.ScreenErrorBanner
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
@@ -96,21 +104,9 @@ fun CategoriesScreen(
 
     LaunchedEffect(Unit) { onRefresh() }
 
-    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val useFloatingAddButton = !isDesktop
-    val floatingActionButtonBottomPadding = if (useFloatingAddButton) 20.dp else 24.dp
-    val listBottomPadding = if (useFloatingAddButton) 104.dp else 8.dp
-    val floatingActionShape = RoundedCornerShape(percent = 50)
-    val floatingActionBlurTint =
-        if (isDarkTheme) {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.42f)
-        } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.64f)
-        }
-    val floatingActionPlateTint =
-        MaterialTheme.colorScheme.primaryContainer.copy(
-            alpha = if (isDarkTheme) 0.22f else 0.18f
-        )
+    val floatingActionButtonBottomPadding = 16.dp
+    val listBottomPadding = if (useFloatingAddButton) 88.dp else 8.dp
 
     if (state.isLoading) {
         LoadingScreen()
@@ -355,38 +351,12 @@ fun CategoriesScreen(
             }
 
             if (useFloatingAddButton) {
-                Box(
+                FloatingAddButton(
+                    onClick = { showAddDialog = true },
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = floatingActionButtonBottomPadding)
-                        .height(56.dp)
-                        .sizeIn(minWidth = 116.dp, maxWidth = 122.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                            .blur(26.dp)
-                            .clip(floatingActionShape)
-                            .background(floatingActionBlurTint),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 2.dp, vertical = 1.dp)
-                            .clip(floatingActionShape)
-                            .background(floatingActionPlateTint),
-                    )
-                    AppButton(
-                        text = Strings.ADD,
-                        onClick = { showAddDialog = true },
-                        modifier = Modifier.fillMaxSize(),
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = GlassyButtonStyle.Glassy,
-                        textStyle = MaterialTheme.typography.titleMedium,
-                    )
-                }
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = floatingActionButtonBottomPadding),
+                )
             }
         }
     }
@@ -503,8 +473,12 @@ private fun EditableItemCard(
                     label = Strings.NAME,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = onSaveEdit) { Text(Strings.CHECK, style = MaterialTheme.typography.bodyLarge) }
-                TextButton(onClick = onCancelEdit) { Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge) }
+                IconButton(onClick = onSaveEdit) {
+                    IconCheckMark(color = MaterialTheme.colorScheme.primary, size = 20.dp)
+                }
+                IconButton(onClick = onCancelEdit) {
+                    IconCloseCross(color = MaterialTheme.colorScheme.onSurfaceVariant, size = 20.dp)
+                }
             }
         } else {
             Row(
@@ -521,16 +495,11 @@ private fun EditableItemCard(
                     modifier = Modifier.weight(1f)
                 )
                 Row {
-                    TextButton(onClick = onStartEdit) {
-                        Text(Strings.EDIT_ICON, style = MaterialTheme.typography.bodyLarge)
+                    IconButton(onClick = onStartEdit) {
+                        IconEditPen(color = MaterialTheme.colorScheme.primary, size = 18.dp)
                     }
-                    TextButton(
-                        onClick = onDelete,
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge)
+                    IconButton(onClick = onDelete) {
+                        IconTrash(color = MaterialTheme.colorScheme.error, size = 18.dp)
                     }
                 }
             }
@@ -590,11 +559,10 @@ private fun ReorderableCategoryItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = Strings.DRAG_HANDLE,
-                style = MaterialTheme.typography.bodyLarge,
+            IconDragGrip(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 12.dp)
+                size = 22.dp,
+                modifier = Modifier.padding(end = 12.dp),
             )
             Text(
                 text = name,
@@ -647,11 +615,17 @@ private fun FixedSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "${Strings.FIXED_SECTION_ICON}  $title",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                IconFixedCalendarGlass(size = 22.dp)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
             TextButton(
                 onClick = onAdd,
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
@@ -707,15 +681,21 @@ private fun FixedItemCard(
                     )
                     if (requireConfirm) {
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = Strings.MANUAL_CONFIRM_BADGE,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f))
                                 .padding(horizontal = 6.dp, vertical = 2.dp),
-                        )
+                        ) {
+                            IconManualConfirmGlass(size = 13.dp)
+                            Text(
+                                text = Strings.MANUAL_CONFIRM_BADGE,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(2.dp))
@@ -726,16 +706,11 @@ private fun FixedItemCard(
                 )
             }
             Row {
-                TextButton(onClick = onEdit) {
-                    Text(Strings.EDIT_ICON, style = MaterialTheme.typography.bodyLarge)
+                IconButton(onClick = onEdit) {
+                    IconEditPen(color = MaterialTheme.colorScheme.primary, size = 18.dp)
                 }
-                TextButton(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Text(Strings.DELETE_ICON, style = MaterialTheme.typography.bodyLarge)
+                IconButton(onClick = onDelete) {
+                    IconTrash(color = MaterialTheme.colorScheme.error, size = 18.dp)
                 }
             }
         }

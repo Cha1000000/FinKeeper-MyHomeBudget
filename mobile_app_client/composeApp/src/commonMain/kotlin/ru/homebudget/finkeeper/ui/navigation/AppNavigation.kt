@@ -2,7 +2,6 @@ package ru.homebudget.finkeeper.ui.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -160,7 +158,7 @@ fun AppNavigation(
             return@LaunchedEffect
         }
 
-        if (currentScreen == Screen.Settings) {
+        if (currentScreen != Screen.Dashboard) {
             showSecurityOnboardingPrompt = false
             return@LaunchedEffect
         }
@@ -189,37 +187,46 @@ fun AppNavigation(
 
     val screenContent: @Composable () -> Unit = {
         Box(modifier = Modifier.padding(horizontal = desktopPadding)) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (showSecurityOnboardingPrompt) {
-                    SecurityOnboardingPromptCard(
-                        onOpenSettings = {
-                            authState.user?.let { securityOnboardingPromptState.dismiss(it) }
-                            showSecurityOnboardingPrompt = false
-                            settingsFocusAccountProtection = true
-                            currentScreen = Screen.Settings
-                        },
-                        onDismiss = {
-                            authState.user?.let { securityOnboardingPromptState.dismiss(it) }
-                            showSecurityOnboardingPrompt = false
-                        },
-                    )
-                }
+            Column {
+                val dashboardBanner: (@Composable () -> Unit)? =
+                    if (showSecurityOnboardingPrompt || (showAppUpdatePrompt && appUpdateAvailable != null)) {
+                        {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (showSecurityOnboardingPrompt) {
+                                    SecurityOnboardingPromptCard(
+                                        onOpenSettings = {
+                                            authState.user?.let { securityOnboardingPromptState.dismiss(it) }
+                                            showSecurityOnboardingPrompt = false
+                                            settingsFocusAccountProtection = true
+                                            currentScreen = Screen.Settings
+                                        },
+                                        onDismiss = {
+                                            authState.user?.let { securityOnboardingPromptState.dismiss(it) }
+                                            showSecurityOnboardingPrompt = false
+                                        },
+                                    )
+                                }
 
-                if (showAppUpdatePrompt) {
-                    appUpdateAvailable?.let { update ->
-                        AppUpdatePromptCard(
-                            versionLabel = update.versionLabel,
-                            onUpdate = {
-                                appUpdateChecker.startUpdate()
-                                showAppUpdatePrompt = false
-                            },
-                            onDismiss = {
-                                appUpdatePromptState.dismiss(update.versionToken)
-                                showAppUpdatePrompt = false
-                            },
-                        )
+                                if (showAppUpdatePrompt) {
+                                    appUpdateAvailable?.let { update ->
+                                        AppUpdatePromptCard(
+                                            versionLabel = update.versionLabel,
+                                            onUpdate = {
+                                                appUpdateChecker.startUpdate()
+                                                showAppUpdatePrompt = false
+                                            },
+                                            onDismiss = {
+                                                appUpdatePromptState.dismiss(update.versionToken)
+                                                showAppUpdatePrompt = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        null
                     }
-                }
 
                 when (currentScreen) {
                     Screen.Dashboard ->
@@ -233,6 +240,18 @@ fun AppNavigation(
                                 onPrevMonth = { dashboardViewModel.prevMonth() },
                                 onNextMonth = { dashboardViewModel.nextMonth() },
                                 onDismissError = { dashboardViewModel.clearError() },
+                                topBanner = dashboardBanner,
+                                onOpenMonthExpenses = {
+                                    monthViewModel.setActiveTab(0)
+                                    currentScreen = Screen.MonthView
+                                },
+                                onOpenMonthIncomes = {
+                                    monthViewModel.setActiveTab(1)
+                                    currentScreen = Screen.MonthView
+                                },
+                                onOpenSavings = {
+                                    currentScreen = Screen.Savings
+                                },
                             )
                         }
 
@@ -240,6 +259,7 @@ fun AppNavigation(
                         PullToRefreshWrapper(
                             isRefreshing = monthState.isRefreshing,
                             onRefresh = { monthViewModel.refreshData() },
+                            enableNestedScroll = false,
                         ) {
                             MonthViewScreen(
                                 state = monthState,
@@ -395,7 +415,6 @@ fun AppNavigation(
                 GradientBottomBar(
                     currentScreen = currentScreen,
                     onScreenSelected = { currentScreen = it },
-                    onLogout = { showLogoutConfirm = true },
                     isDark = isDark,
                     semantic = semantic,
                 )
@@ -477,46 +496,56 @@ private fun SecurityOnboardingPromptCard(
     onOpenSettings: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val baseBg = if (isDark) Color(0xFF2D2112) else Color(0xFFFFF6E5)
+    val accentAmber = if (isDark) Color(0xFFF59E0B) else Color(0xFFD97706)
+    val titleColor = if (isDark) Color(0xFFFDE68A) else Color(0xFF7C2D12)
+    val bodyColor = if (isDark) Color(0xFFFCD34D).copy(alpha = 0.88f) else Color(0xFF9A3412)
+    val dismissBg = if (isDark) Color.White.copy(alpha = 0.14f) else Color(0xFFFFEDD5)
+    val dismissContent = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
+
     GlassyCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        baseColor = Color(0xFFFFF6E5),
-        highlightColor = Color(0xFFF59E0B).copy(alpha = 0.22f),
+        baseColor = baseBg,
+        highlightColor = accentAmber.copy(alpha = 0.18f),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = Strings.SECURITY_ONBOARDING_TITLE,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFF7C2D12),
+                style = MaterialTheme.typography.titleSmall,
+                color = titleColor,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = Strings.SECURITY_ONBOARDING_MESSAGE,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF9A3412),
+                style = MaterialTheme.typography.bodySmall,
+                color = bodyColor,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 AppButton(
                     text = Strings.LATER,
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    containerColor = Color.White.copy(alpha = 0.82f),
-                    contentColor = Color(0xFF92400E),
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    containerColor = dismissBg,
+                    contentColor = dismissContent,
                     style = GlassyButtonStyle.Glassy,
+                    textStyle = MaterialTheme.typography.labelLarge,
                 )
                 AppButton(
                     text = Strings.SECURITY_ONBOARDING_ACTION,
                     onClick = onOpenSettings,
-                    modifier = Modifier.weight(1.35f).height(48.dp),
-                    containerColor = Color(0xFFF59E0B),
-                    contentColor = Color.White,
-                    style = GlassyButtonStyle.Glassy,
+                    modifier = Modifier.weight(1.45f).height(40.dp),
+                    containerColor = accentAmber,
+                    contentColor = if (isDark) Color(0xFF231606) else Color.White,
+                    style = GlassyButtonStyle.Solid,
+                    textStyle = MaterialTheme.typography.labelLarge,
                 )
             }
         }
@@ -529,6 +558,7 @@ private fun AppUpdatePromptCard(
     onUpdate: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val title = if (versionLabel.isNotBlank()) {
         "${Strings.APP_UPDATE_TITLE} $versionLabel"
     } else {
@@ -537,46 +567,55 @@ private fun AppUpdatePromptCard(
     val message = if (isDesktop) Strings.APP_UPDATE_MESSAGE_DESKTOP else Strings.APP_UPDATE_MESSAGE
     val actionText = if (isDesktop) Strings.APP_UPDATE_ACTION_DESKTOP else Strings.APP_UPDATE_ACTION_ANDROID
 
+    val baseBg = if (isDark) Color(0xFF172542) else Color(0xFFE6F0FF)
+    val accentBlue = if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB)
+    val titleColor = if (isDark) Color(0xFFDBEAFE) else Color(0xFF1E3A8A)
+    val bodyColor = if (isDark) Color(0xFFBFDBFE).copy(alpha = 0.88f) else Color(0xFF1D4ED8)
+    val dismissBg = if (isDark) Color.White.copy(alpha = 0.14f) else Color(0xFFDBEAFE)
+    val dismissContent = if (isDark) Color(0xFFDBEAFE) else Color(0xFF1E40AF)
+
     GlassyCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        baseColor = Color(0xFFE6F0FF),
-        highlightColor = Color(0xFF2563EB).copy(alpha = 0.22f),
+        baseColor = baseBg,
+        highlightColor = accentBlue.copy(alpha = 0.18f),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFF1E3A8A),
+                style = MaterialTheme.typography.titleSmall,
+                color = titleColor,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF1D4ED8),
+                style = MaterialTheme.typography.bodySmall,
+                color = bodyColor,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 AppButton(
                     text = Strings.LATER,
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    containerColor = Color.White.copy(alpha = 0.82f),
-                    contentColor = Color(0xFF1E40AF),
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    containerColor = dismissBg,
+                    contentColor = dismissContent,
                     style = GlassyButtonStyle.Glassy,
+                    textStyle = MaterialTheme.typography.labelLarge,
                 )
                 AppButton(
                     text = actionText,
                     onClick = onUpdate,
-                    modifier = Modifier.weight(1.35f).height(48.dp),
-                    containerColor = Color(0xFF2563EB),
-                    contentColor = Color.White,
-                    style = GlassyButtonStyle.Glassy,
+                    modifier = Modifier.weight(1.45f).height(40.dp),
+                    containerColor = accentBlue,
+                    contentColor = if (isDark) Color(0xFF0A192F) else Color.White,
+                    style = GlassyButtonStyle.Solid,
+                    textStyle = MaterialTheme.typography.labelLarge,
                 )
             }
         }
@@ -587,7 +626,6 @@ private fun AppUpdatePromptCard(
 private fun GradientBottomBar(
     currentScreen: Screen,
     onScreenSelected: (Screen) -> Unit,
-    onLogout: () -> Unit,
     isDark: Boolean,
     semantic: AppSemanticColors,
 ) {
@@ -619,8 +657,7 @@ private fun GradientBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = 6.dp)
                 .padding(top = 6.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
@@ -642,16 +679,9 @@ private fun GradientBottomBar(
                     activeColor = activeColor,
                     inactiveColor = inactiveColor,
                     onClick = { onScreenSelected(screen) },
+                    modifier = Modifier.weight(1f),
                 )
             }
-            NavBarItem(
-                icon = { IconLogOut(inactiveColor) },
-                label = Strings.LOGOUT_BUTTON,
-                isSelected = false,
-                activeColor = activeColor,
-                inactiveColor = inactiveColor,
-                onClick = onLogout,
-            )
         }
     }
 }
@@ -664,11 +694,12 @@ private fun NavBarItem(
     activeColor: Color,
     inactiveColor: Color,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val color = if (isSelected) activeColor else inactiveColor
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .then(
                 if (isSelected) {
@@ -677,8 +708,7 @@ private fun NavBarItem(
                     Modifier
                 },
             ).clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .widthIn(min = 56.dp),
+            .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         icon()
@@ -687,6 +717,7 @@ private fun NavBarItem(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = color,
+            maxLines = 1,
         )
     }
 }

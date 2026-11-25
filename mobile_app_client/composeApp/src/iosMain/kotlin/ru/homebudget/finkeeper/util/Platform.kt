@@ -11,3 +11,8 @@ actual val appPlatform: String = "ios"
 actual fun AppLogoIcon(modifier: Modifier) {
     // Not used on mobile
 }
+
+@Composable
+actual fun ConfigureSystemBars(isDark: Boolean) {
+    // iOS handles status bar style separately
+}

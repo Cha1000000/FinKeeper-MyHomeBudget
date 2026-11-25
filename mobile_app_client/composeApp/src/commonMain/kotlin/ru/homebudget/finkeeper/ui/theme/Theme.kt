@@ -9,8 +9,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import finkeeper24.composeapp.generated.resources.Res
+import finkeeper24.composeapp.generated.resources.inter_bold
+import finkeeper24.composeapp.generated.resources.inter_medium
+import finkeeper24.composeapp.generated.resources.inter_regular
+import finkeeper24.composeapp.generated.resources.inter_semibold
+import finkeeper24.composeapp.generated.resources.manrope_bold
+import finkeeper24.composeapp.generated.resources.manrope_semibold
+import org.jetbrains.compose.resources.Font
+import ru.homebudget.finkeeper.util.ConfigureSystemBars
 
 private val LightColorScheme = lightColorScheme(
     primary = PrimaryLight,
@@ -278,23 +288,37 @@ object AppTheme {
         @Composable get() = LocalSemanticColors.current
 }
 
-private val AppTypography = Typography(
-    displayLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 40.sp),
-    displayMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
-    displaySmall = TextStyle(fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 32.sp),
-    headlineLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp),
-    headlineSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 22.sp),
-    titleSmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
-    bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
-    bodySmall = TextStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp),
-    labelLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
-    labelSmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 14.sp),
-)
+@Composable
+private fun appTypography(): Typography {
+    val manrope = FontFamily(
+        Font(Res.font.manrope_semibold, FontWeight.SemiBold),
+        Font(Res.font.manrope_bold, FontWeight.Bold),
+    )
+    val inter = FontFamily(
+        Font(Res.font.inter_regular, FontWeight.Normal),
+        Font(Res.font.inter_medium, FontWeight.Medium),
+        Font(Res.font.inter_semibold, FontWeight.SemiBold),
+        Font(Res.font.inter_bold, FontWeight.Bold),
+    )
+    val tnum = "tnum"
+    return Typography(
+        displayLarge = TextStyle(fontFamily = manrope, fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 40.sp, letterSpacing = (-0.5).sp, fontFeatureSettings = tnum),
+        displayMedium = TextStyle(fontFamily = manrope, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp, letterSpacing = (-0.4).sp, fontFeatureSettings = tnum),
+        displaySmall = TextStyle(fontFamily = manrope, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 32.sp, letterSpacing = (-0.3).sp, fontFeatureSettings = tnum),
+        headlineLarge = TextStyle(fontFamily = manrope, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = (-0.3).sp, fontFeatureSettings = tnum),
+        headlineMedium = TextStyle(fontFamily = manrope, fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 26.sp, letterSpacing = (-0.3).sp, fontFeatureSettings = tnum),
+        headlineSmall = TextStyle(fontFamily = manrope, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp, letterSpacing = (-0.2).sp, fontFeatureSettings = tnum),
+        titleLarge = TextStyle(fontFamily = manrope, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp, letterSpacing = (-0.2).sp, fontFeatureSettings = tnum),
+        titleMedium = TextStyle(fontFamily = manrope, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = (-0.1).sp, fontFeatureSettings = tnum),
+        titleSmall = TextStyle(fontFamily = inter, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp, fontFeatureSettings = tnum),
+        bodyLarge = TextStyle(fontFamily = inter, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp, fontFeatureSettings = tnum),
+        bodyMedium = TextStyle(fontFamily = inter, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp, fontFeatureSettings = tnum),
+        bodySmall = TextStyle(fontFamily = inter, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp, fontFeatureSettings = tnum),
+        labelLarge = TextStyle(fontFamily = inter, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp, fontFeatureSettings = tnum),
+        labelMedium = TextStyle(fontFamily = inter, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.1.sp, fontFeatureSettings = tnum),
+        labelSmall = TextStyle(fontFamily = inter, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.2.sp, fontFeatureSettings = tnum),
+    )
+}
 
 @Composable
 fun FinKeeperTheme(
@@ -318,10 +342,13 @@ fun FinKeeperTheme(
             ThemePalette.BlueOcean -> BlueOceanSemanticColors
         }
 
+    ConfigureSystemBars(isDark = palette != ThemePalette.Light)
+    val typography = appTypography()
+
     CompositionLocalProvider(LocalSemanticColors provides semanticColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = AppTypography,
+            typography = typography,
             content = content
         )
     }
