@@ -2,7 +2,7 @@ import React from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
-import { Wallet, PieChart, Activity, ArrowUpRight, ArrowDownRight, Target, Globe, Zap, Monitor, Smartphone, Download, ChevronRight, ShieldCheck, CheckCircle2, Star, Lock } from 'lucide-react'
+import { Wallet, PieChart, Activity, ArrowUpRight, ArrowDownRight, Target, Globe, Zap, Monitor, Smartphone, Download, ChevronRight, ShieldCheck, CheckCircle2, Star, Lock, TrendingDown, Flame } from 'lucide-react'
 import imgWebDashboard from './assets/web-dashboard-dark.webp'
 import imgMobileDashboard from './assets/mobile-dashboard-1.webp'
 import imgMobileDashboard2 from './assets/mobile-dashboard-2.webp'
@@ -253,18 +253,19 @@ const ReviewsCarousel = () => {
   }, []);
 
   return (
-    <div className="relative group/carousel">
+    <div className="relative group/carousel px-1 sm:px-4">
       {/* Left Arrow */}
       <motion.button
-        initial={{ opacity: 0.25 }}
-        animate={{ opacity: showLeftArrow ? 0.25 : 0 }}
-        whileHover={{ opacity: 0.7 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: showLeftArrow ? 0.55 : 0 }}
+        whileHover={{ opacity: showLeftArrow ? 0.95 : 0 }}
         transition={{ duration: 0.2 }}
+        disabled={!showLeftArrow}
         onClick={() => scroll('left')}
-        className="absolute left-0 top-[90px] z-30 w-12 h-12 rounded-full bg-emerald-base border-2 border-white/20 shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110 -ml-6 md:-ml-12"
-        aria-label="Прокрутить влево"
+        className={`absolute left-1 sm:left-0 md:-left-4 top-[90px] z-30 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-emerald-base/90 backdrop-blur-md border border-white/25 shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-105 ${showLeftArrow ? 'cursor-pointer pointer-events-auto' : 'pointer-events-none'}`}
+        aria-label="Прокрутить отзывы влево"
       >
-        <ChevronRight size={24} className="text-white rotate-180" strokeWidth={2.5} />
+        <ChevronRight size={22} className="text-white rotate-180" strokeWidth={2.5} />
       </motion.button>
 
       {/* Reviews Scroll Container */}
@@ -275,84 +276,84 @@ const ReviewsCarousel = () => {
       >
         <ReviewCard
           name="Александр М."
-          role="Предприниматель, Москва"
+          role="Android + Windows • ушёл с таблиц Excel"
           text="Наконец-то перестал вести учёт в Excel! FinKeeper24 намного удобнее, а синхронизация между телефоном и компьютером работает мгновенно."
           avatar="АМ"
           rating={5}
         />
         <ReviewCard
           name="Елена К."
-          role="Фрилансер, Санкт-Петербург"
+          role="Веб-версия + Android • 4 месяца с FinKeeper24"
           text="Пользуюсь уже 4 месяца. Очень нравится функция копилок — помогает откладывать на отпуск! Интерфейс красивый и понятный, разобралась за 10 минут."
           avatar="ЕК"
           rating={5}
         />
         <ReviewCard
           name="Дмитрий Б."
-          role="Разработчик, Ростов-на-Дону"
+          role="macOS + Android • личный бюджет"
           text="Как разработчик, ценю качественный софт. Здесь видно, что сделано с душой. Никакой рекламы, всё работает быстро. Desktop-версия для macOS — просто огонь!"
           avatar="ДБ"
           rating={5}
         />
         <ReviewCard
           name="Павел Г."
-          role="Менеджер, Новосибирск"
+          role="Windows + смартфон • полгода использования"
           text="Хорошее приложение, пользуюсь уже полгода. Не хватает экспорта данных в Excel — иногда нужно добыть отчёт. Но в целом всё работает чётко, интерфейс удобный."
           avatar="ПГ"
           rating={4}
         />
         <ReviewCard
           name="Ольга С."
-          role="Бухгалтер, Екатеринбург"
+          role="Веб-версия + ПК • учёт и целевые копилки"
           text="Работаю бухгалтером, поэтому порядок в финансах для меня важен. А FinKeeper24 теперь помогает мне вести мои личные бюджеты. Копилки — гениальная функция!"
           avatar="ОС"
           rating={5}
         />
         <ReviewCard
           name="Михаил П."
-          role="Студент, Казань"
+          role="Android (RuStore) • бесплатный тариф"
           text="Бесплатной версии мне более чем достаточно! Веду учёт стипендии и подработок. Стал гораздо осознаннее тратить деньги. Рекомендую всем друзьям."
           avatar="МП"
           rating={5}
         />
         <ReviewCard
           name="Анна и Игорь"
-          role="Молодая семья, Краснодар"
+          role="Семейный бюджет • 2 смартфона Android"
           text="Вдвоём ведём бюджет семьи на общем аккаунте. Очень удобно, что оба видим все операции в реальном времени, каждый на своём телефоне. Спасибо разработчикам!"
           avatar="АИ"
           rating={5}
         />
         <ReviewCard
           name="Ирина В."
-          role="Маркетолог, Самара"
+          role="Android + Web • планирование лимитов"
           text="В целом приложение нравится: быстрое, красивое. Жаль нет пуш-уведомлений о плановых тратах, если выхожу за лимиты. Хотелось бы увидеть такую функцию."
           avatar="ИВ"
           rating={4}
         />
         <ReviewCard
           name="Наталья Р."
-          role="Декрет, Нижний Новгород"
+          role="Android • быстрый учёт и офлайн-режим"
           text="С ребёнком не всегда есть время записывать траты. Здесь можно добавить расход за 5 секунд! Офлайн-режим спасает, когда интернет пропадает."
           avatar="НР"
           rating={5}
         />
         <ReviewCard
           name="Сергей Л."
-          role="IT-специалист, Москва"
+          role="Linux + Android • перешёл с CoinKeeper"
           text="Перепробовал много приложений: Дзен-мани, CoinKeeper, 1Money. FinKeeper24 оказался проще, но есть ещё что было бы не плохо доработать."
           avatar="СЛ"
           rating={4}
         />
         <ReviewCard
           name="Татьяна Б."
-          role="Пенсионерка, Воронеж"
+          role="Android + планшет • расходы по категориям"
           text="Мне 62 года, но приложение освоила легко. Крупные цифры, понятные кнопки. Теперь вижу все свои расходы по категориям. Внуки помогли разобраться."
           avatar="ТБ"
           rating={5}
         />
         <ReviewCard
           name="Владимир К."
-          role="Водитель такси, Ростов-на-Дону"
+          role="Android • планирование при нерегулярном доходе"
           text="Работаю в такси, доходы нерегулярные. FinKeeper24 помогает планировать бюджет на месяц вперёд. По графикам смотрю, где можно сэкономить."
           avatar="ВК"
           rating={5}
@@ -361,15 +362,16 @@ const ReviewsCarousel = () => {
 
       {/* Right Arrow */}
       <motion.button
-        initial={{ opacity: 0.25 }}
-        animate={{ opacity: showRightArrow ? 0.25 : 0 }}
-        whileHover={{ opacity: 0.7 }}
+        initial={{ opacity: 0.55 }}
+        animate={{ opacity: showRightArrow ? 0.55 : 0 }}
+        whileHover={{ opacity: showRightArrow ? 0.95 : 0 }}
         transition={{ duration: 0.2 }}
+        disabled={!showRightArrow}
         onClick={() => scroll('right')}
-        className="absolute right-0 top-[90px] z-30 w-12 h-12 rounded-full bg-emerald-base border-2 border-white/20 shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110 -mr-6 md:-mr-12"
-        aria-label="Прокрутить вправо"
+        className={`absolute right-1 sm:right-0 md:-right-4 top-[90px] z-30 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-emerald-base/90 backdrop-blur-md border border-white/25 shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-105 ${showRightArrow ? 'cursor-pointer pointer-events-auto' : 'pointer-events-none'}`}
+        aria-label="Прокрутить отзывы вправо"
       >
-        <ChevronRight size={24} className="text-white" strokeWidth={2.5} />
+        <ChevronRight size={22} className="text-white" strokeWidth={2.5} />
       </motion.button>
     </div>
   );
@@ -398,21 +400,40 @@ export default function App() {
       </div>
 
       {/* Navigation */}
-      <nav className={`fixed top-0 inset-x-0 z-50 px-6 py-4 transition-all duration-500 ${scrolled ? 'bg-[#0A0F1E]/80 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/30' : ''}`}>
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src="/purse.svg" alt="FinKeeper24" className="w-9 h-9 object-contain" />
-            <span className="font-display font-semibold text-xl tracking-tight">FinKeeper24: Моя домашняя бухгалтерия</span>
-          </div>
-          <a href="#download" className="hidden sm:inline-flex items-center justify-center px-5 py-2.5 min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 border border-white/5 backdrop-blur-md transition-all font-display font-medium text-sm">
-            Скачать приложение
+      <nav aria-label="Главная навигация" className={`fixed top-0 inset-x-0 z-50 px-4 sm:px-6 py-3.5 transition-all duration-500 ${scrolled ? 'bg-[#0A0F1E]/85 backdrop-blur-xl border-b border-white/10 shadow-2xl shadow-black/40' : 'bg-[#0A0F1E]/40 backdrop-blur-md'}`}>
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <a href="#" className="flex items-center gap-2.5 group min-w-0">
+            <img src="/purse.svg" alt="FinKeeper24 — логотип приложения домашней бухгалтерии" className="w-8 h-8 sm:w-9 sm:h-9 object-contain flex-shrink-0 group-hover:scale-105 transition-transform" />
+            <span className="font-display font-bold text-base sm:text-lg md:text-xl tracking-tight text-white truncate">
+              FinKeeper24<span className="hidden lg:inline text-slate-text/75 font-medium text-base"> — Моя домашняя бухгалтерия</span>
+            </span>
           </a>
+
+          <div className="hidden md:flex items-center gap-6 lg:gap-8 text-sm font-medium text-slate-text/80">
+            <a href="#features" className="hover:text-emerald-base transition-colors">Возможности</a>
+            <a href="#how-it-works" className="hover:text-emerald-base transition-colors">Как работает</a>
+            <a href="#pricing" className="hover:text-emerald-base transition-colors">Тарифы</a>
+            <a href="#reviews" className="hover:text-emerald-base transition-colors">Отзывы</a>
+            <a href="#faq" className="hover:text-emerald-base transition-colors">FAQ</a>
+          </div>
+
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
+            <a href="https://app.finkeeper24.ru" target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex items-center justify-center px-4 py-2 min-h-[40px] rounded-full text-slate-text hover:text-white hover:bg-white/5 transition-all font-display font-semibold text-sm">
+              Войти
+            </a>
+            <a href="#download" className="inline-flex items-center justify-center px-4 sm:px-5 py-2 min-h-[40px] sm:min-h-[42px] rounded-full bg-emerald-base/15 hover:bg-emerald-base/25 text-emerald-300 border border-emerald-base/30 backdrop-blur-md transition-all font-display font-semibold text-xs sm:text-sm">
+              Скачать
+            </a>
+          </div>
         </div>
       </nav>
 
-      <main className="relative z-10">
+      <main className="relative z-10" itemScope itemType="https://schema.org/SoftwareApplication">
+        <meta itemProp="name" content="FinKeeper24 — Моя домашняя бухгалтерия" />
+        <meta itemProp="applicationCategory" content="FinanceApplication" />
+        <meta itemProp="operatingSystem" content="Web, Android, Windows, macOS, Linux" />
         {/* Hero Section */}
-        <section className="pt-8 pb-6 md:pt-12 md:pb-8 lg:pt-14 lg:pb-10 px-6 min-h-[85vh] lg:min-h-screen flex flex-col justify-center overflow-hidden relative">
+        <section className="pt-24 pb-12 sm:pt-28 sm:pb-16 md:pt-32 md:pb-20 lg:pt-36 lg:pb-24 px-4 sm:px-6 min-h-[85vh] lg:min-h-screen flex flex-col justify-center overflow-hidden relative">
           <div className="max-w-7xl mx-auto w-full relative z-30 flex flex-col items-center text-center">
             <motion.div 
               initial="hidden"
@@ -420,115 +441,135 @@ export default function App() {
               variants={staggerContainer}
               className="max-w-4xl"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-base/5 border border-emerald-base/10 text-emerald-base text-[10px] font-display font-black mb-8 tracking-[0.25em] uppercase backdrop-blur-xl shadow-2xl shadow-emerald-base/5">
+              <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-emerald-base/5 border border-emerald-base/15 text-emerald-base text-[11px] font-mono font-semibold mb-6 sm:mb-8 tracking-[0.18em] uppercase backdrop-blur-xl shadow-2xl shadow-emerald-base/5">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-base opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-base"></span>
                 </span>
-                v2.2.4 • PRO SYSTEM
+                v2.3.0 • WEB • ANDROID • DESKTOP
               </div>
               
-              <motion.h1 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-[64px] font-black leading-[1.05] mb-5 md:mb-6 tracking-[-0.04em] text-white">
+              <motion.h1 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-[64px] font-extrabold leading-[1.08] mb-5 md:mb-6 tracking-[-0.03em] text-white">
                 Ваши финансы <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-emerald-base to-emerald-500 text-glow">
                   В идеальном балансе
                 </span>
               </motion.h1>
               
-              <motion.p variants={fadeUpVariants} className="text-slate-text/90 text-base sm:text-lg font-light leading-relaxed mb-10 max-w-2xl mx-auto">
-                Ваш надежный компаньон в мире личных финансов. Отслеживайте расходы, управляйте бюджетами и достигайте целей в стильном интерфейсе. Доступно на всех ваших устройствах с мгновенной синхронизацией.
+              <motion.p variants={fadeUpVariants} itemProp="description" className="text-slate-text/90 text-base sm:text-lg font-light leading-relaxed mb-8 sm:mb-10 max-w-2xl mx-auto">
+                Ведите личный и семейный бюджет без сложных таблиц Excel и привязки банковских карт. Записывайте траты за пару секунд, контролируйте лимиты по категориям и копите на цели — с мгновенной синхронизацией между смартфоном и ПК.
               </motion.p>
               
-              <motion.div variants={fadeUpVariants} className="flex flex-wrap items-center justify-center gap-6">
-                <a href="https://app.finkeeper24.ru" target="_blank" rel="noopener noreferrer" className="px-10 py-5 rounded-2xl bg-emerald-base text-main-bg font-display font-bold hover:bg-emerald-400 transition-all shadow-[0_20px_40px_-10px_rgba(16,185,129,0.3)] hover:-translate-y-1 flex items-center gap-3">
+              <motion.div variants={fadeUpVariants} className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+                <a href="https://app.finkeeper24.ru" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 rounded-2xl bg-emerald-base text-main-bg font-display font-bold hover:bg-emerald-400 transition-all shadow-[0_20px_40px_-10px_rgba(16,185,129,0.3)] hover:-translate-y-1 flex items-center justify-center gap-3">
                   Начать планирование бюджета <ArrowUpRight size={22} />
                 </a>
-                <a href="#download" className="px-10 py-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all font-display font-medium flex items-center gap-3 backdrop-blur-md">
+                <a href="#download" className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all font-display font-semibold flex items-center justify-center gap-3 backdrop-blur-md">
                   Загрузить приложение <Download size={22} />
                 </a>
               </motion.div>
             </motion.div>
 
-            {/* Premium Device Composition (Wealthly Style) */}
+            {/* Premium Device Composition */}
             <motion.div 
-              initial={{ opacity: 0, y: 100 }}
+              initial={{ opacity: 0, y: 80 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1], delay: 0.5 }}
-              className="mt-2 md:mt-4 lg:mt-6 relative w-full max-w-4xl lg:max-w-[950px] aspect-[16/14] md:aspect-[16/16] perspective-2000"
+              transition={{ duration: 1.3, ease: [0.22, 1, 0.36, 1], delay: 0.35 }}
+              className="mt-10 sm:mt-12 md:mt-14 relative w-full max-w-5xl mx-auto pb-10 sm:pb-14 md:pb-16 px-2 sm:px-8"
             >
               {/* Web Dashboard Mockup */}
               <motion.div 
-                style={{ rotateX: 10, y: y3 }}
-                className="absolute inset-x-0 top-0 mx-auto w-[94%] aspect-[16/14] md:aspect-[16/16] glass-panel border-white/20 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9)] overflow-hidden z-10 rounded-2xl md:rounded-3xl"
+                style={{ rotateX: 6, y: y3 }}
+                className="relative mx-auto w-full md:w-[88%] glass-panel border-white/20 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9)] overflow-hidden z-10 rounded-2xl md:rounded-3xl"
               >
                 <div className="absolute inset-0 bg-emerald-base/5 z-0" />
-                <div className="relative z-10 p-2 md:p-4 h-full flex flex-col">
-                  <div className="flex items-center justify-between mb-2 md:mb-4 px-2">
+                <div className="relative z-10 p-2 sm:p-3 md:p-4 flex flex-col">
+                  <div className="flex items-center justify-between mb-2 md:mb-3 px-2">
                     <div className="flex gap-1.5 md:gap-2">
-                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-rose-flash/40" />
-                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-amber-500/40" />
-                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-emerald-base/40" />
+                      <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-rose-flash/50" />
+                      <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-amber-500/50" />
+                      <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-emerald-base/50" />
                     </div>
+                    <div className="px-3 py-0.5 rounded-full bg-white/5 border border-white/5 text-[10px] font-mono text-slate-text/50">
+                      app.finkeeper24.ru
+                    </div>
+                    <div className="w-8" />
                   </div>
-                  <img src={ASSETS.webDashboard} alt="Web System" className="w-full h-full object-cover object-top rounded-lg md:rounded-xl shadow-2xl" />
+                  <img
+                    src={ASSETS.webDashboard}
+                    alt="Веб-версия домашней бухгалтерии FinKeeper24 — дашборд учета доходов, расходов и семейного бюджета"
+                    fetchPriority="high"
+                    className="w-full max-h-[300px] sm:max-h-[440px] md:max-h-[560px] object-cover object-top rounded-lg md:rounded-xl shadow-2xl"
+                  />
                 </div>
               </motion.div>
 
-              {/* Floating Mobile Focal Point */}
+              {/* Floating Mobile Focal Point (Bottom-Left) */}
               <motion.div 
                 animate={{ 
-                  y: [-20, 20, -20],
-                  rotate: [-5, -2, -5]
+                  y: [-12, 12, -12],
+                  rotate: [-4, -2, -4]
                 }}
                 transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -bottom-10 -left-10 md:left-0 w-[180px] md:w-[280px] aspect-[9/19] glass-panel border-white/30 shadow-[0_40px_80px_-20px_rgba(0,0,0,1)] z-40 rounded-[32px] md:rounded-[56px] p-2 md:p-3 overflow-hidden"
+                className="absolute -bottom-2 left-0 sm:left-2 md:-left-2 w-[118px] sm:w-[175px] md:w-[235px] aspect-[9/19] glass-panel border-white/30 shadow-[0_40px_80px_-20px_rgba(0,0,0,1)] z-40 rounded-[22px] sm:rounded-[34px] md:rounded-[44px] p-1.5 sm:p-2 md:p-2.5 overflow-hidden"
               >
-                <div className="w-full h-full rounded-[24px] md:rounded-[36px] overflow-hidden relative bg-black border border-white/5">
-                  <img src={ASSETS.mobileDashboard} alt="Mobile App" className="w-full h-full object-cover" />
+                <div className="w-full h-full rounded-[16px] sm:rounded-[26px] md:rounded-[34px] overflow-hidden relative bg-black border border-white/5">
+                  <img
+                    src={ASSETS.mobileDashboard}
+                    alt="Мобильное приложение FinKeeper24 на Android — главный экран контроля личных финансов"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </motion.div>
 
-              {/* Decorative Accent: Month View */}
+              {/* Decorative Accent: Month View (Top-Right, hidden on narrow phones to prevent crowding) */}
               <motion.div 
                 animate={{ 
-                  y: [20, -20, 20],
-                  rotate: [8, 12, 8]
+                  y: [14, -14, 14],
+                  rotate: [6, 9, 6]
                 }}
                 transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute top-20 -right-5 md:right-10 w-[140px] md:w-[220px] aspect-[9/19] glass-panel border-white/10 shadow-2xl z-20 rounded-[24px] md:rounded-[40px] p-2 overflow-hidden opacity-60 blur-[0.5px] group-hover:opacity-100 group-hover:blur-0 transition-all duration-700"
+                className="hidden sm:block absolute -top-6 right-1 md:-right-2 w-[125px] md:w-[185px] lg:w-[205px] aspect-[9/19] glass-panel border-white/15 shadow-2xl z-20 rounded-[24px] md:rounded-[36px] p-1.5 md:p-2 overflow-hidden opacity-75 hover:opacity-100 transition-all duration-700"
               >
-                <div className="w-full h-full rounded-[16px] md:rounded-[32px] overflow-hidden relative bg-black border border-white/5">
-                  <img src={ASSETS.mobileMonth} alt="Analytics" className="w-full h-full object-cover" />
+                <div className="w-full h-full rounded-[18px] md:rounded-[28px] overflow-hidden relative bg-black border border-white/5">
+                  <img
+                    src={ASSETS.mobileMonth}
+                    alt="Экран бюджета месяца и категорий расходов в приложении FinKeeper24"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </motion.div>
 
-              {/* Professional Widget: Performance */}
+              {/* Product Widget: Monthly Balance Summary (Bottom-Right) */}
               <motion.div 
-                animate={{ y: [0, -30, 0] }}
+                animate={{ y: [0, -14, 0] }}
                 transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute top-1/2 -right-6 md:-right-12 z-50 p-4 md:p-6 glass-panel border-emerald-base/40 shadow-[0_30px_60px_-15px_rgba(16,185,129,0.3)] backdrop-blur-3xl min-w-[180px] md:min-w-[240px]"
+                className="absolute bottom-2 right-0 sm:right-2 md:bottom-10 md:-right-4 z-50 p-3.5 sm:p-4 md:p-5 glass-panel border-emerald-base/40 shadow-[0_30px_60px_-15px_rgba(16,185,129,0.3)] backdrop-blur-3xl w-[170px] sm:w-[215px] md:w-[255px]"
               >
-                <div className="flex flex-col gap-4 md:gap-5">
+                <div className="flex flex-col gap-2.5 sm:gap-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-[8px] md:text-[10px] text-emerald-base uppercase tracking-[0.3em] font-mono font-black">Эффективность</div>
-                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-emerald-base/20 flex items-center justify-center text-emerald-base border border-emerald-base/20">
-                      <Activity size={14} />
+                    <div className="text-[9px] md:text-[10px] text-emerald-base uppercase tracking-[0.18em] font-mono font-bold">Баланс месяца</div>
+                    <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg bg-emerald-base/20 flex items-center justify-center text-emerald-base border border-emerald-base/25">
+                      <Wallet size={13} />
                     </div>
                   </div>
-                  <div className="flex flex-col">
-                    <div className="text-2xl md:text-3xl font-display font-black text-white tracking-tighter">+12.4%</div>
-                    <div className="text-[8px] md:text-[10px] text-slate-text uppercase font-mono">Прирост за месяц</div>
+                  <div className="flex flex-col text-left">
+                    <div className="text-lg sm:text-2xl md:text-[26px] font-display font-extrabold text-white tracking-tight leading-none">+48 500 ₽</div>
+                    <div className="text-[9px] md:text-[11px] text-slate-text/75 mt-1 font-light">Свободный остаток</div>
                   </div>
-                  <div className="flex gap-1 md:gap-2 h-4 md:h-6 items-end">
-                    {[30, 60, 45, 90, 65, 80, 50, 40, 70, 55, 85, 45].map((h, i) => (
-                      <motion.div 
-                        key={i} 
-                        initial={{ height: 0 }}
-                        animate={{ height: `${h}%` }}
-                        transition={{ delay: i * 0.04, duration: 1.2 }}
-                        className="flex-1 bg-emerald-base/40 rounded-full" 
+                  <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5 text-[10px] md:text-[11px] font-mono">
+                    <div className="flex items-center justify-between text-slate-text/80">
+                      <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-base" />В копилку</span>
+                      <span className="text-emerald-300 font-semibold">15 000 ₽</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mt-0.5">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: '68%' }}
+                        transition={{ duration: 1.4, delay: 0.5 }}
+                        className="h-full bg-gradient-to-r from-emerald-base to-emerald-300 rounded-full"
                       />
-                    ))}
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -566,17 +607,23 @@ export default function App() {
                 Заначка исчезает незаметно, а мечты о путешествии или новом ноутбуке снова откладываются.
               </motion.p>
 
-              {/* Pain points */}
+              {/* Pain points (vector icons instead of emojis) */}
               <motion.div variants={fadeUpVariants} className="flex flex-wrap items-center justify-center gap-3 md:gap-4 mb-12">
                 {[
-                  { icon: '📉', text: 'Траты без контроля' },
-                  { icon: '💸', text: 'Деньги улетают' },
-                  { icon: '🎯', text: 'Цели откладываются' },
-                ].map((item, i) => (
-                  <div key={i} className="px-5 py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
-                    <span className="text-sm font-light text-slate-text/80">{item.icon} {item.text}</span>
-                  </div>
-                ))}
+                  { icon: TrendingDown, text: 'Траты без контроля' },
+                  { icon: Flame, text: 'Деньги уходят незаметно' },
+                  { icon: Target, text: 'Крупные цели откладываются' },
+                ].map((item, i) => {
+                  const PainIcon = item.icon;
+                  return (
+                    <div key={i} className="inline-flex items-center gap-2.5 px-5 py-3 rounded-full bg-white/[0.04] border border-white/10 backdrop-blur-sm">
+                      <span className="w-6 h-6 rounded-full bg-rose-flash/15 border border-rose-flash/30 flex items-center justify-center text-rose-flash">
+                        <PainIcon size={13} strokeWidth={2.2} />
+                      </span>
+                      <span className="text-sm font-medium text-slate-text/90">{item.text}</span>
+                    </div>
+                  );
+                })}
               </motion.div>
 
               {/* CTA */}
@@ -594,20 +641,25 @@ export default function App() {
         </section>
 
         {/* Bento Features Section */}
-        <section className="py-32 px-6 relative z-10">
+        <section id="features" className="py-24 md:py-32 px-6 relative z-10 scroll-mt-20">
           <div className="max-w-7xl mx-auto">
             <motion.div 
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: "-100px" }}
               variants={staggerContainer}
-              className="text-left mb-10"
+              className="text-left mb-12"
             >
-              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-[64px] font-bold mb-6 tracking-tight text-white">
-                Всё под <span className="text-emerald-base text-glow">контролем</span>
+              <motion.div variants={fadeUpVariants} className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.22em] text-emerald-base mb-4">
+                <span>01</span>
+                <span className="text-white/20">/</span>
+                <span>Возможности</span>
+              </motion.div>
+              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl font-bold mb-5 tracking-tight text-white leading-[1.08]">
+                Полный порядок в личных и семейных финансах
               </motion.h2>
               <motion.p variants={fadeUpVariants} className="text-slate-text text-xl max-w-2xl font-light">
-                Инструменты для тех, кто ценит точность и удобство. Профессиональная аналитика в интуитивном формате.
+                Инструменты для тех, кто ценит точность и скорость. Наглядная аналитика без сложных формул и рутины.
               </motion.p>
             </motion.div>
 
@@ -624,7 +676,7 @@ export default function App() {
                   <FeatureIcon icon={PieChart} />
                   <h3 className="font-display text-2xl mb-4 text-white">Бюджеты по месяцам</h3>
                   <p className="text-slate-text leading-relaxed font-light mb-8">
-                    Разделение доходов и расходов на периоды. Устанавливайте лимиты по категориям на каждый месяц отдельно.
+                    Планируйте бюджет на каждый месяц отдельно. Задавайте лимиты по категориям и сразу видьте, где вы в рамках плана, а где близки к перерасходу.
                   </p>
                   <div className="mt-auto relative w-full h-48 overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-6">
                     <div className="flex flex-col gap-5">
@@ -727,7 +779,7 @@ export default function App() {
                 <FeatureIcon icon={Activity} color="text-emerald-base" />
                 <h3 className="font-display text-xl mb-3 text-white">Наглядная аналитика</h3>
                 <p className="text-slate-text text-sm leading-relaxed font-light mb-6">
-                  Подробные дешборды, круговые диаграммы структуры расходов и графики трендов.
+                  Подробные дашборды, интерактивная круговая диаграмма структуры расходов и динамика баланса по месяцам.
                 </p>
                 <div className="mt-auto flex items-end gap-2 h-24 relative px-2">
                   {[40, 70, 45, 90, 65, 80, 50, 85, 60, 95, 55, 75].map((h, i) => (
@@ -754,7 +806,7 @@ export default function App() {
                     <FeatureIcon icon={Zap} color="text-amber-400" />
                     <h3 className="font-display text-2xl mb-4 text-white">Занимает секунды</h3>
                     <p className="text-slate-text leading-relaxed font-light">
-                      Добавление покупки происходит быстрее, чем вы получите сдачу. Интерфейс спроектирован так, чтобы не отвлекать вас от жизни.
+                      Добавление покупки происходит быстрее, чем вы получите сдачу: выбор категории одним касанием и встроенный расчёт суммы (150 + 340) прямо в поле ввода.
                     </p>
                   </div>
                   <div className="flex flex-col gap-3 justify-center relative py-4">
@@ -793,7 +845,7 @@ export default function App() {
                   <FeatureIcon icon={Globe} color="text-blue-400" />
                   <h3 className="font-display text-xl mb-3 text-white">Всегда под рукой</h3>
                   <p className="text-slate-text text-sm leading-relaxed font-light mb-6">
-                    Записывайте расходы даже там, где нет связи. Все синхронизируется само.
+                    Записывайте расходы даже там, где нет связи. Всё синхронизируется само, как только появится интернет.
                   </p>
                   <div className="mt-auto flex items-center gap-3 px-4 py-4 rounded-xl bg-blue-400/5 border border-blue-400/20 w-full group/sync relative overflow-hidden">
                     <div className="absolute inset-0 bg-blue-400/5 opacity-0 group-hover/sync:opacity-100 transition-opacity" />
@@ -805,9 +857,9 @@ export default function App() {
                       <Activity size={16} />
                     </motion.div>
                     <div className="flex-1 relative z-10">
-                      <div className="text-[10px] font-mono text-blue-400 uppercase tracking-widest font-bold flex justify-between">
-                        <span>Sync Active</span>
-                        <span className="opacity-50">v1.2</span>
+                      <div className="text-[10px] font-mono text-blue-400 uppercase tracking-wider font-bold flex justify-between">
+                        <span>Офлайн + Облако</span>
+                        <span className="opacity-70">Авто-синк</span>
                       </div>
                       <div className="w-full h-1.5 bg-blue-400/10 rounded-full mt-2 overflow-hidden">
                         <motion.div 
@@ -828,7 +880,7 @@ export default function App() {
                     <FeatureIcon icon={Lock} color="text-emerald-base" />
                     <h3 className="font-display text-3xl mb-4 leading-tight text-white">Ваши данные — <br className="hidden lg:block"/> только ваши</h3>
                     <p className="text-slate-text text-lg leading-relaxed font-light max-w-xl">
-                      Мы ценим вашу приватность. Никаких облачных хранилищ без вашего ведома и возможность в любой момент забрать свою историю. Полная анонимность и безопасность.
+                      Никакой привязки банковских карт, чтения СМС и рекламных трекеров. База хранится локально на вашем устройстве и синхронизируется по защищённому каналу с сервером в РФ, а авто-бэкапы страхуют историю от случайного удаления.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-6">
@@ -853,7 +905,7 @@ export default function App() {
         </section>
 
         {/* How It Works Section */}
-        <section className="py-24 md:py-32 px-6 relative z-10 bg-black/20">
+        <section id="how-it-works" className="py-24 md:py-32 px-6 relative z-10 bg-black/20 scroll-mt-20">
           <div className="max-w-7xl mx-auto">
             <motion.div 
               initial="hidden"
@@ -862,11 +914,16 @@ export default function App() {
               variants={staggerContainer}
               className="text-center mb-16 md:mb-20"
             >
-              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-5xl lg:text-[64px] font-bold mb-6 tracking-tight text-white leading-[1.05]">
-                Три шага к <span className="text-emerald-base text-glow">финансовой свободе</span>
+              <motion.div variants={fadeUpVariants} className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.22em] text-emerald-base mb-4">
+                <span>02</span>
+                <span className="text-white/20">/</span>
+                <span>Как это устроено</span>
+              </motion.div>
+              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-5xl lg:text-6xl font-bold mb-6 tracking-tight text-white leading-[1.08]">
+                Три простых шага к системному бюджету
               </motion.h2>
               <motion.p variants={fadeUpVariants} className="text-slate-text text-xl max-w-2xl mx-auto font-light leading-relaxed">
-                Мы сделали процесс управления деньгами максимально простым и естественным. Начните прямо сейчас.
+                Никаких долгих настроек и изучения инструкций — начните вести учёт за одну минуту.
               </motion.p>
             </motion.div>
 
@@ -881,21 +938,21 @@ export default function App() {
                 number="01"
                 icon={Download}
                 title="Установка"
-                desc="Скачайте приложение на любое устройство. Или воспользуйтесь Web-версией. Регистрация займет меньше минуты — мы ценим ваше время."
+                desc="Откройте веб-версию в браузере или установите приложение на смартфон и компьютер. Регистрация займёт меньше минуты — без привязки карт и лишних анкет."
                 variants={fadeUpVariants}
               />
               <StepCard 
                 number="02"
                 icon={Wallet}
                 title="Первые записи"
-                desc="Задайте названия своих обычных категорий доходов и расходов. Добавляйте доходы и расходы в один клик. Приложение само распределит их по категориям для наглядности."
+                desc="Используйте готовый стартовый набор категорий или настройте свои. Добавляйте доходы и расходы в пару касаний — со встроенным калькулятором прямо в поле суммы."
                 variants={fadeUpVariants}
               />
               <StepCard 
                 number="03"
                 icon={Activity}
-                title="Аналитика"
-                desc="Следите за динамикой через стильные графики. Приложение подскажет, где можно сэкономить и как быстрее достичь целей."
+                title="Аналитика и цели"
+                desc="Смотрите структуру расходов на круговой диаграмме, сравнивайте динамику доходов и трат по месяцам и переводите свободный остаток в целевые копилки."
                 variants={fadeUpVariants}
               />
             </motion.div>
@@ -903,7 +960,7 @@ export default function App() {
         </section>
 
         {/* Pricing Section */}
-        <section className="py-24 md:py-32 px-6 relative z-10 overflow-hidden">
+        <section id="pricing" className="py-24 md:py-32 px-6 relative z-10 overflow-hidden scroll-mt-20">
           <div className="max-w-7xl mx-auto">
             <motion.div 
               initial="hidden"
@@ -912,11 +969,16 @@ export default function App() {
               variants={staggerContainer}
               className="text-center mb-16 md:mb-20"
             >
-              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-5xl lg:text-[64px] font-bold mb-6 tracking-tight text-white leading-[1.05]">
-                Выберите свой <span className="text-emerald-base text-glow">уровень контроля</span>
+              <motion.div variants={fadeUpVariants} className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.22em] text-emerald-base mb-4">
+                <span>03</span>
+                <span className="text-white/20">/</span>
+                <span>Тарифы</span>
+              </motion.div>
+              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-5xl lg:text-6xl font-bold mb-6 tracking-tight text-white leading-[1.08]">
+                Честный доступ без скрытых подписок
               </motion.h2>
               <motion.p variants={fadeUpVariants} className="text-slate-text text-xl max-w-2xl mx-auto font-light leading-relaxed">
-                Начните бесплатно. PRO-функции в разработке — весь функционал уже доступен в базовой версии.
+                Весь основной функционал учёта и синхронизации доступен бесплатно. Расширенные семейные функции — в разработке.
               </motion.p>
             </motion.div>
 
@@ -931,20 +993,20 @@ export default function App() {
                   "Лимиты по категориям",
                   "Умные копилки",
                   "Локальное хранение данных",
-                  "Синхронизация"
+                  "Синхронизация между устройствами"
                 ]}
               />
               <PricingCard
                 recommended
                 disabled
-                title="PRO SYSTEM"
+                title="Семейный PRO"
                 price="199 ₽"
                 icon={Star}
                 features={[
                   "Неограниченно устройств",
-                  "Семейный доступ",
-                  "Создание резервных копий и восстановление",
-                  "Продвинутая аналитика",
+                  "Совместный семейный доступ с ролями",
+                  "Расширенный архив резервных копий",
+                  "Глубокая аналитика и экспорт отчётов",
                   "Приоритетная поддержка"
                 ]}
               />
@@ -966,9 +1028,13 @@ export default function App() {
                 viewport={{ once: true }}
                 variants={staggerContainer}
               >
-                <motion.h2 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-[64px] font-bold mb-6 md:mb-8 leading-[1] text-center lg:text-left text-white tracking-tight">
-                  Ваши финансы <br />
-                  <span className="text-emerald-base text-glow">на любом устройстве</span>
+                <motion.div variants={fadeUpVariants} className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.22em] text-emerald-base mb-4">
+                  <span>04</span>
+                  <span className="text-white/20">/</span>
+                  <span>Все платформы</span>
+                </motion.div>
+                <motion.h2 variants={fadeUpVariants} className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-6xl font-bold mb-6 md:mb-8 leading-[1.05] text-center lg:text-left text-white tracking-tight">
+                  Один аккаунт — на смартфоне, ноутбуке и ПК
                 </motion.h2>
                 <motion.p variants={fadeUpVariants} className="text-slate-text text-xl mb-12 font-light leading-relaxed text-center lg:text-left max-w-xl mx-auto lg:mx-0">
                   Мы создали FinKeeper24 так, чтобы он был доступен везде. Ваша бухгалтерия мгновенно синхронизируется между смартфоном, планшетом и компьютером.
@@ -1011,7 +1077,7 @@ export default function App() {
                   </div>
                   <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-amber-400/5 border border-amber-400/20 backdrop-blur-sm group hover:bg-amber-400/10 transition-all duration-300">
                     <Star size={28} className="text-amber-400 mb-3 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="text-base font-display font-bold text-white">Рейтинг 4.7+</span>
+                    <span className="text-base font-display font-bold text-white">Рейтинг 4.8+</span>
                     <span className="text-xs text-slate-text/70 mt-1 font-light">Оценка пользователей</span>
                   </div>
                   <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-emerald-base/5 border border-emerald-base/20 backdrop-blur-sm group hover:bg-emerald-base/10 transition-all duration-300">
@@ -1090,62 +1156,85 @@ export default function App() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 1 }}
-                className="relative w-full max-w-[1100px] mx-auto mt-8 md:mt-24"
-                style={{ minHeight: '700px' }}
+                className="relative w-full max-w-[640px] mx-auto py-12 sm:py-16 md:py-20 px-2 sm:px-6"
               >
                 {/* Background Glow */}
-                <div className="absolute inset-0 bg-emerald-base/5 blur-[120px] rounded-full opacity-50 -z-10" />
+                <div className="absolute inset-0 bg-emerald-base/10 blur-[120px] rounded-full opacity-50 -z-10" />
 
-                {/* Device Stack - Professional Composition */}
+                {/* Device Stack - Balanced Responsive Composition */}
                 <div className="relative w-full">
-                  {/* Web Dashboard - Full Width Background */}
+                  {/* Desktop / Web Dashboard - Center Frame */}
                   <motion.div
                     initial={{ opacity: 0, y: 40 }}
                     whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 1, delay: 0.1 }}
-                    className="w-full glass-panel border-white/15 shadow-2xl rounded-3xl overflow-hidden z-0"
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.9, delay: 0.1 }}
+                    className="w-[90%] mx-auto glass-panel border-white/15 shadow-2xl rounded-2xl md:rounded-3xl overflow-hidden z-0"
                   >
-                    <img src={ASSETS.webDashboard} alt="Web Dashboard" loading="lazy" className="w-full h-auto object-cover" />
+                    <img
+                      src={ASSETS.desktopApp}
+                      alt="Десктопная программа домашней бухгалтерии FinKeeper24 для Windows, macOS и Linux"
+                      loading="lazy"
+                      className="w-full max-h-[320px] sm:max-h-[420px] md:max-h-[480px] object-cover object-top"
+                    />
                   </motion.div>
 
-                  {/* Mobile Main - Large, Front Left (2x Size) */}
+                  {/* Mobile Main - Front Bottom-Left */}
                   <motion.div
-                    initial={{ opacity: 0, y: 80, rotate: -3 }}
+                    initial={{ opacity: 0, y: 50, rotate: -3 }}
                     whileInView={{ opacity: 1, y: 0, rotate: -2 }}
-                    transition={{ duration: 0.9, delay: 0.3 }}
-                    className="absolute -bottom-24 md:-bottom-50 left-[2%] md:left-[-10%] w-[50%] md:w-[45%] max-w-[420px] z-20"
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.85, delay: 0.25 }}
+                    className="absolute -bottom-8 sm:-bottom-12 left-0 sm:left-2 w-[38%] sm:w-[36%] max-w-[220px] z-20"
                   >
-                    <div className="glass-panel border-white/30 shadow-2xl rounded-[48px] overflow-hidden p-3 md:p-4">
-                      <div className="w-full aspect-[9/19] rounded-[24px] overflow-hidden relative bg-black border border-white/5">
-                        <img src={ASSETS.mobileDashboard} alt="Mobile Dashboard" loading="lazy" className="w-full h-full object-cover" />
-</div>
-                    </div>
-                  </motion.div>
-
-                  {/* Mobile Month View - Top Right, Medium Size */}
-                  <motion.div
-                    initial={{ opacity: 0, y: -60, rotate: 5 }}
-                    whileInView={{ opacity: 1, y: 0, rotate: 3 }}
-                    transition={{ duration: 0.9, delay: 0.5 }}
-                    className="absolute -top-16 md:-top-50 right-[5%] md:right-[5%] w-[45%] md:w-[40%] max-w-[340px] z-10"
-                  >
-                    <div className="glass-panel border-white/25 shadow-2xl rounded-[40px] overflow-hidden p-3 md:p-4">
-                      <div className="w-full aspect-[9/19] rounded-[24px] overflow-hidden relative bg-black border border-white/5">
-                        <img src={ASSETS.mobileMonth} alt="Month View" className="w-full h-full object-cover" />
+                    <div className="glass-panel border-white/30 shadow-2xl rounded-[24px] sm:rounded-[34px] overflow-hidden p-1.5 sm:p-2.5">
+                      <div className="w-full aspect-[9/19] rounded-[18px] sm:rounded-[26px] overflow-hidden relative bg-black border border-white/5">
+                        <img
+                          src={ASSETS.mobileDashboard}
+                          alt="Мобильное приложение учета расходов и доходов FinKeeper24 на Android"
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                     </div>
                   </motion.div>
 
-                  {/* Mobile Dashboard 2 - Bottom Right, Smaller (2x Size) */}
+                  {/* Mobile Month View - Top-Right */}
                   <motion.div
-                    initial={{ opacity: 0, y: 60, rotate: -5 }}
-                    whileInView={{ opacity: 1, y: 0, rotate: 4 }}
-                    transition={{ duration: 0.9, delay: 0.7 }}
-                    className="hidden md:block absolute bottom-12 md:top-87 right-[0%] md:right-[10%] w-[45%] md:w-[38%] max-w-[280px] z-10"
+                    initial={{ opacity: 0, y: -40, rotate: 4 }}
+                    whileInView={{ opacity: 1, y: 0, rotate: 3 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.85, delay: 0.4 }}
+                    className="absolute -top-8 sm:-top-12 right-0 sm:right-2 w-[34%] sm:w-[32%] max-w-[195px] z-10"
                   >
-                    <div className="glass-panel border-white/20 shadow-xl rounded-[36px] overflow-hidden p-2 md:p-3">
-                      <div className="w-full aspect-[9/19] rounded-[24px] overflow-hidden relative bg-black border border-white/5">
-                        <img src={ASSETS.mobileDashboard2} alt="Mobile View 2" className="w-full h-full object-cover" />
+                    <div className="glass-panel border-white/25 shadow-2xl rounded-[22px] sm:rounded-[32px] overflow-hidden p-1.5 sm:p-2.5">
+                      <div className="w-full aspect-[9/19] rounded-[16px] sm:rounded-[24px] overflow-hidden relative bg-black border border-white/5">
+                        <img
+                          src={ASSETS.mobileMonth}
+                          alt="Планирование семейного бюджета по месяцам и лимиты категорий в FinKeeper24"
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Mobile Dashboard 2 - Bottom-Right */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 40, rotate: 4 }}
+                    whileInView={{ opacity: 1, y: 0, rotate: 4 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.85, delay: 0.55 }}
+                    className="hidden sm:block absolute -bottom-10 right-6 md:right-8 w-[30%] max-w-[175px] z-30"
+                  >
+                    <div className="glass-panel border-white/20 shadow-xl rounded-[24px] sm:rounded-[30px] overflow-hidden p-1.5 sm:p-2">
+                      <div className="w-full aspect-[9/19] rounded-[18px] sm:rounded-[22px] overflow-hidden relative bg-black border border-white/5">
+                        <img
+                          src={ASSETS.mobileDashboard2}
+                          alt="Финансовая аналитика, графики расходов и умные копилки в FinKeeper24"
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                     </div>
                   </motion.div>
@@ -1156,7 +1245,7 @@ export default function App() {
         </section>
 
         {/* Reviews Section */}
-        <section className="py-20 md:py-28 px-6 relative z-10 overflow-hidden">
+        <section id="reviews" className="py-20 md:py-28 px-6 relative z-10 overflow-hidden scroll-mt-20">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-emerald-base/5 blur-[150px] rounded-full -z-10" />
           
           <div className="max-w-7xl mx-auto">
@@ -1167,11 +1256,16 @@ export default function App() {
               variants={staggerContainer}
               className="text-center mb-16"
             >
-              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-5xl lg:text-[64px] font-bold mb-6 tracking-tight text-white leading-[1.05]">
-                Что говорят <span className="text-emerald-base text-glow">пользователи</span>
+              <motion.div variants={fadeUpVariants} className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.22em] text-emerald-base mb-4">
+                <span>05</span>
+                <span className="text-white/20">/</span>
+                <span>Отзывы</span>
+              </motion.div>
+              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-5xl lg:text-6xl font-bold mb-6 tracking-tight text-white leading-[1.08]">
+                Опыт реального использования
               </motion.h2>
               <motion.p variants={fadeUpVariants} className="text-slate-text text-xl max-w-2xl mx-auto font-light leading-relaxed">
-                Отзывы тех, кто уже взяли свои финансы под контроль с FinKeeper24
+                Как FinKeeper24 помогает навести порядок в личном и семейном бюджете
               </motion.p>
             </motion.div>
 
@@ -1187,7 +1281,7 @@ export default function App() {
         </section>
 
         {/* FAQ Section */}
-        <section className="py-24 md:py-32 px-6 relative z-10 bg-black/20">
+        <section id="faq" className="py-24 md:py-32 px-6 relative z-10 bg-black/20 scroll-mt-20">
           <div className="max-w-4xl mx-auto">
             <motion.div 
               initial="hidden"
@@ -1196,8 +1290,13 @@ export default function App() {
               variants={staggerContainer}
               className="text-center mb-16 md:mb-20"
             >
-              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-5xl lg:text-[64px] font-bold mb-6 tracking-tight text-white leading-[1.05]">
-                Частые <span className="text-emerald-base text-glow">вопросы</span>
+              <motion.div variants={fadeUpVariants} className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.22em] text-emerald-base mb-4">
+                <span>06</span>
+                <span className="text-white/20">/</span>
+                <span>FAQ</span>
+              </motion.div>
+              <motion.h2 variants={fadeUpVariants} className="font-display text-4xl md:text-5xl lg:text-6xl font-bold mb-6 tracking-tight text-white leading-[1.08]">
+                Ответы на частые вопросы
               </motion.h2>
             </motion.div>
 
@@ -1209,20 +1308,24 @@ export default function App() {
               className="glass-panel p-8 md:p-12 border-white/5"
             >
               <AccordionItem
+                question="Чем FinKeeper24 лучше таблиц Excel для домашней бухгалтерии?"
+                answer="В отличие от громоздких таблиц Excel, вам не нужно вручную настраивать формулы и сводные графики. Вы записываете трату со смартфона за 3 секунды прямо на кассе, а приложение само считает остаток бюджета по категориям, вычитает пополнения копилок из свободных средств, строит наглядные диаграммы и мгновенно синхронизирует данные с компьютером."
+              />
+              <AccordionItem
                 question="Где хранятся мои данные?"
-                answer="Все данные хранятся непосредственно на ваших устройствах — в памяти приложения. А так же в зашифрованном виде на сервере приложения для обеспечения синхронизации данных между вашими устройствами и возможности создавать резервные копии. Никто не имеет доступа к вашей финансовой информации."
+                answer="Все данные хранятся непосредственно на ваших устройствах — в памяти приложения для мгновенного офлайн-доступа, а также в зашифрованном виде на защищённом сервере в РФ для синхронизации между вашими устройствами и создания резервных копий. Никто не имеет доступа к вашей финансовой информации."
               />
               <AccordionItem
                 question="Это безопасно?"
-                answer="Абсолютно. FinKeeper24 не требует доступа к вашим банковским аккаунтам. Мы не собираем персональные данные и не передаем информацию третьим лицам."
+                answer="Абсолютно. FinKeeper24 не требует привязки банковских карт или доступа к вашим банковским аккаунтам. Мы не собираем лишние персональные данные, не показываем рекламу и не передаем информацию третьим лицам."
               />
               <AccordionItem
-                question="Как работает синхронизация?"
-                answer="Синхронизация происходит мгновенно при наличии интернета. Если вы внесли данные офлайн, они обновятся на других устройствах при первом выходе в сеть."
+                question="Как работает синхронизация и офлайн-режим?"
+                answer="Синхронизация происходит мгновенно при наличии интернета. Если вы внесли расходы или доходы офлайн (например, в магазине или в дороге без связи), они сохранятся локально и автоматически обновятся на остальных устройствах при первом выходе в сеть."
               />
               <AccordionItem
                 question="Можно ли восстановить данные при ошибке?"
-                answer="Да, на сервере автоматически создаются резервные копии вашей бухгалтерии. А так же вы можете создавать их самостоятельно в любой момент, когда вам это понадобится. Если вы случайно удалили запись или допустили ошибку при заполнении сумм доходов/расходов/копилок, вы можете восстановить данные из последней сохранённой копии. Это защищает от случайных потерь при заполнении."
+                answer="Да, на сервере автоматически создаются резервные копии вашей бухгалтерии, а также вы можете создавать их самостоятельно в любой момент. Если вы случайно удалили запись или допустили ошибку при заполнении сумм доходов, расходов или копилок, данные можно восстановить из последней сохранённой копии в один клик."
               />
             </motion.div>
           </div>
@@ -1252,6 +1355,23 @@ export default function App() {
           </div>
         </section>
 
+        {/* Semantic SEO Indexing Block (Screen-Reader & Search Crawler Accessible) */}
+        <section aria-label="Обзор возможностей домашней бухгалтерии FinKeeper24" className="sr-only">
+          <h2>Бесплатная программа и приложение для домашней бухгалтерии, учёта личных финансов и семейного бюджета</h2>
+          <p>
+            FinKeeper24 (ФинКипер 24) — современная кроссплатформенная система ведения домашней бухгалтерии и контроля личных финансов, созданная как удобная замена громоздким таблицам Excel и Google Таблицам. Приложение помогает вести учёт ежедневных расходов и доходов, планировать семейный бюджет на месяц, устанавливать лимиты трат по категориям и копить деньги на финансовые цели.
+          </p>
+          <h3>Ключевые преимущества и сценарии использования</h3>
+          <ul>
+            <li>Ведение семейного бюджета на нескольких устройствах: общий доступ для супругов и семьи с мгновенной синхронизацией через облако.</li>
+            <li>Контроль расходов и доходов по категориям: продукты, жильё, транспорт, здоровье, развлечения, кредиты, подписки и собственные категории.</li>
+            <li>Умные финансовые копилки: накопление на отпуск, автомобиль, ремонт, финансовую подушку безопасности с автоматическим учётом отложенных сумм в балансе месяца.</li>
+            <li>Работа на всех платформах: веб-приложение в браузере, мобильное приложение для Android (RuStore, APK), настольная программа для Windows 10 и Windows 11, macOS и Linux (DEB-пакет для Ubuntu/Debian, пакет finkeeper24-bin в AUR для Arch Linux и CachyOS).</li>
+            <li>Офлайн-учёт финансов без интернета: добавление чеков и трат в дороге или магазине с последующей автоматической синхронизацией.</li>
+            <li>Безопасность и приватность: работа без привязки банковских карт и без риска утечки банковских данных, автоматические резервные копии (бэкапы) финансовой истории.</li>
+          </ul>
+        </section>
+
       </main>
 
       <footer className="pt-16 pb-10 px-6 border-t border-white/10 relative z-10">
@@ -1261,17 +1381,21 @@ export default function App() {
             {/* Brand */}
             <div className="flex flex-col items-center md:items-start gap-3">
               <div className="flex items-center gap-2.5">
-                <img src="/purse.svg" alt="FinKeeper24" className="w-9 h-9 object-contain" />
+                <img src="/purse.svg" alt="FinKeeper24 — логотип домашней бухгалтерии" className="w-9 h-9 object-contain" />
                 <span className="font-display font-semibold text-lg tracking-tight text-white">FinKeeper24</span>
               </div>
-              <p className="text-slate-text/50 text-sm font-light max-w-[220px] text-center md:text-left">Домашняя бухгалтерия для всех ваших устройств</p>
+              <p className="text-slate-text/50 text-sm font-light max-w-[240px] text-center md:text-left">Домашняя бухгалтерия и учёт финансов для всех ваших устройств</p>
             </div>
 
             {/* Nav links */}
             <div className="flex flex-col items-center md:items-start gap-3">
               <span className="text-[10px] uppercase tracking-[0.2em] text-slate-text/40 font-mono">Навигация</span>
               <div className="flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-slate-text/60">
-                <a href="#" className="hover:text-emerald-base transition-colors duration-300">Возможности</a>
+                <a href="#features" className="hover:text-emerald-base transition-colors duration-300">Возможности</a>
+                <a href="#how-it-works" className="hover:text-emerald-base transition-colors duration-300">Как работает</a>
+                <a href="#pricing" className="hover:text-emerald-base transition-colors duration-300">Тарифы</a>
+                <a href="#reviews" className="hover:text-emerald-base transition-colors duration-300">Отзывы</a>
+                <a href="#faq" className="hover:text-emerald-base transition-colors duration-300">FAQ</a>
                 <a href="#download" className="hover:text-emerald-base transition-colors duration-300">Скачать</a>
                 <a href="https://app.finkeeper24.ru" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-base transition-colors duration-300">Войти</a>
               </div>
@@ -1303,9 +1427,11 @@ export default function App() {
               <a href="/privacy.html" className="hover:text-emerald-base transition-colors duration-300">Политика конфиденциальности</a>
               <span className="hidden sm:inline text-slate-text/20">•</span>
               <a href="/terms.html" className="hover:text-emerald-base transition-colors duration-300">Пользовательское соглашение</a>
+              <span className="hidden sm:inline text-slate-text/20">•</span>
+              <a href="/downloads.html" className="hover:text-emerald-base transition-colors duration-300">Все загрузки</a>
             </div>
-            <div className="text-[10px] leading-relaxed text-slate-text/25 font-light max-w-2xl mx-auto text-center">
-              FinKeeper24 — это удобное кроссплатформенное приложение (онлайн сервис) для ведения домашней бухгалтерии, учета личных финансов и семейного бюджета. Контролируйте свои доходы и расходы, создавайте копилки на мечту, планируйте бюджет по категориям и следите за своей финансовой статистикой онлайн на любых устройствах: web, Android, Windows, macOS, Linux. Современная альтернатива таблицам Excel. Учет финансов еще никогда не был таким простым и безопасным.
+            <div className="text-[10px] leading-relaxed text-slate-text/25 font-light max-w-3xl mx-auto text-center">
+              FinKeeper24 — бесплатное кроссплатформенное приложение и онлайн-сервис для ведения домашней бухгалтерии, учёта личных финансов и планирования семейного бюджета. Контролируйте ежедневные расходы и доходы, создавайте умные копилки на мечту, устанавливайте месячные лимиты по категориям и анализируйте финансовую статистику на любых устройствах: в браузере (Web), на смартфонах Android (RuStore, APK), а также на компьютерах Windows, macOS и Linux (DEB, AUR). Современная, быстрая и безопасная альтернатива финансовым таблицам Excel с поддержкой офлайн-режима и автоматическим резервным копированием.
             </div>
           </div>
         </div>

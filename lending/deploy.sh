@@ -35,7 +35,7 @@ versions_in_downloads() {
 	grep -oE "(FinKeeper24-|finkeeper24_|finkeeper24-|Версия )$VERSION_RE" "$DOWNLOADS" | grep -oE "$VERSION_RE" | sort -u
 }
 version_in_latest() { python3 -c "import json;print(json.load(open('$LATEST'))['version'])"; }
-version_in_app()    { grep -oE "v$VERSION_RE • PRO" "$APP" | grep -oE "$VERSION_RE" | sort -u; }
+version_in_app()    { grep -oE "v$VERSION_RE • (PRO|WEB)" "$APP" | grep -oE "$VERSION_RE" | sort -u; }
 version_in_gradle() { grep -oE "app_version = '$VERSION_RE'" "$GRADLE_FILE" | grep -oE "$VERSION_RE"; }
 download_links()    { grep -oE "$SITE_URL/downloads/[^\"]+" "$DOWNLOADS" | sort -u; }
 
@@ -115,7 +115,7 @@ verify_live() {
 	[ "$live" = "$expected" ] || die "latest.json на сайте: $live, ожидалось $expected"
 	ok "latest.json = $live"
 	js="$(curl -s -m 30 "$SITE_URL/" | grep -oE '/assets/index-[^"]+\.js' | head -1)"
-	badge="$(curl -s -m 30 "$SITE_URL$js" | grep -oE "v$VERSION_RE • PRO" | grep -oE "$VERSION_RE" | head -1)"
+	badge="$(curl -s -m 30 "$SITE_URL$js" | grep -oE "v$VERSION_RE • (PRO|WEB)" | grep -oE "$VERSION_RE" | head -1)"
 	[ "$badge" = "$expected" ] || die "Бейдж на главной: $badge, ожидалось $expected"
 	ok "бейдж на главной = v$badge"
 	local page_versions
@@ -141,7 +141,7 @@ bump() {
 	[ "$(echo "$old" | wc -l)" = 1 ] || die "В downloads.html несколько версий — поправь вручную"
 	local o="${old//./\\.}"
 	sed -i -E "s/(FinKeeper24-|finkeeper24_|finkeeper24-|Версия )$o/\1$new/g" "$DOWNLOADS"
-	sed -i -E "s/v$o • PRO/v$new • PRO/" "$APP"
+	sed -i -E "s/v$o • (PRO|WEB)/v$new • \1/" "$APP"
 	python3 - "$LATEST" "$new" <<-'EOF'
 		import json, sys
 		path, new = sys.argv[1], sys.argv[2]
