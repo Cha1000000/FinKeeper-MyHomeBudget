@@ -4,6 +4,7 @@ import {
     dismissSecurityOnboardingPrompt,
     resetSecurityOnboardingPromptState,
 } from '../onboarding/securityPrompt';
+import type { User } from '../api';
 
 describe('securityPrompt', () => {
     beforeEach(() => {
@@ -11,30 +12,28 @@ describe('securityPrompt', () => {
     });
 
     it('should not show prompt if user recoverability status is protected', () => {
-        const user = {
+        const user: Pick<User, 'recoverabilityStatus'> = {
             recoverabilityStatus: 'protected',
-        } as any;
+        };
 
         expect(shouldShowSecurityOnboardingPrompt(user.recoverabilityStatus)).toBe(false);
     });
 
     it('should show prompt for unprotected user on first visit', () => {
-        const user = {
+        const user: Pick<User, 'recoverabilityStatus'> = {
             recoverabilityStatus: 'unprotected',
-        } as any;
+        };
 
         const result = shouldShowSecurityOnboardingPrompt(user.recoverabilityStatus);
         expect(result).toBe(true);
     });
 
     it('should not show prompt again after dismiss in same session', () => {
-        const user = {
+        const user: Pick<User, 'recoverabilityStatus'> = {
             recoverabilityStatus: 'unprotected',
-        } as any;
+        };
 
         dismissSecurityOnboardingPrompt(user.recoverabilityStatus);
         expect(shouldShowSecurityOnboardingPrompt(user.recoverabilityStatus)).toBe(false);
     });
-
-
 });

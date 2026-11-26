@@ -4,7 +4,7 @@ import { Plus, PiggyBank, ArrowDown, ArrowUp } from 'lucide-react';
 import classNames from 'classnames';
 import { getSavingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, addSavingsTransaction, ensureMonth } from '../api';
 import type { SavingsGoal } from '../api';
-import { formatCurrency } from '../utils';
+import { formatCurrency, evalAmount, isAmountExpression } from '../utils';
 import Modal from '../components/Modal';
 import PageState from '../components/PageState';
 import StatusBanner from '../components/StatusBanner';
@@ -34,7 +34,9 @@ const Savings: React.FC = () => {
     const [transAmount, setTransAmount] = useState('');
     const [transType, setTransType] = useState<'deposit' | 'withdraw'>('deposit');
     const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [modalError, setModalError] = useState<string | null>(null);
 
     const resetGoalForm = () => {
         setEditingGoalId(null);
@@ -43,6 +45,7 @@ const Savings: React.FC = () => {
         setEditGoalCurrent('');
         setNewGoalName('');
         setNewGoalTarget('');
+        setModalError(null);
     };
 
     const loadData = async () => {
@@ -60,29 +63,39 @@ const Savings: React.FC = () => {
     };
 
     useEffect(() => { 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        loadData(); 
+        void loadData(); 
     }, []);
 
     // Refresh on WebSocket data changes
-    useDataChanged(['savings_goal', 'savings_transaction', 'all'], () => { loadData(); });
+    useDataChanged(['savings_goal', 'savings_transaction', 'all'], () => { void loadData(); });
 
     const handleCreateGoal = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
+        const trimmedName = newGoalName.trim();
+        const targetAmount = evalAmount(newGoalTarget);
+        if (!trimmedName || targetAmount === null || targetAmount <= 0) {
+            setModalError('Укажите название цели и корректную целевую сумму (> 0).');
+            return;
+        }
+        setModalError(null);
+        setIsSubmitting(true);
         try {
-            await addSavingsGoal({ name: newGoalName, target_amount: parseFloat(newGoalTarget) || 0 });
+            await addSavingsGoal({ name: trimmedName, target_amount: targetAmount });
             setIsGoalModalOpen(false);
-            setNewGoalName('');
-            setNewGoalTarget('');
-            loadData();
+            resetGoalForm();
+            void loadData();
             window.dispatchEvent(new Event('savingsUpdated'));
         } catch (e) {
             console.error(e);
-            setError('Не удалось создать копилку. Попробуйте ещё раз.');
+            setModalError('Не удалось создать копилку. Попробуйте ещё раз.');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const openEditGoal = (goal: SavingsGoal) => {
+        setModalError(null);
         setEditingGoalId(goal.id);
         setEditGoalName(goal.name);
         setEditGoalTarget(goal.target_amount.toString());
@@ -92,20 +105,31 @@ const Savings: React.FC = () => {
 
     const handleUpdateGoal = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingGoalId) return;
+        if (!editingGoalId || isSubmitting) return;
+        const trimmedName = editGoalName.trim();
+        const targetAmount = evalAmount(editGoalTarget);
+        const currentAmount = evalAmount(editGoalCurrent);
+        if (!trimmedName || targetAmount === null || targetAmount <= 0 || currentAmount === null || currentAmount < 0) {
+            setModalError('Проверьте название, целевую сумму (> 0) и текущий баланс (>= 0).');
+            return;
+        }
+        setModalError(null);
+        setIsSubmitting(true);
         try {
             await updateSavingsGoal(editingGoalId, {
-                name: editGoalName,
-                target_amount: parseFloat(editGoalTarget) || 0,
-                current_amount: parseFloat(editGoalCurrent) || 0
+                name: trimmedName,
+                target_amount: targetAmount,
+                current_amount: currentAmount
             });
             setIsGoalModalOpen(false);
             resetGoalForm();
-            loadData();
+            void loadData();
             window.dispatchEvent(new Event('savingsUpdated'));
         } catch (e) {
             console.error(e);
-            setError('Не удалось обновить копилку. Попробуйте ещё раз.');
+            setModalError('Не удалось обновить копилку. Попробуйте ещё раз.');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -115,28 +139,34 @@ const Savings: React.FC = () => {
     const canDeleteEditingGoal = Number.isFinite(editingGoalAmount) && Math.abs(editingGoalAmount) < 0.005;
 
     const handleDeleteGoal = async () => {
-        if (!editingGoalId) return;
+        if (!editingGoalId || isSubmitting) return;
+        setIsSubmitting(true);
+        setModalError(null);
         try {
             await deleteSavingsGoal(editingGoalId);
             setIsDeleteConfirmOpen(false);
             setIsGoalModalOpen(false);
             resetGoalForm();
-            loadData();
+            void loadData();
             window.dispatchEvent(new Event('savingsUpdated'));
         } catch (e) {
             console.error(e);
             setIsDeleteConfirmOpen(false);
             // Сервер отказал: на копилке есть деньги (например, её пополнили с другого устройства)
             if (axios.isAxiosError(e) && e.response?.data?.code === 'SAVINGS_GOAL_NOT_EMPTY') {
-                setError(GOAL_NOT_EMPTY_MESSAGE);
-                loadData();
+                setModalError(GOAL_NOT_EMPTY_MESSAGE);
+                void loadData();
             } else {
-                setError('Не удалось удалить копилку. Попробуйте ещё раз.');
+                setModalError('Не удалось удалить копилку. Попробуйте ещё раз.');
             }
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const openTransaction = (goalId: number, type: 'deposit' | 'withdraw') => {
+        setModalError(null);
+        setTransAmount('');
         setSelectedGoalId(goalId);
         setTransType(type);
         setIsTransModalOpen(true);
@@ -144,13 +174,19 @@ const Savings: React.FC = () => {
 
     const handleTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedGoalId) return;
+        if (!selectedGoalId || isSubmitting) return;
+        const amount = evalAmount(transAmount);
+        if (amount === null || amount <= 0) {
+            setModalError('Введите корректную сумму операции (> 0).');
+            return;
+        }
+        setModalError(null);
+        setIsSubmitting(true);
         try {
             const currentDate = new Date();
             // Link to current month just for record keeping
             const mRes = await ensureMonth(currentDate.getFullYear(), currentDate.getMonth() + 1);
 
-            const amount = parseFloat(transAmount);
             const finalAmount = transType === 'deposit' ? amount : -amount;
 
             await addSavingsTransaction({
@@ -162,11 +198,13 @@ const Savings: React.FC = () => {
 
             setIsTransModalOpen(false);
             setTransAmount('');
-            loadData();
+            void loadData();
             window.dispatchEvent(new Event('savingsUpdated'));
         } catch (e) {
             console.error(e);
-            setError('Не удалось выполнить операцию по копилке. Попробуйте ещё раз.');
+            setModalError('Не удалось выполнить операцию по копилке. Попробуйте ещё раз.');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -223,7 +261,7 @@ const Savings: React.FC = () => {
                     <p className="text-sm text-gray-500 dark:text-[var(--color-text-muted)] mt-1">Управление целями и накоплениями</p>
                 </div>
                 <button
-                    onClick={() => setIsGoalModalOpen(true)}
+                    onClick={() => { resetGoalForm(); setIsGoalModalOpen(true); }}
                     className="flex items-center gap-2 bg-[var(--color-primary)] text-white px-5 py-2.5 rounded-xl hover:opacity-90 transition-all hover:shadow-md shadow-sm font-medium"
                 >
                     <Plus className="w-5 h-5" />
@@ -261,7 +299,7 @@ const Savings: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {goals.map((goal) => {
                         const progress = goal.target_amount > 0
-                            ? Math.min((goal.current_amount / goal.target_amount) * 100, 100)
+                            ? Math.max(0, Math.min((goal.current_amount / goal.target_amount) * 100, 100))
                             : 0;
                         
                         return (
@@ -330,7 +368,10 @@ const Savings: React.FC = () => {
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Целевая сумма</label>
                         <input
-                            type="number" required
+                            type="text"
+                            inputMode="text"
+                            autoComplete="off"
+                            required
                             value={editingGoalId ? editGoalTarget : newGoalTarget}
                             onChange={e => editingGoalId ? setEditGoalTarget(e.target.value) : setNewGoalTarget(e.target.value)}
                             className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
@@ -341,7 +382,10 @@ const Savings: React.FC = () => {
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Текущий баланс</label>
                             <input
-                                type="number" required
+                                type="text"
+                                inputMode="text"
+                                autoComplete="off"
+                                required
                                 value={editGoalCurrent}
                                 onChange={e => setEditGoalCurrent(e.target.value)}
                                 className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
@@ -349,18 +393,24 @@ const Savings: React.FC = () => {
                             />
                         </div>
                     )}
+                    {modalError ? (
+                        <StatusBanner variant="error">
+                            {modalError}
+                        </StatusBanner>
+                    ) : null}
                     <div className="flex gap-3 mt-6">
                         <button
                             type="submit"
-                            className="flex-1 bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-colors shadow-sm"
+                            disabled={isSubmitting}
+                            className="flex-1 bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-colors shadow-sm disabled:opacity-60"
                         >
-                            {editingGoalId ? 'Сохранить' : 'Создать'}
+                            {isSubmitting ? 'Сохранение...' : (editingGoalId ? 'Сохранить' : 'Создать')}
                         </button>
                         {editingGoalId && (
                             <button
                                 type="button"
                                 onClick={() => setIsDeleteConfirmOpen(true)}
-                                disabled={!canDeleteEditingGoal}
+                                disabled={!canDeleteEditingGoal || isSubmitting}
                                 title={canDeleteEditingGoal ? undefined : GOAL_NOT_EMPTY_MESSAGE}
                                 className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50 py-3 rounded-xl font-medium hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors shadow-sm"
                             >
@@ -377,29 +427,48 @@ const Savings: React.FC = () => {
             {/* Transaction Modal */}
             <Modal
                 isOpen={isTransModalOpen}
-                onClose={() => setIsTransModalOpen(false)}
+                onClose={() => { setIsTransModalOpen(false); setModalError(null); }}
                 title={transType === 'deposit' ? 'Пополнить копилку' : 'Снять средства'}
             >
                 <form onSubmit={handleTransaction} className="space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-muted)]">Сумма</label>
                         <input
-                            type="number" required
+                            type="text"
+                            inputMode="text"
+                            autoComplete="off"
+                            required
                             value={transAmount}
                             onChange={e => setTransAmount(e.target.value)}
                             className="w-full p-2 border border-gray-300 dark:border-[var(--color-border-strong)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
                             placeholder="0.00"
                             autoFocus
                         />
+                        {isAmountExpression(transAmount) && (() => {
+                            const preview = evalAmount(transAmount);
+                            return preview !== null && preview > 0 ? (
+                                <p className="text-sm font-medium text-[var(--color-primary)] tabular-nums">
+                                    = {new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(preview)} ₽
+                                </p>
+                            ) : (
+                                <p className="text-xs text-rose-500">Некорректное выражение</p>
+                            );
+                        })()}
                     </div>
+                    {modalError ? (
+                        <StatusBanner variant="error">
+                            {modalError}
+                        </StatusBanner>
+                    ) : null}
                     <button
                         type="submit"
+                        disabled={isSubmitting}
                         className={classNames(
-                            "w-full text-white py-3 rounded-xl font-medium mt-4 shadow-sm transition-all",
+                            "w-full text-white py-3 rounded-xl font-medium mt-4 shadow-sm transition-all disabled:opacity-60",
                             transType === 'deposit' ? 'bg-emerald-500 hover:bg-emerald-600 hover:shadow-md dark:bg-emerald-600 dark:hover:bg-emerald-700' : 'bg-rose-500 hover:bg-rose-600 hover:shadow-md dark:bg-rose-600 dark:hover:bg-rose-700'
                         )}
                     >
-                        {transType === 'deposit' ? 'Внести в копилку' : 'Снять средства'}
+                        {isSubmitting ? 'Выполняем...' : (transType === 'deposit' ? 'Внести в копилку' : 'Снять средства')}
                     </button>
                 </form>
             </Modal>

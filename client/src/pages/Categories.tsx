@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Check, X, CalendarDays } from 'lucide-react';
 import api, { getCategories, getIncomeSources } from '../api';
 import type { Category, IncomeSource } from '../api';
+import { formatCurrency, evalAmount, isAmountExpression } from '../utils';
 import Modal from '../components/Modal';
 import PageState from '../components/PageState';
 import StatusBanner from '../components/StatusBanner';
@@ -18,10 +19,6 @@ interface FixedFormData {
 
 const emptyFixedForm: FixedFormData = { name: '', fixedAmount: '', autoDay: '', requireConfirm: false };
 
-function formatCurrency(amount: number): string {
-    return amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 const Categories: React.FC = () => {
     const [activeTab, setActiveTab] = useState<TabType>('expenses');
     const [categories, setCategories] = useState<Category[]>([]);
@@ -34,6 +31,7 @@ const Categories: React.FC = () => {
     const [editName, setEditName] = useState('');
     const [pendingDelete, setPendingDelete] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
 
@@ -70,30 +68,34 @@ const Categories: React.FC = () => {
     }, [activeTab]);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        fetchData();
+        void fetchData();
     }, [fetchData]);
 
     // Refresh on WebSocket data changes
-    useDataChanged(['category', 'income_source', 'all'], () => { fetchData(); });
+    useDataChanged(['category', 'income_source', 'all'], () => { void fetchData(); });
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
+        const trimmedName = newName.trim();
+        if (!trimmedName || isSubmitting) return;
         setActionError(null);
+        setIsSubmitting(true);
         try {
             if (activeTab === 'expenses') {
-                await api.post('/categories', { name: newName });
+                await api.post('/categories', { name: trimmedName });
             } else {
-                await api.post('/income_sources', { name: newName });
+                await api.post('/income_sources', { name: trimmedName });
             }
             setIsModalOpen(false);
             setNewName('');
-            fetchData();
+            void fetchData();
         } catch (e) {
             console.error(e);
             setActionError(getActionErrorMessage(e, activeTab === 'expenses'
                 ? 'Не удалось создать категорию. Попробуйте ещё раз.'
                 : 'Не удалось создать источник дохода. Попробуйте ещё раз.'));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -103,21 +105,25 @@ const Categories: React.FC = () => {
     };
 
     const saveEdit = async () => {
-        if (!editingId) return;
+        const trimmedName = editName.trim();
+        if (!editingId || !trimmedName || isSubmitting) return;
         setActionError(null);
+        setIsSubmitting(true);
         try {
             if (activeTab === 'expenses') {
-                await api.put(`/categories/${editingId}`, { name: editName });
+                await api.put(`/categories/${editingId}`, { name: trimmedName });
             } else {
-                await api.put(`/income_sources/${editingId}`, { name: editName });
+                await api.put(`/income_sources/${editingId}`, { name: trimmedName });
             }
             setEditingId(null);
-            fetchData();
+            void fetchData();
         } catch (e) {
             console.error(e);
             setActionError(getActionErrorMessage(e, activeTab === 'expenses'
                 ? 'Не удалось обновить категорию. Попробуйте ещё раз.'
                 : 'Не удалось обновить источник дохода. Попробуйте ещё раз.'));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -127,12 +133,14 @@ const Categories: React.FC = () => {
     };
 
     const handleDelete = (id: number) => {
+        setActionError(null);
         setPendingDelete(id);
     };
 
     const confirmDelete = async () => {
-        if (!pendingDelete) return;
+        if (!pendingDelete || isSubmitting) return;
         setActionError(null);
+        setIsSubmitting(true);
         try {
             if (activeTab === 'expenses') {
                 await api.delete(`/categories/${pendingDelete}`);
@@ -140,23 +148,27 @@ const Categories: React.FC = () => {
                 await api.delete(`/income_sources/${pendingDelete}`);
             }
             setPendingDelete(null);
-            fetchData();
+            void fetchData();
         } catch (e) {
             console.error(e);
             setActionError(getActionErrorMessage(e, activeTab === 'expenses'
                 ? 'Не удалось удалить категорию. Попробуйте ещё раз.'
                 : 'Не удалось удалить источник дохода. Попробуйте ещё раз.'));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     // --- Обработчики для фиксированных элементов ---
     const openAddFixed = () => {
+        setActionError(null);
         setEditingFixedId(null);
         setFixedForm(emptyFixedForm);
         setIsFixedModalOpen(true);
     };
 
     const openEditFixed = (item: Category | IncomeSource) => {
+        setActionError(null);
         setEditingFixedId(item.id);
         setFixedForm({
             name: item.name,
@@ -169,16 +181,22 @@ const Categories: React.FC = () => {
 
     const handleFixedSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
         setActionError(null);
-        const amount = parseFloat(fixedForm.fixedAmount);
+        const amount = evalAmount(fixedForm.fixedAmount);
         const day = parseInt(fixedForm.autoDay, 10);
-        if (!fixedForm.name.trim() || isNaN(amount) || amount <= 0 || isNaN(day) || day < 1 || day > 31) return;
+        const trimmedName = fixedForm.name.trim();
+        if (!trimmedName || amount === null || amount <= 0 || isNaN(day) || day < 1 || day > 31) {
+            setActionError('Проверьте название, сумму (> 0) и день месяца (1–31).');
+            return;
+        }
 
+        setIsSubmitting(true);
         try {
             const endpoint = activeTab === 'expenses' ? '/categories' : '/income_sources';
             if (editingFixedId) {
                 await api.put(`${endpoint}/${editingFixedId}`, {
-                    name: fixedForm.name,
+                    name: trimmedName,
                     is_fixed: 1,
                     fixed_amount: amount,
                     auto_day: day,
@@ -186,7 +204,7 @@ const Categories: React.FC = () => {
                 });
             } else {
                 await api.post(endpoint, {
-                    name: fixedForm.name,
+                    name: trimmedName,
                     is_fixed: 1,
                     fixed_amount: amount,
                     auto_day: day,
@@ -196,24 +214,29 @@ const Categories: React.FC = () => {
             setIsFixedModalOpen(false);
             setFixedForm(emptyFixedForm);
             setEditingFixedId(null);
-            fetchData();
+            void fetchData();
         } catch (e) {
             console.error(e);
             setActionError(getActionErrorMessage(e, 'Не удалось сохранить фиксированный элемент.'));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const confirmFixedDelete = async () => {
-        if (!pendingFixedDelete) return;
+        if (!pendingFixedDelete || isSubmitting) return;
         setActionError(null);
+        setIsSubmitting(true);
         try {
             const endpoint = activeTab === 'expenses' ? '/categories' : '/income_sources';
-            await api.put(`${endpoint}/${pendingFixedDelete}`, { is_active: 0 });
+            await api.delete(`${endpoint}/${pendingFixedDelete}`);
             setPendingFixedDelete(null);
-            fetchData();
+            void fetchData();
         } catch (e) {
             console.error(e);
             setActionError(getActionErrorMessage(e, 'Не удалось удалить фиксированный элемент.'));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -343,10 +366,10 @@ const Categories: React.FC = () => {
                                         )}
                                     </div>
                                     <div className="text-sm text-slate-400 dark:text-[var(--color-text-muted)] mt-0.5">
-                                        {item.fixed_amount != null ? formatCurrency(item.fixed_amount) : '—'} ₽ · {item.auto_day} числа
+                                        {item.fixed_amount != null ? formatCurrency(item.fixed_amount) : '—'} · {item.auto_day} числа
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                     <button onClick={() => openEditFixed(item)} aria-label="Редактировать" title="Редактировать" className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
                                         <Edit2 className="w-4 h-4" />
                                     </button>
@@ -398,7 +421,7 @@ const Categories: React.FC = () => {
                             ) : (
                                 <>
                                     <span className="font-medium text-slate-700 dark:text-[var(--color-text-main)]">{item.name}</span>
-                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => startEdit(item)} aria-label="Редактировать" title="Редактировать" className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
                                             <Edit2 className="w-4 h-4" />
                                         </button>
@@ -430,11 +453,17 @@ const Categories: React.FC = () => {
                             placeholder="Введите название..."
                         />
                     </div>
+                    {actionError ? (
+                        <StatusBanner variant="error">
+                            {actionError}
+                        </StatusBanner>
+                    ) : null}
                     <button
                         type="submit"
-                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-all shadow-sm hover:shadow-md mt-4"
+                        disabled={isSubmitting}
+                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-all shadow-sm hover:shadow-md mt-4 disabled:opacity-60"
                     >
-                        Создать
+                        {isSubmitting ? 'Создание...' : 'Создать'}
                     </button>
                 </form>
             </Modal>
@@ -488,15 +517,25 @@ const Categories: React.FC = () => {
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700 dark:text-[var(--color-text-muted)]">Сумма</label>
                         <input
-                            type="number"
+                            type="text"
+                            inputMode="text"
+                            autoComplete="off"
                             required
-                            min="0.01"
-                            step="0.01"
                             value={fixedForm.fixedAmount}
                             onChange={(e) => setFixedForm(f => ({ ...f, fixedAmount: e.target.value }))}
                             className="w-full p-3 border border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors shadow-sm"
                             placeholder="0.00"
                         />
+                        {isAmountExpression(fixedForm.fixedAmount) && (() => {
+                            const preview = evalAmount(fixedForm.fixedAmount);
+                            return preview !== null && preview > 0 ? (
+                                <p className="text-sm font-medium text-[var(--color-primary)] tabular-nums">
+                                    = {new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(preview)} ₽
+                                </p>
+                            ) : (
+                                <p className="text-xs text-rose-500">Некорректное выражение</p>
+                            );
+                        })()}
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-700 dark:text-[var(--color-text-muted)]">День месяца (1–31)</label>
@@ -529,11 +568,17 @@ const Categories: React.FC = () => {
                             </span>
                         </span>
                     </label>
+                    {actionError ? (
+                        <StatusBanner variant="error">
+                            {actionError}
+                        </StatusBanner>
+                    ) : null}
                     <button
                         type="submit"
-                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-all shadow-sm hover:shadow-md mt-4"
+                        disabled={isSubmitting}
+                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-xl font-medium hover:opacity-90 transition-all shadow-sm hover:shadow-md mt-4 disabled:opacity-60"
                     >
-                        {editingFixedId ? 'Сохранить' : 'Создать'}
+                        {isSubmitting ? 'Сохранение...' : (editingFixedId ? 'Сохранить' : 'Создать')}
                     </button>
                 </form>
             </Modal>

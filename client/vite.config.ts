@@ -10,6 +10,16 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          recharts: ['recharts'],
+          vendor: ['react', 'react-dom', 'react-router-dom', 'axios', 'date-fns'],
+        },
+      },
+    },
+  },
   server: {
     port: 5174,
     proxy: {

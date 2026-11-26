@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
@@ -7,7 +7,7 @@ import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight,
 import { Link } from 'react-router-dom';
 import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals, getCumulativeBalance, getBudgets, getPlannedRecords } from '../api';
 import type { SavingsGoal, Expense, PlannedResponse, PlannedItem } from '../api';
-import { formatCurrency } from '../utils';
+import { formatCurrency, readSavedMonthDate } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useDataChanged } from '../hooks/useWebSocket';
@@ -40,14 +40,7 @@ interface ExpenseStructureItem {
 
 const DASHBOARD_MONTH_KEY = 'dashboard_selected_month';
 
-const getInitialDate = (): Date => {
-    const saved = localStorage.getItem(DASHBOARD_MONTH_KEY);
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        return new Date(parsed.year, parsed.month - 1, 1);
-    }
-    return new Date();
-};
+const getInitialDate = (): Date => readSavedMonthDate(DASHBOARD_MONTH_KEY);
 
 const Dashboard: React.FC = () => {
     const [currentDate, setCurrentDate] = useState(getInitialDate);
@@ -63,11 +56,15 @@ const Dashboard: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { resolvedTheme } = useTheme();
+    const isDarkSurface = resolvedTheme !== 'light';
+    const fetchRequestIdRef = useRef(0);
 
     const totalAllExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
     const totalVisibleExpense = allExpenses
         .filter(e => e.category_name !== 'Пополнение копилки')
         .reduce((sum, e) => sum + e.amount, 0);
+    const remainingLimit = totalLimit - totalAllExpenses;
+    const isOverTotalLimit = totalLimit > 0 && remainingLimit < 0;
 
     // План-слой: суммы без скипнутых приходят с сервера, списки — для попапа
     const plannedExpensesTotal = planned?.totals.plannedExpenses ?? 0;
@@ -107,30 +104,37 @@ const Dashboard: React.FC = () => {
     };
 
     const fetchData = useCallback(async () => {
+        const requestId = ++fetchRequestIdRef.current;
         setIsLoading(true);
         setError(null);
         try {
-            // 1. Trend Data
-            const trendRes = await getAnalyticsTrend();
-            setTrendData(trendRes.data);
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
 
-            // 2. Selected Month Summary
-            const mRes = await ensureMonth(currentDate.getFullYear(), currentDate.getMonth() + 1);
-            const summaryRes = await getMonthSummary(mRes.data.id);
-            setCurrentSummary(summaryRes.data);
+            // 1. Trend Data + Selected Month + Savings + Cumulative Balance
+            const [trendRes, mRes, savingsRes, cumulativeRes] = await Promise.all([
+                getAnalyticsTrend(),
+                ensureMonth(year, month),
+                getSavingsGoals(),
+                getCumulativeBalance(year, month),
+            ]);
+            if (requestId !== fetchRequestIdRef.current) return;
 
-            // 3. Category Breakdown (Pie Chart) + план-слой
-            const [expRes, budgetsRes, plannedRes] = await Promise.all([
+            const [summaryRes, expRes, budgetsRes, plannedRes] = await Promise.all([
+                getMonthSummary(mRes.data.id),
                 getExpenses(mRes.data.id),
                 getBudgets(mRes.data.id),
-                getPlannedRecords(mRes.data.id)
+                getPlannedRecords(mRes.data.id),
             ]);
+            if (requestId !== fetchRequestIdRef.current) return;
+
+            setTrendData(trendRes.data);
+            setCurrentSummary(summaryRes.data);
             setPlanned(plannedRes.data);
 
             // Group expenses by category (exclude hidden savings expenses)
             const catMap: Record<string, number> = {};
             expRes.data.forEach((e) => {
-                // Skip hidden savings-related expenses
                 if (e.category_name === 'Пополнение копилки') return;
                 if (e.category_name) {
                     if (!catMap[e.category_name]) catMap[e.category_name] = 0;
@@ -147,29 +151,26 @@ const Dashboard: React.FC = () => {
             setExpenseStructure(pieData);
             setTotalLimit(budgetsRes.data.reduce((sum, item) => sum + item.limit_amount, 0));
 
-            // 4. Total Savings from all goals
-            const savingsRes = await getSavingsGoals();
             const totalSavingsAmount = savingsRes.data.reduce((sum: number, goal: SavingsGoal) => sum + goal.current_amount, 0);
             setTotalSavings(totalSavingsAmount);
-
-            // 5. Cumulative balance up to and including selected month
-            const cumulativeRes = await getCumulativeBalance(currentDate.getFullYear(), currentDate.getMonth() + 1);
             setCumulativeBalance(cumulativeRes.data.cumulativeBalance);
 
         } catch (e) {
+            if (requestId !== fetchRequestIdRef.current) return;
             console.error(e);
             setError('Не удалось загрузить обзор. Проверьте соединение и попробуйте ещё раз.');
         } finally {
-            setIsLoading(false);
+            if (requestId === fetchRequestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [currentDate]);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        fetchData();
+        void fetchData();
         
         // Listen for savings updates
-        const handleSavingsUpdate = () => fetchData();
+        const handleSavingsUpdate = () => { void fetchData(); };
         window.addEventListener('savingsUpdated', handleSavingsUpdate);
         
         return () => {
@@ -316,14 +317,19 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 <div className="bg-[image:var(--color-stat-amber-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-amber-border)] hover:shadow-[0_12px_40px_rgba(245,158,11,0.15)] transition-all relative overflow-hidden">
-                    {(Math.max(0, totalLimit - totalAllExpenses)) < 0 && (
+                    {isOverTotalLimit && (
                         <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200 dark:bg-rose-900/50 rounded-bl-full blur-2xl opacity-40"></div>
                     )}
                     <div className="flex flex-col justify-center h-full relative z-10">
                         <p className="text-sm font-medium text-amber-800/80 dark:text-amber-300/80 mb-1">Лимит на расходы</p>
-                        <p className={`text-2xl font-bold tracking-tight ${Math.max(0, totalLimit - totalAllExpenses) >= 0 ? 'text-amber-950 dark:text-amber-100' : 'text-rose-600 dark:text-rose-400'}`}>
-                            {formatCurrency(Math.max(0, totalLimit - totalAllExpenses))}
+                        <p className={`text-2xl font-bold tracking-tight ${!isOverTotalLimit ? 'text-amber-950 dark:text-amber-100' : 'text-rose-600 dark:text-rose-400'}`}>
+                            {formatCurrency(Math.max(0, remainingLimit))}
                         </p>
+                        {isOverTotalLimit && (
+                            <p className="text-xs font-medium text-rose-600 dark:text-rose-400 mt-1">
+                                перерасход: {formatCurrency(Math.abs(remainingLimit))}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -364,7 +370,7 @@ const Dashboard: React.FC = () => {
                     <div className="flex flex-col justify-center h-full">
                         <p className="text-sm font-medium text-orange-800/80 dark:text-orange-300/80 mb-1">В наличии без накоплений</p>
                         <p className="text-2xl font-bold text-orange-950 dark:text-orange-100 tracking-tight">
-                            {formatCurrency((cumulativeBalance + totalSavings) - totalSavings)}
+                            {formatCurrency(cumulativeBalance)}
                         </p>
                     </div>
                 </div>
@@ -382,23 +388,23 @@ const Dashboard: React.FC = () => {
                     <div className="flex-1 min-h-0 w-full">
                         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={320}>
                             <BarChart data={trendData} barGap={4}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={resolvedTheme === 'dark' ? '#2a3441' : '#f8fafc'} />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkSurface ? '#252b41' : '#f8fafc'} />
                                 <XAxis
                                     dataKey="month"
-                                    tick={{ fontSize: 12, fill: resolvedTheme === 'dark' ? '#8b9a8e' : '#94a3b8' }}
+                                    tick={{ fontSize: 12, fill: isDarkSurface ? '#949eb5' : '#94a3b8' }}
                                     axisLine={false}
                                     tickLine={false}
                                     dy={10}
                                 />
                                 <YAxis hide />
                                 <Tooltip
-                                    cursor={{ fill: resolvedTheme === 'dark' ? '#1a222d' : '#f8fafc' }}
+                                    cursor={{ fill: isDarkSurface ? '#191d2d' : '#f8fafc' }}
                                     formatter={(value: number | undefined) => formatCurrency(value ?? 0)}
                                     contentStyle={{
                                         borderRadius: '16px',
-                                        border: resolvedTheme === 'dark' ? '1px solid #2a3441' : '1px solid #f1f5f9',
-                                        backgroundColor: resolvedTheme === 'dark' ? '#111820' : '#ffffff',
-                                        color: resolvedTheme === 'dark' ? '#e8f5ec' : '#1e293b',
+                                        border: isDarkSurface ? '1px solid #252b41' : '1px solid #f1f5f9',
+                                        backgroundColor: isDarkSurface ? '#111820' : '#ffffff',
+                                        color: isDarkSurface ? '#e8f5ec' : '#1e293b',
                                         boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.1)',
                                         padding: '12px'
                                     }}
@@ -441,9 +447,9 @@ const Dashboard: React.FC = () => {
                                             formatter={(value: number | undefined) => formatCurrency(value ?? 0)}
                                             contentStyle={{
                                                 borderRadius: '16px',
-                                                border: resolvedTheme === 'dark' ? '1px solid #2a3441' : '1px solid #f1f5f9',
-                                                backgroundColor: resolvedTheme === 'dark' ? '#111820' : '#ffffff',
-                                                color: resolvedTheme === 'dark' ? '#e8f5ec' : '#1e293b',
+                                                border: isDarkSurface ? '1px solid #252b41' : '1px solid #f1f5f9',
+                                                backgroundColor: isDarkSurface ? '#111820' : '#ffffff',
+                                                color: isDarkSurface ? '#e8f5ec' : '#1e293b',
                                                 boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.1)',
                                                 padding: '12px'
                                             }}

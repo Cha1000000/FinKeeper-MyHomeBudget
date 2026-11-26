@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Settings as SettingsIcon, Save, RotateCcw, Key, User, ShieldAlert, Loader2, Layout as LayoutIcon, LogOut, Sun, Moon, Monitor } from 'lucide-react';
 import { clearUserEmail, createManualBackup, getBackupEntries, requestEmailVerification, restoreBackup, updatePassword, updateUserEmail, updateUsername } from '../api';
 import type { BackupEntry } from '../api';
@@ -55,7 +55,12 @@ const Settings: React.FC = () => {
         setEmail(user?.email || user?.recoveryEmail || '');
     }, [user?.email, user?.recoveryEmail]);
 
-    const loadBackups = async (options?: { keepSelection?: boolean }) => {
+    const getErrorMessage = useCallback((error: unknown, fallback: string) => {
+        const e = error as { response?: { data?: { error?: string } } };
+        return e.response?.data?.error || fallback;
+    }, []);
+
+    const loadBackups = useCallback(async (options?: { keepSelection?: boolean }) => {
         setIsBackupsLoading(true);
         try {
             const { data } = await getBackupEntries();
@@ -71,17 +76,11 @@ const Settings: React.FC = () => {
         } finally {
             setIsBackupsLoading(false);
         }
-    };
+    }, [getErrorMessage]);
 
     useEffect(() => {
         void loadBackups();
-    }, []);
-
-    const getErrorMessage = (error: unknown, fallback: string) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const e = error as any;
-        return e.response?.data?.error || fallback;
-    };
+    }, [loadBackups]);
 
     const closeModal = () => {
         if (!isLoading) {

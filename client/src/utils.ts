@@ -28,6 +28,32 @@ export const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
 }
 
+export const readLocalStorageJson = <T>(key: string, fallback: T): T => {
+    try {
+        const raw = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null;
+        if (!raw) return fallback;
+        const parsed = JSON.parse(raw) as T;
+        return parsed ?? fallback;
+    } catch {
+        return fallback;
+    }
+};
+
+export const readSavedMonthDate = (key: string): Date => {
+    const saved = readLocalStorageJson<{ year?: number; month?: number } | null>(key, null);
+    if (
+        saved &&
+        typeof saved.year === 'number' &&
+        Number.isFinite(saved.year) &&
+        typeof saved.month === 'number' &&
+        saved.month >= 1 &&
+        saved.month <= 12
+    ) {
+        return new Date(saved.year, saved.month - 1, 1);
+    }
+    return new Date();
+};
+
 /**
  * Вычисляет арифметическое выражение из поля суммы (по аналогии с формулой Excel).
  * Поддержка: + - * / ( ), десятичная точка/запятая, опциональный ведущий '=', пробелы игнорируются.

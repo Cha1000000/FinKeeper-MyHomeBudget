@@ -161,20 +161,23 @@ export function useDataChanged(
     callback: (event: DataChangedEvent) => void
 ) {
     const callbackRef = useRef(callback);
+    const entitiesRef = useRef(entities);
 
     useEffect(() => {
         callbackRef.current = callback;
+        entitiesRef.current = entities;
     });
 
     useEffect(() => {
         const handler = (e: Event) => {
             const detail = (e as CustomEvent<DataChangedEvent>).detail;
-            if (!entities || entities.includes(detail.entity) || detail.entity === 'all') {
+            const currentEntities = entitiesRef.current;
+            if (!currentEntities || currentEntities.includes(detail.entity) || detail.entity === 'all') {
                 callbackRef.current(detail);
             }
         };
 
         window.addEventListener('ws:data_changed', handler);
         return () => window.removeEventListener('ws:data_changed', handler);
-    }, [entities]);
+    }, []);
 }

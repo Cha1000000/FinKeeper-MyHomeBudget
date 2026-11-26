@@ -4,7 +4,7 @@ import { ArrowRight, LayoutDashboard, Wallet, PiggyBank, Receipt, Calendar, Menu
 import classNames from 'classnames';
 import { ensureMonth, getMonthSummary, getSavingsGoals, getCumulativeBalance, getBudgets } from '../api';
 import type { SavingsGoal } from '../api';
-import { formatCurrency } from '../utils';
+import { formatCurrency, readSavedMonthDate } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
@@ -19,14 +19,7 @@ import {
 const DASHBOARD_MONTH_KEY = 'dashboard_selected_month';
 const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 
-const getSelectedDashboardDate = (): Date => {
-    const saved = localStorage.getItem(DASHBOARD_MONTH_KEY);
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        return new Date(parsed.year, parsed.month - 1, 1);
-    }
-    return new Date();
-};
+const getSelectedDashboardDate = (): Date => readSavedMonthDate(DASHBOARD_MONTH_KEY);
 
 const Layout: React.FC = () => {
     const [currentMonth, setCurrentMonth] = useState('');
@@ -34,13 +27,29 @@ const Layout: React.FC = () => {
     const [resourceBalance, setResourceBalance] = useState(0);
     const [totalAssets, setTotalAssets] = useState(0);
     const [sidebarRefreshError, setSidebarRefreshError] = useState<string | null>(null);
-    const [isSecurityPromptVisible, setIsSecurityPromptVisible] = useState(false);
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isSecurityPromptDismissed, setIsSecurityPromptDismissed] = useState(false);
     const { user, logout, uiSettings } = useAuth();
+    const [isCollapsed, setIsCollapsed] = useState(() => Boolean(uiSettings?.autoCollapseSidebar));
+    const [prevAutoCollapse, setPrevAutoCollapse] = useState(uiSettings?.autoCollapseSidebar);
+    const [prevPathname, setPrevPathname] = useState('');
     const mainRef = useRef<HTMLElement>(null);
     const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const location = useLocation();
     const navigate = useNavigate();
+
+    if (uiSettings?.autoCollapseSidebar !== prevAutoCollapse) {
+        setPrevAutoCollapse(uiSettings?.autoCollapseSidebar);
+        if (uiSettings?.autoCollapseSidebar !== undefined) {
+            setIsCollapsed(uiSettings.autoCollapseSidebar);
+        }
+    }
+
+    if (location.pathname !== prevPathname) {
+        setPrevPathname(location.pathname);
+        if (isSecurityPromptDismissed) {
+            setIsSecurityPromptDismissed(false);
+        }
+    }
 
     // Establish WebSocket connection (one per Layout mount)
     useWebSocket();
@@ -100,15 +109,10 @@ const Layout: React.FC = () => {
         };
     }, []);
 
-    // Sync sidebar state with settings changes ONLY when settings change
     useEffect(() => {
-        if (uiSettings?.autoCollapseSidebar !== undefined) {
-            setIsCollapsed(uiSettings.autoCollapseSidebar);
-        }
-    }, [uiSettings?.autoCollapseSidebar]);
-
-    useEffect(() => {
-        void refreshSidebarSummary();
+        const initialTimer = window.setTimeout(() => {
+            void refreshSidebarSummary();
+        }, 0);
 
         // Обновлять каждые 30 секунд
         const interval = setInterval(() => {
@@ -128,6 +132,7 @@ const Layout: React.FC = () => {
         window.addEventListener('dashboardMonthChanged', handleDashboardMonthChange);
 
         return () => {
+            window.clearTimeout(initialTimer);
             clearInterval(interval);
             window.removeEventListener('savingsUpdated', handleSavingsUpdate);
             window.removeEventListener('dashboardMonthChanged', handleDashboardMonthChange);
@@ -140,46 +145,36 @@ const Layout: React.FC = () => {
     });
 
     useEffect(() => {
-        if (!user) {
-            setIsSecurityPromptVisible(false);
-            return;
-        }
-
+        if (!user) return;
         if (user.recoverabilityStatus === 'protected') {
             resetSecurityOnboardingPromptState();
-            setIsSecurityPromptVisible(false);
             return;
         }
-
-        if (location.pathname === '/settings') {
-            setIsSecurityPromptVisible(false);
-            return;
-        }
-
-        if (shouldShowSecurityOnboardingPrompt(user.recoverabilityStatus)) {
+        if (location.pathname !== '/settings' && shouldShowSecurityOnboardingPrompt(user.recoverabilityStatus)) {
             markSecurityOnboardingPromptShown(user.recoverabilityStatus);
-            setIsSecurityPromptVisible(true);
-            return;
         }
-
-        setIsSecurityPromptVisible(false);
     }, [location.pathname, user]);
 
-    const handleSecurityPromptDismiss = useCallback(() => {
-        if (!user) {
-            setIsSecurityPromptVisible(false);
-            return;
-        }
+    const isSecurityPromptVisible = Boolean(
+        user &&
+        user.recoverabilityStatus !== 'protected' &&
+        location.pathname !== '/settings' &&
+        !isSecurityPromptDismissed &&
+        shouldShowSecurityOnboardingPrompt(user.recoverabilityStatus)
+    );
 
-        dismissSecurityOnboardingPrompt(user.recoverabilityStatus);
-        setIsSecurityPromptVisible(false);
+    const handleSecurityPromptDismiss = useCallback(() => {
+        if (user) {
+            dismissSecurityOnboardingPrompt(user.recoverabilityStatus);
+        }
+        setIsSecurityPromptDismissed(true);
     }, [user]);
 
     const handleSecurityPromptOpenSettings = useCallback(() => {
         if (user) {
             dismissSecurityOnboardingPrompt(user.recoverabilityStatus);
         }
-        setIsSecurityPromptVisible(false);
+        setIsSecurityPromptDismissed(true);
         navigate('/settings');
     }, [navigate, user]);
 
@@ -350,21 +345,21 @@ const Layout: React.FC = () => {
                     }}
                 >
                 {isSecurityPromptVisible ? (
-                    <div className="mx-auto mb-6 max-w-5xl rounded-3xl border border-amber-200 bg-white/90 p-5 shadow-[0_12px_40px_rgba(245,158,11,0.12)] backdrop-blur-xl">
+                    <div className="mx-auto mb-6 max-w-5xl rounded-3xl border border-amber-200 dark:border-amber-800/50 bg-white/90 dark:bg-[var(--color-surface)]/95 p-5 shadow-[0_12px_40px_rgba(245,158,11,0.12)] dark:shadow-none backdrop-blur-xl transition-colors">
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div className="flex gap-4">
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
                                     <ShieldAlert className="h-6 w-6" />
                                 </div>
                                 <div className="space-y-2">
-                                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700">
+                                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400">
                                         Защита аккаунта
                                     </p>
                                     <div>
-                                        <h2 className="text-xl font-bold text-slate-900">
+                                        <h2 className="text-xl font-bold text-slate-900 dark:text-[var(--color-text-main)]">
                                             Добавьте email для восстановления доступа
                                         </h2>
-                                        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                                        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-[var(--color-text-muted)]">
                                             Сейчас аккаунт не защищён: без подтверждённого email самостоятельное восстановление доступа недоступно. Подключите email в настройках, чтобы не потерять доступ к данным.
                                         </p>
                                     </div>
@@ -374,7 +369,7 @@ const Layout: React.FC = () => {
                             <div className="flex flex-col gap-3 sm:flex-row md:justify-end">
                                 <button
                                     onClick={handleSecurityPromptOpenSettings}
-                                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:opacity-90"
+                                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200 dark:shadow-none transition-all hover:opacity-90"
                                 >
                                     Добавить email
                                     <ArrowRight className="h-4 w-4" />

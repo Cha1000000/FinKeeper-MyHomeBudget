@@ -12,7 +12,7 @@ import {
     getPlannedRecords, setPlannedOverride, resetPlannedOverride, confirmPlanned
 } from '../api';
 import type { Month, Income, Expense, Category, Budget, IncomeSource, PlannedResponse, PlannedItem } from '../api';
-import { formatCurrency, formatDate, evalAmount, isAmountExpression } from '../utils';
+import { formatCurrency, formatDate, evalAmount, isAmountExpression, readSavedMonthDate } from '../utils';
 import Modal from '../components/Modal';
 import { useDataChanged } from '../hooks/useWebSocket';
 import PageState from '../components/PageState';
@@ -237,14 +237,7 @@ const PlannedSection: React.FC<PlannedSectionProps> = ({ title, kind, items, tot
 
 const MONTHVIEW_MONTH_KEY = 'monthview_selected_month';
 
-const getInitialMonthViewDate = (): Date => {
-    const saved = localStorage.getItem(MONTHVIEW_MONTH_KEY);
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        return new Date(parsed.year, parsed.month - 1, 1);
-    }
-    return new Date();
-};
+const getInitialMonthViewDate = (): Date => readSavedMonthDate(MONTHVIEW_MONTH_KEY);
 
 const saveMonthViewMonth = (date: Date) => {
     localStorage.setItem(MONTHVIEW_MONTH_KEY, JSON.stringify({
@@ -307,8 +300,13 @@ const MonthView: React.FC = () => {
     // Editing State
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editingAmount, setEditingAmount] = useState('');
+    const [editingOriginalAmount, setEditingOriginalAmount] = useState<number | null>(null);
     const [pendingSave, setPendingSave] = useState<{ id: number, type: 'income' | 'expense' } | null>(null);
     const [pendingDelete, setPendingDelete] = useState<{ id: number, type: 'income' | 'expense' } | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [budgetDrafts, setBudgetDrafts] = useState<Record<number, string>>({});
+    const budgetTimersRef = useRef<Record<number, number>>({});
+    const loadRequestIdRef = useRef(0);
     const isSavingRef = useRef(false);
 
     const sensors = useSensors(
@@ -339,6 +337,7 @@ const MonthView: React.FC = () => {
 
     // Helper to open modal with pre-filled category
     const openAddModal = (type: 'income' | 'expense', categoryId?: number) => {
+        setActionError(null);
         setActiveTab(type);
         setFormData({
             source: '',
@@ -350,6 +349,7 @@ const MonthView: React.FC = () => {
     };
 
     const loadData = useCallback(async () => {
+        const requestId = ++loadRequestIdRef.current;
         setIsLoading(true);
         setPageError(null);
         try {
@@ -357,7 +357,7 @@ const MonthView: React.FC = () => {
             const month = currentDate.getMonth() + 1;
 
             const mRes = await ensureMonth(year, month);
-            setMonthData(mRes.data);
+            if (requestId !== loadRequestIdRef.current) return;
 
             const [incRes, expRes, catRes, budRes, srcRes, plannedRes] = await Promise.all([
                 getIncomes(mRes.data.id),
@@ -367,7 +367,9 @@ const MonthView: React.FC = () => {
                 getIncomeSources(),
                 getPlannedRecords(mRes.data.id)
             ]);
+            if (requestId !== loadRequestIdRef.current) return;
 
+            setMonthData(mRes.data);
             setPlanned(plannedRes.data);
             setIncomes(incRes.data);
             setAllExpenses(expRes.data);
@@ -379,16 +381,26 @@ const MonthView: React.FC = () => {
             setIncomeSources(srcRes.data);
             
         } catch (e) {
+            if (requestId !== loadRequestIdRef.current) return;
             console.error("Error loading data", e);
             setPageError('Не удалось загрузить данные месяца. Попробуйте ещё раз.');
         } finally {
-            setIsLoading(false);
+            if (requestId === loadRequestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [currentDate]);
 
     useEffect(() => {
-        loadData();
+        void loadData();
     }, [loadData]);
+
+    useEffect(() => {
+        const timers = budgetTimersRef.current;
+        return () => {
+            Object.values(timers).forEach(t => window.clearTimeout(t));
+        };
+    }, []);
 
     // Refresh on WebSocket data changes
     useDataChanged(['income', 'expense', 'category', 'budget', 'income_source', 'planned', 'all'], () => { loadData(); });
@@ -407,7 +419,7 @@ const MonthView: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!monthData) return;
+        if (!monthData || isSubmitting) return;
         setActionError(null);
 
         // Сумма может быть арифметическим выражением (=523+1275+104).
@@ -417,6 +429,7 @@ const MonthView: React.FC = () => {
             return;
         }
 
+        setIsSubmitting(true);
         try {
             if (activeTab === 'income') {
                 const sourceName = formData.source.trim();
@@ -438,41 +451,48 @@ const MonthView: React.FC = () => {
                     date: new Date().toISOString()
                 });
             } else {
+                const categoryId = parseInt(formData.categoryId, 10);
+                if (isNaN(categoryId)) {
+                    setActionError('Выберите категорию расхода.');
+                    return;
+                }
                 await addExpense({
                     month_id: monthData.id,
-                    category_id: parseInt(formData.categoryId),
+                    category_id: categoryId,
                     amount: amountValue,
                     date: new Date().toISOString(),
                     comment: formData.comment
                 });
                 
                 // Auto-expand the category we just added to
-                if (formData.categoryId) {
-                     setExpandedCategories(prev => ({ ...prev, [parseInt(formData.categoryId)]: true }));
-                }
+                setExpandedCategories(prev => ({ ...prev, [categoryId]: true }));
             }
             setIsModalOpen(false);
             setFormData({ source: '', amount: '', categoryId: '', comment: '' });
-            loadData();
+            void loadData();
         } catch (err) {
             console.error(err);
             setActionError(getActionErrorMessage(err, activeTab === 'income'
                 ? 'Не удалось сохранить доход. Попробуйте ещё раз.'
                 : 'Не удалось сохранить расход. Попробуйте ещё раз.'));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleEditClick = (item: Income | Expense) => {
         setEditingId(item.id);
         setEditingAmount(item.amount.toString());
+        setEditingOriginalAmount(item.amount);
         isSavingRef.current = false;
     };
 
     const saveAmount = async (id: number, type: 'income' | 'expense') => {
         const amount = evalAmount(editingAmount);
 
-        if (amount === null || amount <= 0) {
+        if (amount === null || amount <= 0 || amount === editingOriginalAmount) {
             setEditingId(null);
+            setEditingOriginalAmount(null);
             return;
         }
 
@@ -491,12 +511,20 @@ const MonthView: React.FC = () => {
                 : 'Не удалось обновить сумму расхода. Попробуйте ещё раз.'));
         } finally {
             setEditingId(null);
+            setEditingOriginalAmount(null);
             isSavingRef.current = false;
         }
     };
 
     const handleBlur = (id: number, type: 'income' | 'expense') => {
         if (isSavingRef.current) {
+            return;
+        }
+
+        const nextAmount = evalAmount(editingAmount);
+        if (nextAmount === null || nextAmount <= 0 || nextAmount === editingOriginalAmount) {
+            setEditingId(null);
+            setEditingOriginalAmount(null);
             return;
         }
 
@@ -507,10 +535,11 @@ const MonthView: React.FC = () => {
     const handleKeyDown = (e: React.KeyboardEvent, id: number, type: 'income' | 'expense') => {
         if (e.key === 'Enter') {
             isSavingRef.current = true;
-            saveAmount(id, type);
+            void saveAmount(id, type);
         } else if (e.key === 'Escape') {
             isSavingRef.current = true; // Prevent blur confirm
             setEditingId(null);
+            setEditingOriginalAmount(null);
             // Reset isSaving after a short delay so subsequent blurs are handled
             setTimeout(() => { isSavingRef.current = false; }, 100);
         }
@@ -521,24 +550,27 @@ const MonthView: React.FC = () => {
     };
 
     const confirmDelete = async () => {
-        if (!pendingDelete) return;
+        if (!pendingDelete || isSubmitting) return;
+        setIsSubmitting(true);
         try {
             setActionError(null);
             if (pendingDelete.type === 'income') await deleteIncome(pendingDelete.id);
             else await deleteExpense(pendingDelete.id);
             setPendingDelete(null);
-            loadData();
+            void loadData();
         } catch (e) {
             console.error(e);
             setActionError(getActionErrorMessage(e, pendingDelete.type === 'income'
                 ? 'Не удалось удалить доход. Попробуйте ещё раз.'
                 : 'Не удалось удалить расход. Попробуйте ещё раз.'));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const confirmAddNewSource = async (addToList: boolean) => {
-        if (!monthData) return;
-        
+        if (!monthData || isSubmitting) return;
+        setIsSubmitting(true);
         try {
             setActionError(null);
             if (addToList) {
@@ -556,12 +588,14 @@ const MonthView: React.FC = () => {
             setNewSourceName('');
             setIsModalOpen(false);
             setFormData({ source: '', amount: '', categoryId: '', comment: '' });
-            loadData();
+            void loadData();
         } catch (err) {
             console.error(err);
             setActionError(getActionErrorMessage(err, addToList
                 ? 'Не удалось добавить новый источник и сохранить доход. Попробуйте ещё раз.'
                 : 'Не удалось сохранить доход с новым источником. Попробуйте ещё раз.'));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -585,28 +619,72 @@ const MonthView: React.FC = () => {
         }
     };
 
-    const handleBudgetChange = async (categoryId: number, limit: number) => {
+    const persistBudgetLimit = async (categoryId: number, limit: number) => {
         if (!monthData) return;
-
         try {
             setActionError(null);
             await setBudget({ month_id: monthData.id, category_id: categoryId, limit_amount: limit });
-            setBudgets(prev => {
-                const existing = prev.find(b => b.category_id === categoryId);
-                if (existing) {
-                    return prev.map(b => b.category_id === categoryId ? { ...b, limit_amount: limit } : b);
-                }
-                return [...prev, { id: 0, month_id: monthData.id, category_id: categoryId, limit_amount: limit }];
-            });
         } catch (e) {
             console.error(e);
             setActionError(getActionErrorMessage(e, 'Не удалось обновить лимит категории. Попробуйте ещё раз.'));
         }
     };
 
+    const openBudgetModal = () => {
+        const drafts: Record<number, string> = {};
+        categories.forEach(cat => {
+            const existing = budgets.find(b => b.category_id === cat.id);
+            const limit = existing ? existing.limit_amount : 0;
+            drafts[cat.id] = limit > 0 ? String(limit) : '';
+        });
+        setBudgetDrafts(drafts);
+        setIsBudgetModalOpen(true);
+    };
+
+    const handleBudgetInputChange = (categoryId: number, rawValue: string) => {
+        if (!monthData) return;
+        setBudgetDrafts(prev => ({ ...prev, [categoryId]: rawValue }));
+        const parsed = Math.max(0, parseFloat(rawValue) || 0);
+
+        setBudgets(prev => {
+            const existing = prev.find(b => b.category_id === categoryId);
+            if (existing) {
+                return prev.map(b => b.category_id === categoryId ? { ...b, limit_amount: parsed } : b);
+            }
+            return [...prev, { id: 0, month_id: monthData.id, category_id: categoryId, limit_amount: parsed }];
+        });
+
+        if (budgetTimersRef.current[categoryId]) {
+            window.clearTimeout(budgetTimersRef.current[categoryId]);
+        }
+        budgetTimersRef.current[categoryId] = window.setTimeout(() => {
+            delete budgetTimersRef.current[categoryId];
+            void persistBudgetLimit(categoryId, parsed);
+        }, 450);
+    };
+
+    const flushBudgetInput = (categoryId: number) => {
+        if (budgetTimersRef.current[categoryId]) {
+            window.clearTimeout(budgetTimersRef.current[categoryId]);
+            delete budgetTimersRef.current[categoryId];
+            const rawValue = budgetDrafts[categoryId] ?? '';
+            const parsed = Math.max(0, parseFloat(rawValue) || 0);
+            void persistBudgetLimit(categoryId, parsed);
+        }
+    };
+
+    const closeBudgetModal = () => {
+        Object.keys(budgetTimersRef.current).forEach(key => {
+            const catId = Number(key);
+            flushBudgetInput(catId);
+        });
+        setIsBudgetModalOpen(false);
+    };
+
     // --- Действия план-слоя ---
     const runPlannedAction = async (action: () => Promise<unknown>, fallbackMessage: string) => {
-        if (!monthData) return;
+        if (!monthData || isSubmitting) return;
+        setIsSubmitting(true);
         try {
             setActionError(null);
             await action();
@@ -614,6 +692,8 @@ const MonthView: React.FC = () => {
         } catch (e) {
             console.error(e);
             setActionError(getActionErrorMessage(e, fallbackMessage));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -628,6 +708,7 @@ const MonthView: React.FC = () => {
     );
 
     const openOverrideModal = (item: PlannedItem) => {
+        setActionError(null);
         setOverrideForm({ amount: item.amount.toString(), day: item.due_day.toString() });
         setOverrideItem(item);
     };
@@ -637,9 +718,13 @@ const MonthView: React.FC = () => {
         if (!overrideItem) return;
         const item = overrideItem;
         const amount = evalAmount(overrideForm.amount);
-        const day = parseInt(overrideForm.day);
+        const day = parseInt(overrideForm.day, 10);
         if (amount === null || amount <= 0) {
             setActionError('Некорректное выражение в поле «Сумма».');
+            return;
+        }
+        if (isNaN(day) || day < 1 || day > 31) {
+            setActionError('Укажите корректный день месяца (от 1 до 31).');
             return;
         }
         setOverrideItem(null);
@@ -647,7 +732,7 @@ const MonthView: React.FC = () => {
             () => setPlannedOverride(monthData!.id, item.template_type, item.template_id, {
                 // Совпадающие с шаблоном значения шлём как null — сервер удалит исключение, если всё дефолтное
                 override_amount: amount === item.original_amount ? null : amount,
-                override_day: isNaN(day) ? null : day,
+                override_day: day,
             }),
             'Не удалось изменить платёж на этот месяц. Попробуйте ещё раз.'
         );
@@ -801,7 +886,7 @@ const MonthView: React.FC = () => {
                         </p>
                     )}
                 </div>
-                <div className={`relative ${isLimitInfoOpen ? 'z-30' : ''} bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] cursor-pointer hover:shadow-md dark:hover:bg-blue-900/20 transition-all group`} onClick={() => setIsBudgetModalOpen(true)}>
+                <div className={`relative ${isLimitInfoOpen ? 'z-30' : ''} bg-[image:var(--color-stat-blue-bg)] backdrop-blur-md p-5 rounded-3xl shadow-sm dark:shadow-none border border-[var(--color-stat-blue-border)] cursor-pointer hover:shadow-md dark:hover:bg-blue-900/20 transition-all group`} onClick={openBudgetModal}>
                     <div className="flex justify-between items-center mb-1">
                         <div className="flex items-center gap-1">
                             <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Лимит трат на месяц</p>
@@ -964,7 +1049,7 @@ const MonthView: React.FC = () => {
                                                         )}
                                                     </td>
                                                     <td className="p-4 w-24 text-right">
-                                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                                        <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 transition-opacity">
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleEditClick(item); }}
                                                                 className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
@@ -1061,7 +1146,7 @@ const MonthView: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="p-4 w-24 text-right">
-                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                        <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => handleEditClick(item)}
                                                 className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
@@ -1165,11 +1250,18 @@ const MonthView: React.FC = () => {
                         </>
                     )}
 
+                    {actionError ? (
+                        <StatusBanner variant="error">
+                            {actionError}
+                        </StatusBanner>
+                    ) : null}
+
                     <button
                         type="submit"
-                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-colors mt-4"
+                        disabled={isSubmitting}
+                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-colors mt-4 disabled:opacity-60"
                     >
-                        Сохранить
+                        {isSubmitting ? 'Сохранение...' : 'Сохранить'}
                     </button>
                 </form>
             </Modal>
@@ -1264,7 +1356,7 @@ const MonthView: React.FC = () => {
             {/* Budget Modal */}
             <Modal
                 isOpen={isBudgetModalOpen}
-                onClose={() => setIsBudgetModalOpen(false)}
+                onClose={closeBudgetModal}
                 title="Настройка бюджета (лимитов)"
             >
                 {/* Зафиксированная плашка с общим лимитом — вне скролла, не уезжает при прокрутке */}
@@ -1275,15 +1367,20 @@ const MonthView: React.FC = () => {
                 <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-3 -mr-3">
                     {categories.map(cat => {
                         const budget = budgets.find(b => b.category_id === cat.id);
-                        const limit = budget ? budget.limit_amount : 0;
+                        const fallbackValue = budget && budget.limit_amount > 0 ? String(budget.limit_amount) : '';
+                        const inputValue = budgetDrafts[cat.id] !== undefined ? budgetDrafts[cat.id] : fallbackValue;
                         return (
                             <div key={cat.id} className="flex items-center justify-between gap-4">
                                 <label className="text-sm font-medium text-gray-700 dark:text-[var(--color-text-main)] flex-1">{cat.name}</label>
                                 <div className="relative w-32">
                                     <input
                                         type="number"
-                                        value={limit}
-                                        onChange={e => handleBudgetChange(cat.id, parseFloat(e.target.value) || 0)}
+                                        min="0"
+                                        step="any"
+                                        placeholder="0"
+                                        value={inputValue}
+                                        onChange={e => handleBudgetInputChange(cat.id, e.target.value)}
+                                        onBlur={() => flushBudgetInput(cat.id)}
                                         aria-label={`Лимит для категории ${cat.name}`}
                                         title={`Лимит для категории ${cat.name}`}
                                         className="w-full p-2 pr-6 border border-gray-300 dark:border-[var(--color-border-strong)] rounded focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none text-right bg-[var(--color-surface)] dark:bg-[var(--color-surface-soft)] text-slate-900 dark:text-[var(--color-text-main)] transition-colors"
@@ -1296,7 +1393,7 @@ const MonthView: React.FC = () => {
                 </div>
                 <div className="mt-6 pt-5 border-t border-emerald-100/30 dark:border-[var(--color-border-default)]">
                     <button
-                        onClick={() => setIsBudgetModalOpen(false)}
+                        onClick={closeBudgetModal}
                         className="w-full bg-[var(--color-primary)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-colors"
                     >
                         Готово

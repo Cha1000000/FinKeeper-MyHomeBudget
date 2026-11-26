@@ -14,13 +14,51 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import PageState from './components/PageState';
 
+interface ErrorBoundaryState {
+    hasError: boolean;
+}
+
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+    constructor(props: { children: React.ReactNode }) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError(): ErrorBoundaryState {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+        console.error('Unhandled application error:', error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="flex min-h-screen items-center justify-center bg-[var(--color-background)] px-4 py-10">
+                    <div className="w-full max-w-lg">
+                        <PageState
+                            variant="error"
+                            title="Произошла непредвиденная ошибка"
+                            description="Не удалось отобразить страницу. Попробуйте перезагрузить приложение."
+                            actionLabel="Перезагрузить"
+                            onAction={() => window.location.reload()}
+                        />
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 const RequireAuth: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { user, isLoading } = useAuth();
     const location = useLocation();
 
     if (isLoading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-slate-50/70 px-4 py-10">
+            <div className="flex min-h-screen items-center justify-center bg-slate-50/70 dark:bg-[var(--color-background)] px-4 py-10">
                 <div className="w-full max-w-lg">
                     <PageState
                         variant="loading"
@@ -66,13 +104,15 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-        <ThemeProvider>
-            <BrowserRouter>
-                <AppRoutes />
-            </BrowserRouter>
-        </ThemeProvider>
-    </AuthProvider>
+    <AppErrorBoundary>
+        <AuthProvider>
+            <ThemeProvider>
+                <BrowserRouter>
+                    <AppRoutes />
+                </BrowserRouter>
+            </ThemeProvider>
+        </AuthProvider>
+    </AppErrorBoundary>
   );
 };
 

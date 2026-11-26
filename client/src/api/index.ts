@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { AUTH_LOGOUT_REQUIRED_EVENT, clearToken, getToken, setAuthNotice, setToken } from '../auth/tokenStorage';
+import { AUTH_LOGOUT_REQUIRED_EVENT, clearToken, getToken, setAuthNotice } from '../auth/tokenStorage';
+import { refreshRememberedSession } from '../auth/sessionRecovery';
 
 const api = axios.create({
     baseURL: '/api',
@@ -81,16 +82,12 @@ api.interceptors.response.use(
             originalRequest._retry = true;
 
             try {
-                const { data } = await axios.post('/api/auth/refresh', {}, {
-                    withCredentials: true,
-                });
-
-                const newToken = data.accessToken || data.token;
+                const data = await refreshRememberedSession();
+                const newToken = data?.accessToken || data?.token;
                 if (!newToken) {
                     throw new Error('No token in refresh response');
                 }
 
-                setToken(newToken);
                 processQueue(null, newToken);
 
                 originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
