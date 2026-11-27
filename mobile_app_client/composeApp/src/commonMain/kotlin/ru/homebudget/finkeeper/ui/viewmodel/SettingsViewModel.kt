@@ -2,22 +2,26 @@ package ru.homebudget.finkeeper.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
 import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
 import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.model.BackupEntry
 import ru.homebudget.finkeeper.data.model.DebugTokenPreview
 import ru.homebudget.finkeeper.data.model.User
+import ru.homebudget.finkeeper.data.model.UserSessionEntry
 import ru.homebudget.finkeeper.data.network.NetworkMonitor
 import ru.homebudget.finkeeper.data.remote.ApiClient
 import ru.homebudget.finkeeper.data.remote.ApiException
 import ru.homebudget.finkeeper.data.repository.SyncManager
 import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.util.FileTransfer
 import ru.homebudget.finkeeper.util.RetryConfig
 import ru.homebudget.finkeeper.util.withRetry
 
@@ -25,6 +29,11 @@ data class SettingsState(
     val isLoading: Boolean = false,
     val isBackupsLoading: Boolean = false,
     val backupEntries: List<BackupEntry> = emptyList(),
+    val maxBackups: Int = 5,
+    val sessions: List<UserSessionEntry> = emptyList(),
+    val maxDevices: Int = 2,
+    val isUnlimitedDevices: Boolean = false,
+    val isSessionsLoading: Boolean = false,
     val statusMessage: String? = null,
     val statusIsError: Boolean = false,
     val error: String? = null,
@@ -47,6 +56,7 @@ class SettingsViewModel(
 
     init {
         loadBackups()
+        loadSessions()
         viewModelScope.launch {
             networkMonitor.isOnline.collectLatest { isOnline ->
                 _state.value = _state.value.copy(isOnline = isOnline)
@@ -86,6 +96,7 @@ class SettingsViewModel(
                     _state.value.copy(
                         isBackupsLoading = false,
                         backupEntries = response.backups,
+                        maxBackups = response.maxBackups,
                     )
             } catch (_: Exception) {
                 _state.value =
@@ -432,5 +443,138 @@ class SettingsViewModel(
 
     fun clearStatus() {
         _state.value = _state.value.copy(statusMessage = null, emailDebugToken = null)
+    }
+
+    fun loadSessions() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isSessionsLoading = true)
+            try {
+                val res = withRetry(config = RetryConfig(maxAttempts = 2)) {
+                    apiClient.getUserSessions()
+                }
+                _state.value = _state.value.copy(
+                    isSessionsLoading = false,
+                    sessions = res.sessions,
+                    maxDevices = res.maxDevices,
+                    isUnlimitedDevices = res.isUnlimited,
+                )
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(isSessionsLoading = false)
+            }
+        }
+    }
+
+    fun revokeSession(sessionId: Int) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true, statusMessage = null)
+            try {
+                apiClient.revokeUserSession(sessionId)
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = Strings.PRO_SESSIONS_REVOKED_SUCCESS,
+                    statusIsError = false,
+                )
+                loadSessions()
+            } catch (e: ApiException) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = e.message,
+                    statusIsError = true,
+                )
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = Strings.OPERATION_FAILED,
+                    statusIsError = true,
+                )
+            }
+        }
+    }
+
+    fun togglePinBackup(backup: BackupEntry) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true, statusMessage = null)
+            try {
+                apiClient.togglePinBackup(backup.id, !backup.isPinned)
+                _state.value = _state.value.copy(isLoading = false)
+                loadBackups()
+            } catch (e: ApiException) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = e.message,
+                    statusIsError = true,
+                )
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = Strings.OPERATION_FAILED,
+                    statusIsError = true,
+                )
+            }
+        }
+    }
+
+    fun exportBackupJson(backup: BackupEntry) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true, statusMessage = null)
+            try {
+                val bytes = apiClient.exportBackupJsonBytes(backup.id)
+                val datePart = backup.createdAt.take(10).ifBlank { "snapshot" }
+                val fileName = "finkeeper24-backup-${backup.id}-$datePart.json"
+                val savedPath = withContext(Dispatchers.Default) {
+                    FileTransfer.saveDownloadedFile(fileName, bytes)
+                }
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = savedPath?.let { Strings.PRO_BACKUP_JSON_SAVED_FORMAT.replace("%1\$s", it) },
+                    statusIsError = false,
+                )
+            } catch (e: ApiException) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = e.message,
+                    statusIsError = true,
+                )
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = Strings.OPERATION_FAILED,
+                    statusIsError = true,
+                )
+            }
+        }
+    }
+
+    fun importBackupJsonFromFile() {
+        viewModelScope.launch {
+            val picked = withContext(Dispatchers.Default) {
+                FileTransfer.pickBackupJsonFile()
+            } ?: return@launch
+            _state.value = _state.value.copy(isLoading = true, statusMessage = null)
+            try {
+                apiClient.importBackupJson(
+                    backupJsonText = picked.second,
+                    restoreImmediately = false,
+                )
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = Strings.PRO_BACKUP_JSON_IMPORTED,
+                    statusIsError = false,
+                )
+                loadBackups()
+            } catch (e: ApiException) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = e.message,
+                    statusIsError = true,
+                )
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    statusMessage = Strings.OPERATION_FAILED,
+                    statusIsError = true,
+                )
+            }
+        }
     }
 }

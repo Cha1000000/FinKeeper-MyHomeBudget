@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS user_backups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
   data TEXT NOT NULL,
+  is_pinned INTEGER NOT NULL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -137,6 +138,11 @@ CREATE TABLE IF NOT EXISTS auth_refresh_sessions (
   created_at TEXT NOT NULL,
   last_used_at TEXT,
   revoked_at TEXT,
+  is_persistent INTEGER NOT NULL DEFAULT 0,
+  platform TEXT,
+  device_name TEXT,
+  user_agent TEXT,
+  ip TEXT,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -227,6 +233,57 @@ CREATE TABLE IF NOT EXISTS deleted_records (
   deleted_at DATETIME NOT NULL,
   UNIQUE(user_id, entity_type, entity_id),
   FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL UNIQUE,
+  plan TEXT NOT NULL DEFAULT 'free',
+  status TEXT NOT NULL DEFAULT 'active',
+  source TEXT NOT NULL DEFAULT 'system',
+  trial_used INTEGER NOT NULL DEFAULT 0,
+  started_at TEXT,
+  expires_at TEXT,
+  family_group_id INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS billing_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  external_payment_id TEXT UNIQUE,
+  plan_period TEXT NOT NULL,
+  amount_rub REAL NOT NULL DEFAULT 0,
+  status TEXT NOT NULL,
+  raw_payload TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS promo_codes (
+  code TEXT PRIMARY KEY,
+  duration_days INTEGER NOT NULL DEFAULT 0,
+  max_uses INTEGER,
+  used_count INTEGER NOT NULL DEFAULT 0,
+  expires_at TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  plan TEXT NOT NULL DEFAULT 'pro',
+  is_lifetime INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS promo_code_redemptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  code TEXT NOT NULL,
+  redeemed_at TEXT NOT NULL,
+  UNIQUE(user_id, code),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (code) REFERENCES promo_codes(code)
 );
 `;
 

@@ -73,10 +73,14 @@ export function useWebSocket() {
 
         ws.onmessage = (event) => {
             try {
-                const data: DataChangedEvent = JSON.parse(event.data);
+                const data = JSON.parse(event.data) as DataChangedEvent | { type: 'entitlement_updated'; entitlements: unknown };
                 if (data.type === 'data_changed') {
                     window.dispatchEvent(
                         new CustomEvent('ws:data_changed', { detail: data })
+                    );
+                } else if (data.type === 'entitlement_updated') {
+                    window.dispatchEvent(
+                        new CustomEvent('ws:entitlement_updated', { detail: data.entitlements })
                     );
                 }
             } catch {

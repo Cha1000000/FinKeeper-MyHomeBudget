@@ -3,6 +3,7 @@ package ru.homebudget.finkeeper.util
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
@@ -13,6 +14,18 @@ import androidx.core.view.WindowCompat
 actual val isDesktop: Boolean = false
 
 actual val appPlatform: String = "android"
+
+actual val appDeviceName: String by lazy {
+    val manufacturer = Build.MANUFACTURER.orEmpty().trim()
+    val model = Build.MODEL.orEmpty().trim()
+    val deviceLabel = when {
+        model.isBlank() -> ""
+        manufacturer.isNotBlank() && !model.startsWith(manufacturer, ignoreCase = true) ->
+            "${manufacturer.replaceFirstChar { it.uppercase() }} $model"
+        else -> model
+    }
+    if (deviceLabel.isBlank()) "Android" else "Android - $deviceLabel"
+}
 
 @Composable
 actual fun AppLogoIcon(modifier: Modifier) {

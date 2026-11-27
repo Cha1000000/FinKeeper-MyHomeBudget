@@ -1,0 +1,1111 @@
+<!doctype html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinKeeper24 — UI-макет Вехи 1 Монетизации (Семейный PRO)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-main: #06130e;
+      --bg-surface: #0b1f17;
+      --bg-surface-soft: #122d22;
+      --border-default: rgba(16, 185, 129, 0.18);
+      --border-strong: rgba(255, 255, 255, 0.12);
+      --emerald: #10b981;
+      --emerald-light: #34d399;
+      --amber: #f59e0b;
+      --amber-light: #fbbf24;
+      --indigo: #6366f1;
+      --rose: #f43f5e;
+      --text-main: #ecfdf5;
+      --text-muted: #8ba89a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-variant-numeric: tabular-nums;
+      background: radial-gradient(circle at 15% 0%, #0d2b20 0%, #050f0b 65%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding-bottom: 60px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4, .font-display {
+      font-family: 'Manrope', 'Inter', sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Top Control Bar */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(6, 19, 14, 0.88);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-strong);
+      padding: 14px 24px;
+    }
+
+    .top-bar-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: var(--emerald-light);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .nav-tabs, .state-switch {
+      display: flex;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .tab-btn, .state-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover, .state-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-btn.active {
+      background: var(--emerald);
+      color: #04130d;
+      font-weight: 700;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+    }
+
+    .state-btn.active[data-state="free"] {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+    }
+    .state-btn.active[data-state="trial"] {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #08110d;
+      font-weight: 700;
+    }
+    .state-btn.active[data-state="pro"] {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #04130d;
+      font-weight: 700;
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: 28px auto;
+      padding: 0 24px;
+    }
+
+    .screen-section {
+      display: none;
+      animation: fadeIn 0.25s ease;
+    }
+    .screen-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 28px;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .comparison-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .glass-card {
+      background: rgba(11, 31, 23, 0.85);
+      border: 1px solid var(--border-default);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+    }
+
+    /* Mobile Frame */
+    .phone-frame {
+      width: 390px;
+      margin: 0 auto;
+      background: #050e0a;
+      border-radius: 44px;
+      border: 6px solid #1b3529;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .phone-status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 24px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .phone-body {
+      padding: 14px 16px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Badges & Pills */
+    .pro-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(16, 185, 129, 0.22));
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      color: var(--amber-light);
+    }
+
+    .pro-unlocked .pro-lock-icon {
+      display: none;
+    }
+
+    /* Paywall Modal Mock */
+    .paywall-card {
+      max-width: 540px;
+      margin: 0 auto;
+      background: linear-gradient(165deg, rgba(16, 45, 34, 0.96) 0%, rgba(7, 20, 15, 0.98) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 40px rgba(16, 185, 129, 0.12);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .paywall-glow {
+      position: absolute;
+      top: -80px;
+      right: -80px;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.28), transparent 70%);
+      pointer-events: none;
+    }
+
+    .feature-context-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 16px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #d1fae5;
+    }
+
+    .plan-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .plan-option {
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 18px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .plan-option.selected {
+      border-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.12);
+      box-shadow: 0 8px 24px rgba(16, 185, 129, 0.15);
+    }
+
+    .plan-discount {
+      position: absolute;
+      top: -10px;
+      right: 12px;
+      background: var(--amber);
+      color: #08120e;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+
+    .benefit-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 18px 0 24px;
+    }
+
+    .benefit-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 13.5px;
+      color: #d1fae5;
+      line-height: 1.4;
+    }
+
+    .check-circle {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      color: var(--emerald-light);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 11px;
+      margin-top: 1px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      border: none;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #03120c;
+      font-family: 'Manrope', sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      padding: 15px 20px;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 12px 28px rgba(16, 185, 129, 0.3);
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    .btn-secondary {
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    /* Dashboard Analytics Mock */
+    .period-Chips {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 4px;
+    }
+
+    .period-chip {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .period-chip.active {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--emerald-light);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .bars-mock {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      height: 180px;
+      gap: 8px;
+      padding: 20px 8px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-top: 12px;
+    }
+
+    .bar-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      height: 100%;
+      justify-content: flex-end;
+    }
+
+    .bar-pair {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 140px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .bar-col {
+      width: 8px;
+      border-radius: 4px 4px 0 0;
+    }
+
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .insight-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    /* Settings Mock */
+    .backup-row, .session-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      margin-bottom: 10px;
+    }
+
+    .backup-row.pinned {
+      border-color: rgba(245, 158, 11, 0.35);
+      background: rgba(245, 158, 11, 0.05);
+    }
+
+    .icon-btn {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:hover, .icon-btn.pinned {
+      color: var(--amber-light);
+      border-color: rgba(245, 158, 11, 0.45);
+      background: rgba(245, 158, 11, 0.12);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sticky Control Header -->
+  <header class="top-bar">
+    <div class="top-bar-inner">
+      <div class="brand-title">
+        <span class="brand-badge">UI Концепт • Веха 1</span>
+        <h1 style="font-size: 17px; font-weight: 800;">Монетизация FinKeeper24 («Семейный PRO»)</h1>
+      </div>
+
+      <!-- Screen Switcher -->
+      <nav class="nav-tabs" aria-label="Экраны макета">
+        <button class="tab-btn active" onclick="switchTab('paywall', this)">1. Paywall & Триал 14 дн.</button>
+        <button class="tab-btn" onclick="switchTab('analytics', this)">2. Аналитика 12+ мес & Экспорт Excel</button>
+        <button class="tab-btn" onclick="switchTab('settings', this)">3. Настройки: Подписка, Бэкапы & Сессии</button>
+      </nav>
+
+      <!-- Subscription State Switcher -->
+      <div class="state-switch" aria-label="Состояние подписки">
+        <button class="state-btn active" data-state="free" onclick="setPlanState('free', this)">Free (Базовый)</button>
+        <button class="state-btn" data-state="trial" onclick="setPlanState('trial', this)">Триал PRO (14 дн.)</button>
+        <button class="state-btn" data-state="pro" onclick="setPlanState('pro', this)">Семейный PRO</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" id="app-container">
+
+    <!-- ==================== TAB 1: PAYWALL & 14-DAY TRIAL ==================== -->
+    <section id="tab-paywall" class="screen-section active">
+      <div class="comparison-grid">
+        <!-- Web Paywall Modal -->
+        <div>
+          <div class="panel-label">💻 Web / Desktop — Модальное окно ProPaywallModal</div>
+          <div class="paywall-card">
+            <div class="paywall-glow"></div>
+
+            <div class="feature-context-banner" id="paywall-trigger-banner">
+              <span style="font-size: 20px;">📊</span>
+              <div>
+                <div style="font-weight: 700; color: #fff;">Экспорт отчётов в Excel (.xlsx) и глубокая аналитика</div>
+                <div style="font-size: 12px; color: var(--text-muted);">Доступно в подписке «Семейный PRO» и в бесплатном 14-дневном триале</div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <span class="pro-pill">★ СЕМЕЙНЫЙ PRO</span>
+              <span style="font-size: 12px; color: var(--text-muted);">Единая подписка на все устройства</span>
+            </div>
+
+            <h2 style="font-size: 26px; font-weight: 800; line-height: 1.2; margin-bottom: 8px;">
+              Максимум возможностей для личного и семейного бюджета
+            </h2>
+            <p style="font-size: 13.5px; color: var(--text-muted); line-height: 1.5;">
+              Попробуйте все PRO-функции бесплатно 14 дней — без привязки банковской карты и без автоматических списаний.
+            </p>
+
+            <!-- Pricing Selector -->
+            <div class="plan-grid">
+              <div class="plan-option" onclick="selectPlanOption(this)">
+                <div style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Помесячно</div>
+                <div class="font-display" style="font-size: 24px; font-weight: 800; margin-top: 4px;">199 ₽ <span style="font-size: 12px; font-weight: 500; color: var(--text-muted);">/ мес</span></div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Гибкая оплата по месяцам</div>
+              </div>
+
+              <div class="plan-option selected" onclick="selectPlanOption(this)">
+                <span class="plan-discount">Выгода 38%</span>
+                <div style="font-size: 12px; color: var(--emerald-light); font-weight: 700;">На 12 месяцев</div>
+                <div class="font-display" style="font-size: 24px; font-weight: 800; margin-top: 4px;">1 490 ₽ <span style="font-size: 12px; font-weight: 500; color: var(--text-muted);">/ год</span></div>
+                <div style="font-size: 11px; color: var(--emerald-light); margin-top: 4px;">Всего 124 ₽ в месяц</div>
+              </div>
+            </div>
+
+            <ul class="benefit-list">
+              <li><span class="check-circle">✓</span> <span><strong>Экспорт в Excel (.xlsx) и CSV</strong> за любой месяц, квартал или год</span></li>
+              <li><span class="check-circle">✓</span> <span><strong>Аналитика за 12–36 месяцев</strong>, сравнение периодов и пульс трат (Burn Rate)</span></li>
+              <li><span class="check-circle">✓</span> <span><strong>Архив до 30 бэкапов</strong> с закреплением (Pin) и выгрузкой в <code>.json</code> файл</span></li>
+              <li><span class="check-circle">✓</span> <span><strong>Неограниченно устройств</strong> + управление активными сессиями</span></li>
+              <li><span class="check-circle">✓</span> <span><strong>Семейный доступ до 5 участников</strong> с ролями по одной подписке</span></li>
+            </ul>
+
+            <button class="btn-primary" id="paywall-cta-btn" onclick="activateDemoTrial()">
+              Попробовать 14 дней бесплатно →
+            </button>
+            <div style="text-align: center; font-size: 11.5px; color: var(--text-muted); margin-top: 10px;" id="paywall-subnote">
+              Карта не требуется • Отключится автоматически, если не решите продлить
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile KMP BottomSheet / Dialog -->
+        <div>
+          <div class="panel-label">📱 Android / KMP — Liquid Glass ProPaywallDialog</div>
+          <div class="phone-frame">
+            <div class="phone-status-bar">
+              <span>16:45</span>
+              <span>5G • 98%</span>
+            </div>
+            <div class="phone-body">
+              <div style="background: rgba(16, 45, 34, 0.95); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 26px; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <span class="pro-pill">★ СЕМЕЙНЫЙ PRO</span>
+                  <span style="font-size: 11px; color: var(--text-muted);">Закрыть ✕</span>
+                </div>
+                <h3 style="font-size: 19px; font-weight: 800; line-height: 1.25; margin-bottom: 6px;">
+                  Откройте полный контроль над бюджетом
+                </h3>
+                <p style="font-size: 12px; color: var(--text-muted); line-height: 1.45; margin-bottom: 14px;">
+                  14 дней бесплатного доступа ко всем функциям PRO на смартфоне, ПК и в браузере.
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+                  <div style="padding: 12px; border-radius: 14px; border: 1.5px solid var(--emerald); background: rgba(16, 185, 129, 0.12); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                      <div style="font-size: 12px; font-weight: 700; color: #fff;">Годовой PRO <span style="background: var(--amber); color: #000; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 99px; margin-left: 4px;">-38%</span></div>
+                      <div style="font-size: 11px; color: var(--emerald-light);">124 ₽ / мес при оплате за год</div>
+                    </div>
+                    <div class="font-display" style="font-size: 17px; font-weight: 800;">1 490 ₽</div>
+                  </div>
+
+                  <div style="padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                      <div style="font-size: 12px; font-weight: 600; color: #fff;">Месячный PRO</div>
+                      <div style="font-size: 11px; color: var(--text-muted);">Оплата раз в месяц</div>
+                    </div>
+                    <div class="font-display" style="font-size: 17px; font-weight: 800;">199 ₽</div>
+                  </div>
+                </div>
+
+                <ul class="benefit-list" style="margin: 12px 0 18px; gap: 8px;">
+                  <li style="font-size: 12px;"><span class="check-circle">✓</span> Экспорт в Excel (.xlsx) и CSV</li>
+                  <li style="font-size: 12px;"><span class="check-circle">✓</span> Аналитика за 12–36 мес и Burn Rate</li>
+                  <li style="font-size: 12px;"><span class="check-circle">✓</span> До 30 бэкапов + Pin + JSON-файл</li>
+                  <li style="font-size: 12px;"><span class="check-circle">✓</span> Безлимит устройств и Семейный доступ</li>
+                </ul>
+
+                <button class="btn-primary" style="font-size: 13.5px; padding: 13px;" onclick="activateDemoTrial()">
+                  Включить 14 дней бесплатно
+                </button>
+                <div style="text-align: center; font-size: 10.5px; color: var(--text-muted); margin-top: 8px;">
+                  Без привязки карты • В один клик
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: ANALYTICS 12M & EXCEL EXPORT ==================== -->
+    <section id="tab-analytics" class="screen-section">
+      <div class="comparison-grid">
+        <!-- Web Dashboard Analytics + Export -->
+        <div>
+          <div class="panel-label">💻 Web — Дашборд: Горизонт 12/24 мес, Пульс расходов и Экспорт Excel</div>
+          <div class="glass-card">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px;">
+              <div>
+                <h2 style="font-size: 20px; font-weight: 800;">Динамика финансов и отчёты</h2>
+                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">Сравнение доходов, расходов и накоплений по периодам</p>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div class="period-Chips">
+                  <button class="period-chip" onclick="selectPeriod(6, this)">6 мес</button>
+                  <button class="period-chip active" onclick="selectPeriod(12, this)">
+                    12 мес <span class="pro-pill pro-lock-icon" style="padding: 1px 5px; font-size: 9px;">PRO</span>
+                  </button>
+                  <button class="period-chip" onclick="selectPeriod(24, this)">
+                    24 мес <span class="pro-pill pro-lock-icon" style="padding: 1px 5px; font-size: 9px;">PRO</span>
+                  </button>
+                </div>
+
+                <button class="btn-secondary" onclick="handleProAction('Экспорт в Excel (.xlsx) и CSV')">
+                  <span>📥 Экспорт в Excel / CSV</span>
+                  <span class="pro-pill pro-lock-icon">PRO</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 12 Months Bar Chart Mock -->
+            <div class="bars-mock" id="chart-bars">
+              <!-- Populated by JS -->
+            </div>
+
+            <!-- PRO Extended Insights Row -->
+            <div class="insights-grid">
+              <div class="insight-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;">Средний расход в день</span>
+                  <span class="pro-pill" style="font-size: 9px;">PRO</span>
+                </div>
+                <div class="font-display" style="font-size: 22px; font-weight: 800; color: #fff;">2 716 ₽ <span style="font-size: 12px; font-weight: 500; color: var(--emerald-light);">/ день</span></div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">На 8.4% ниже прошлого месяца</div>
+              </div>
+
+              <div class="insight-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;">Прогноз к концу месяца</span>
+                  <span class="pro-pill" style="font-size: 9px;">PRO</span>
+                </div>
+                <div class="font-display" style="font-size: 22px; font-weight: 800; color: var(--emerald-light);">+48 500 ₽</div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">Укладываетесь в лимит (запас 18%)</div>
+              </div>
+
+              <div class="insight-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;">Главный рост трат (MoM)</span>
+                  <span class="pro-pill" style="font-size: 9px;">PRO</span>
+                </div>
+                <div class="font-display" style="font-size: 18px; font-weight: 800; color: #fda4af;">Продукты (+14 200 ₽)</div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">+22% к среднему за 6 месяцев</div>
+              </div>
+            </div>
+
+            <!-- Export Dialog Preview Inline -->
+            <div style="margin-top: 22px; padding: 18px; border-radius: 18px; background: rgba(16, 185, 129, 0.06); border: 1px dashed rgba(16, 185, 129, 0.35); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;">
+              <div>
+                <div style="font-size: 13.5px; font-weight: 700; color: #fff;">Мини-модалка «Экспорт финансового отчёта»</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Листы в <code>.xlsx</code>: Сводка по месяцам • Детализация расходов • Доходы • Копилки</div>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <span class="btn-secondary" style="padding: 7px 12px; font-size: 12px;">Период: За 2026 год ▾</span>
+                <span class="btn-secondary" style="padding: 7px 12px; font-size: 12px; border-color: var(--emerald); color: var(--emerald-light);">Скачать .XLSX</span>
+                <span class="btn-secondary" style="padding: 7px 12px; font-size: 12px;">Скачать .CSV</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile KMP Analytics + Export -->
+        <div>
+          <div class="panel-label">📱 Android / KMP — Дашборд с чипами 6/12/24 мес</div>
+          <div class="phone-frame">
+            <div class="phone-status-bar">
+              <span>16:45</span>
+              <span>5G • 98%</span>
+            </div>
+            <div class="phone-body">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="font-display" style="font-size: 18px; font-weight: 800;">Обзор финансов</span>
+                <button class="btn-secondary" style="padding: 6px 10px; font-size: 11px; border-radius: 10px;" onclick="handleProAction('Экспорт в Excel (.xlsx)')">
+                  📥 Excel <span class="pro-pill pro-lock-icon" style="font-size: 8px; padding: 1px 4px;">PRO</span>
+                </button>
+              </div>
+
+              <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <span class="font-display" style="font-size: 14px; font-weight: 700;">Динамика финансов</span>
+                  <div class="period-Chips" style="padding: 2px;">
+                    <button class="period-chip" style="padding: 4px 8px; font-size: 10px;">6М</button>
+                    <button class="period-chip active" style="padding: 4px 8px; font-size: 10px;">12М</button>
+                    <button class="period-chip" style="padding: 4px 8px; font-size: 10px;">24М</button>
+                  </div>
+                </div>
+                <div style="font-size: 11px; color: var(--emerald-light); margin-bottom: 6px;">
+                  Июнь 2026: Доходы 154 000 ₽ • Расходы 89 400 ₽
+                </div>
+                <div style="height: 110px; display: flex; align-items: flex-end; gap: 5px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">
+                  <div style="flex:1; background:#10b981; height:65%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:72%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:58%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:81%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:76%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:90%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:68%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:84%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:95%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:79%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#10b981; height:88%; border-radius:3px 3px 0 0;"></div>
+                  <div style="flex:1; background:#34d399; height:92%; border-radius:3px 3px 0 0;"></div>
+                </div>
+              </div>
+
+              <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 18px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span style="font-size: 11px; font-weight: 700; color: var(--emerald-light);">ПУЛЬС МЕСЯЦА (BURN RATE)</span>
+                  <span class="pro-pill" style="font-size: 8px;">PRO</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                  <div>
+                    <div class="font-display" style="font-size: 18px; font-weight: 800;">2 716 ₽ / день</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">Средний темп расходов</div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 13px; font-weight: 700; color: var(--emerald-light);">-8.4%</div>
+                    <div style="font-size: 10px; color: var(--text-muted);">к прошлому мес.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: SETTINGS (SUBSCRIPTION, BACKUPS 30 + PIN + JSON, SESSIONS) ==================== -->
+    <section id="tab-settings" class="screen-section">
+      <div class="comparison-grid">
+        <!-- Web Settings Sections -->
+        <div style="display: flex; flex-direction: column; gap: 22px;">
+          <div class="panel-label">💻 Web — Настройки: Карточка подписки, Архив 30 бэкапов (Pin + JSON) и Активные устройства</div>
+
+          <!-- 1. Subscription Status Card -->
+          <div class="glass-card" id="settings-sub-card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(11, 31, 23, 0.92)); border-color: rgba(16, 185, 129, 0.35);">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                  <span class="pro-pill" id="sub-badge-pill">БАЗОВЫЙ ТАРИФ (FREE)</span>
+                  <span style="font-size: 12px; color: var(--text-muted);" id="sub-expiry-text">Доступен бесплатный триал 14 дней</span>
+                </div>
+                <h3 style="font-size: 20px; font-weight: 800;" id="sub-title-text">Перейдите на «Семейный PRO»</h3>
+                <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;" id="sub-desc-text">
+                  Откройте экспорт в Excel, аналитику за 12–36 мес, архив до 30 бэкапов с выгрузкой в файл и безлимит устройств.
+                </p>
+              </div>
+              <button class="btn-primary" style="width: auto; padding: 12px 22px; font-size: 13.5px;" id="sub-action-btn" onclick="activateDemoTrial()">
+                Включить 14 дней PRO бесплатно
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Extended Backups (30 snapshots + Pin + JSON export/import) -->
+          <div class="glass-card">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <h3 style="font-size: 18px; font-weight: 800;">Резервное копирование</h3>
+                  <span class="font-mono" style="font-size: 12px; padding: 2px 8px; border-radius: 8px; background: rgba(255,255,255,0.06);" id="backup-limit-counter">Хранится: 3 из 5 (в PRO — до 30)</span>
+                </div>
+                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">Закрепляйте важные снимки от автоудаления и сохраняйте копии в <code>.json</code> файл на диск</p>
+              </div>
+
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-secondary">💾 Создать бэкап</button>
+                <button class="btn-secondary" onclick="handleProAction('Импорт бэкапа из локального .json файла')">
+                  📂 Загрузить из .JSON <span class="pro-pill pro-lock-icon">PRO</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="backup-row pinned">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-weight: 700; font-size: 14px;">26.11.2026, 12:30</span>
+                  <span style="font-size: 10px; font-weight: 700; color: var(--amber-light); background: rgba(245, 158, 11, 0.15); padding: 2px 7px; border-radius: 6px;">📌 ЗАКРЕПЛЁН</span>
+                </div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Месяцев: 14 · Доходов: 42 · Расходов: 618 · Копилок: 4 · 148.4 КБ</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="icon-btn pinned" title="Открепить бэкап (PRO)" onclick="handleProAction('Закрепление бэкапа от автоудаления')">📌</button>
+                <button class="btn-secondary" style="padding: 7px 12px; font-size: 12px;" onclick="handleProAction('Скачивание бэкапа в .json файл')">⬇ .JSON <span class="pro-pill pro-lock-icon">PRO</span></button>
+                <button class="btn-secondary" style="padding: 7px 12px; font-size: 12px;">Откатить</button>
+              </div>
+            </div>
+
+            <div class="backup-row">
+              <div>
+                <div style="font-weight: 700; font-size: 14px;">25.11.2026, 21:15</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Месяцев: 14 · Доходов: 41 · Расходов: 612 · Копилок: 4 · 146.9 КБ</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="icon-btn" title="Закрепить бэкап (PRO)" onclick="handleProAction('Закрепление бэкапа от автоудаления')">📌</button>
+                <button class="btn-secondary" style="padding: 7px 12px; font-size: 12px;" onclick="handleProAction('Скачивание бэкапа в .json файл')">⬇ .JSON <span class="pro-pill pro-lock-icon">PRO</span></button>
+                <button class="btn-secondary" style="padding: 7px 12px; font-size: 12px;">Откатить</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Active Devices / Sessions -->
+          <div class="glass-card">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <h3 style="font-size: 18px; font-weight: 800;">Активные устройства и сессии</h3>
+                  <span class="font-mono" style="font-size: 12px; padding: 2px 8px; border-radius: 8px; background: rgba(16, 185, 129, 0.14); color: var(--emerald-light);" id="device-limit-badge">Активно: 2 из 2 (Free)</span>
+                </div>
+                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">В базовом тарифе доступно до 2 устройств одновременно (при входе на 3-м старый сеанс мягко завершается). В PRO — без ограничений.</p>
+              </div>
+            </div>
+
+            <div class="session-row" style="border-color: rgba(16, 185, 129, 0.35);">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 20px;">💻</span>
+                <div>
+                  <div style="font-weight: 700; font-size: 14px;">Web • Microsoft Edge (Linux) <span style="font-size: 10px; color: var(--emerald-light); background: rgba(16,185,129,0.15); padding: 2px 7px; border-radius: 99px; margin-left: 6px;">Текущий сеанс</span></div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Активен сейчас • IP 95.24.xxx.xxx</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="session-row">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 20px;">📱</span>
+                <div>
+                  <div style="font-weight: 700; font-size: 14px;">Android • TECNO CM7 (FinKeeper 2.3.0)</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Был онлайн 15 минут назад</div>
+                </div>
+              </div>
+              <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px; color: #fda4af; border-color: rgba(244,63,94,0.3);">Завершить</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile KMP Settings Preview -->
+        <div>
+          <div class="panel-label">📱 Android / KMP — Настройки (Подписка, Бэкапы, Сессии)</div>
+          <div class="phone-frame">
+            <div class="phone-status-bar">
+              <span>16:45</span>
+              <span>5G • 98%</span>
+            </div>
+            <div class="phone-body">
+              <span class="font-display" style="font-size: 18px; font-weight: 800;">Настройки</span>
+
+              <!-- Mobile Subscription Banner -->
+              <div style="background: linear-gradient(135deg, rgba(16,185,129,0.22), rgba(11,31,23,0.95)); border: 1px solid rgba(16,185,129,0.4); border-radius: 20px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span class="pro-pill" id="mob-sub-pill">БАЗОВЫЙ ТАРИФ</span>
+                  <span style="font-size: 10.5px; color: var(--emerald-light);">14 дней бесплатно</span>
+                </div>
+                <div class="font-display" style="font-size: 15px; font-weight: 800; margin-bottom: 4px;" id="mob-sub-title">Попробуйте Семейный PRO</div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px;">Экспорт в Excel, 30 бэкапов, аналитика за год и безлимит устройств</div>
+                <button class="btn-primary" style="padding: 10px; font-size: 12.5px; border-radius: 12px;" onclick="activateDemoTrial()">
+                  Активировать триал 14 дней
+                </button>
+              </div>
+
+              <!-- Mobile Backups Card -->
+              <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <span class="font-display" style="font-size: 14px; font-weight: 700;">Резервные копии</span>
+                  <span class="font-mono" style="font-size: 10px; color: var(--text-muted);" id="mob-backup-count">3 / 5</span>
+                </div>
+                <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+                  <button class="btn-secondary" style="flex:1; justify-content:center; font-size:11px; padding:8px;">+ Бэкап</button>
+                  <button class="btn-secondary" style="flex:1; justify-content:center; font-size:11px; padding:8px;" onclick="handleProAction('Импорт .json файла')">📂 Из файла</button>
+                </div>
+                <div style="padding: 10px; border-radius: 12px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 12px; font-weight: 700;">26.11.2026, 12:30 📌</div>
+                    <div style="font-size: 10px; color: var(--text-muted);">618 расх. • 148 КБ</div>
+                  </div>
+                  <div style="display: flex; gap: 6px;">
+                    <span class="icon-btn" style="width:28px; height:28px; font-size:12px;">⬇</span>
+                    <span class="icon-btn" style="width:28px; height:28px; font-size:12px;">↺</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mobile Active Devices Card -->
+              <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span class="font-display" style="font-size: 14px; font-weight: 700;">Активные устройства</span>
+                  <span class="font-mono" style="font-size: 10px; color: var(--emerald-light);" id="mob-device-count">2 / 2</span>
+                </div>
+                <div style="font-size: 11.5px; color: #fff; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                  📱 <strong>TECNO CM7</strong> <span style="color: var(--emerald-light); font-size: 10px;">(это устройство)</span>
+                </div>
+                <div style="font-size: 11.5px; color: var(--text-muted); padding: 6px 0; display: flex; justify-content: space-between;">
+                  <span>💻 Web • Edge (Linux)</span>
+                  <span style="color: #fda4af; cursor: pointer;">Выйти</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    let currentPlanState = 'free';
+
+    const months12 = ['Дек', 'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя'];
+    const sampleData = [
+      [70, 55], [65, 50], [75, 62], [80, 58], [78, 64], [85, 60],
+      [90, 68], [82, 72], [88, 65], [92, 70], [95, 74], [100, 69]
+    ];
+
+    function renderBars(count) {
+      const container = document.getElementById('chart-bars');
+      const sliceMonths = months12.slice(12 - count);
+      const sliceData = sampleData.slice(12 - count);
+      container.innerHTML = sliceMonths.map((m, i) => `
+        <div class="bar-group">
+          <div class="bar-pair">
+            <div class="bar-col" style="height: ${sliceData[i][0]}%; background: #10b981;"></div>
+            <div class="bar-col" style="height: ${sliceData[i][1]}%; background: #f43f5e;"></div>
+          </div>
+          <span style="font-size: 11px; color: var(--text-muted);">${m}</span>
+        </div>
+      `).join('');
+    }
+
+    renderBars(12);
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.screen-section').forEach(s => s.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      document.querySelectorAll('.nav-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function selectPlanOption(el) {
+      document.querySelectorAll('.plan-option').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function selectPeriod(months, btn) {
+      if (months > 6 && currentPlanState === 'free') {
+        handleProAction(`Горизонт аналитики ${months} месяцев`);
+        return;
+      }
+      document.querySelectorAll('.period-Chips .period-chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      renderBars(months === 24 ? 12 : months);
+    }
+
+    function handleProAction(featureName) {
+      if (currentPlanState === 'free') {
+        document.getElementById('paywall-trigger-banner').innerHTML = `
+          <span style="font-size: 20px;">🔒</span>
+          <div>
+            <div style="font-weight: 700; color: #fff;">Функция «${featureName}»</div>
+            <div style="font-size: 12px; color: var(--text-muted);">Включите бесплатный 14-дневный Триал PRO, чтобы разблокировать её прямо сейчас</div>
+          </div>
+        `;
+        switchTab('paywall', document.querySelectorAll('.nav-tabs .tab-btn')[0]);
+      } else {
+        alert(`✅ В режиме ${currentPlanState.toUpperCase()} функция «${featureName}» выполняется сразу без Paywall!`);
+      }
+    }
+
+    function activateDemoTrial() {
+      const trialBtn = document.querySelector('.state-btn[data-state="trial"]');
+      setPlanState('trial', trialBtn);
+      switchTab('settings', document.querySelectorAll('.nav-tabs .tab-btn')[2]);
+    }
+
+    function setPlanState(state, btn) {
+      currentPlanState = state;
+      document.querySelectorAll('.state-switch .state-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+
+      const appContainer = document.getElementById('app-container');
+      const subBadge = document.getElementById('sub-badge-pill');
+      const subExpiry = document.getElementById('sub-expiry-text');
+      const subTitle = document.getElementById('sub-title-text');
+      const subDesc = document.getElementById('sub-desc-text');
+      const subAction = document.getElementById('sub-action-btn');
+      const backupCounter = document.getElementById('backup-limit-counter');
+      const deviceBadge = document.getElementById('device-limit-badge');
+
+      if (state === 'free') {
+        appContainer.classList.remove('pro-unlocked');
+        subBadge.textContent = 'БАЗОВЫЙ ТАРИФ (FREE)';
+        subExpiry.textContent = 'Доступен бесплатный триал 14 дней';
+        subTitle.textContent = 'Перейдите на «Семейный PRO»';
+        subDesc.textContent = 'Откройте экспорт в Excel, аналитику за 12–36 мес, архив до 30 бэкапов с выгрузкой в файл и безлимит устройств.';
+        subAction.textContent = 'Включить 14 дней PRO бесплатно';
+        backupCounter.textContent = 'Хранится: 3 из 5 (в PRO — до 30)';
+        deviceBadge.textContent = 'Активно: 2 из 2 (Free)';
+        document.getElementById('mob-sub-pill').textContent = 'БАЗОВЫЙ ТАРИФ';
+        document.getElementById('mob-sub-title').textContent = 'Попробуйте Семейный PRO';
+        document.getElementById('mob-backup-count').textContent = '3 / 5';
+        document.getElementById('mob-device-count').textContent = '2 / 2';
+      } else if (state === 'trial') {
+        appContainer.classList.add('pro-unlocked');
+        subBadge.textContent = '⚡ ТРИАЛ СЕМЕЙНЫЙ PRO';
+        subExpiry.textContent = 'Активен до 10.12.2026 (осталось 14 дней)';
+        subTitle.textContent = 'Все функции «Семейный PRO» разблокированы';
+        subDesc.textContent = 'Вы используете бесплатный 14-дневный пробный период. Все лимиты расширены.';
+        subAction.textContent = 'Выбрать тариф для продления (199 ₽/мес)';
+        backupCounter.textContent = 'Хранится: 3 из 30 (PRO)';
+        deviceBadge.textContent = 'Активно: 2 из ∞ (PRO)';
+        document.getElementById('mob-sub-pill').textContent = '⚡ ТРИАЛ PRO (14 ДН.)';
+        document.getElementById('mob-sub-title').textContent = 'Все функции PRO активны';
+        document.getElementById('mob-backup-count').textContent = '3 / 30 (PRO)';
+        document.getElementById('mob-device-count').textContent = '2 / ∞ (PRO)';
+      } else {
+        appContainer.classList.add('pro-unlocked');
+        subBadge.textContent = '★ СЕМЕЙНЫЙ PRO АКТИВЕН';
+        subExpiry.textContent = 'Оплачен до 26.11.2027 (Годовой тариф)';
+        subTitle.textContent = 'Спасибо за поддержку FinKeeper24!';
+        subDesc.textContent = 'Вам доступны все PRO-функции, архив на 30 бэкапов, экспорт отчётов и безлимит устройств.';
+        subAction.textContent = 'Управление подпиской';
+        backupCounter.textContent = 'Хранится: 3 из 30 (PRO)';
+        deviceBadge.textContent = 'Активно: 2 из ∞ (PRO)';
+        document.getElementById('mob-sub-pill').textContent = '★ СЕМЕЙНЫЙ PRO';
+        document.getElementById('mob-sub-title').textContent = 'Подписка активна';
+        document.getElementById('mob-backup-count').textContent = '3 / 30 (PRO)';
+        document.getElementById('mob-device-count').textContent = '2 / ∞ (PRO)';
+      }
+    }
+  </script>
+</body>
+</html>

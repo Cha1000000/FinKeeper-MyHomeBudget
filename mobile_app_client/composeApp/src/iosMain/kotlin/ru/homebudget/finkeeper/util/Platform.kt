@@ -7,6 +7,8 @@ actual val isDesktop: Boolean = false
 
 actual val appPlatform: String = "ios"
 
+actual val appDeviceName: String = "iOS"
+
 @Composable
 actual fun AppLogoIcon(modifier: Modifier) {
     // Not used on mobile

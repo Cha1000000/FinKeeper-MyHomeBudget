@@ -11,8 +11,16 @@ const {
     issueEmailVerificationToken,
     buildDebugTokenPreview,
     buildMailDeliveryResult,
-    buildUserPayload
+    buildUserPayload,
+    listActiveRefreshSessions,
+    updateRefreshSessionDeviceMetadata,
+    revokeUserRefreshSessionById,
+    extractDeviceMetadata,
+    getRefreshTokenFromRequest,
+    getValidRefreshSession,
 } = require('../services/authService');
+const { getUserEntitlements } = require('../services/entitlementService');
+const { requireEntitlement } = require('../middleware/requireEntitlement');
 
 const { 
     authRateLimiter, 
@@ -260,8 +268,13 @@ router.post('/backup', (req, res) => {
 
 router.get('/backups', (req, res) => {
     try {
+        const entitlements = getUserEntitlements(req.user.id);
         const backups = listUserBackupEntries(req.user.id);
-        res.json({ backups });
+        res.json({
+            backups,
+            maxBackups: entitlements.limits.maxBackups,
+            isExtended: entitlements.features.extendedBackups,
+        });
     } catch (e) {
         logger.error('list_backups_failed', {
             requestId: req.requestId,
@@ -270,6 +283,174 @@ router.get('/backups', (req, res) => {
         });
         res.status(500).json({ error: 'Failed to list backups' });
     }
+});
+
+router.put('/backups/:id/pin', requireEntitlement('extendedBackups'), (req, res) => {
+    const backupId = Number(req.params.id);
+    if (!Number.isInteger(backupId) || backupId <= 0) {
+        return sendError(res, 400, 'Некорректный ID резервной копии', 'invalid_backup_id');
+    }
+
+    const row = getUserBackupRecord(req.user.id, backupId);
+    if (!row) {
+        return sendError(res, 404, 'Резервная копия не найдена', 'backup_not_found');
+    }
+
+    const nextPinned = req.body?.isPinned !== undefined
+        ? (req.body.isPinned ? 1 : 0)
+        : (row.is_pinned ? 0 : 1);
+
+    db.prepare('UPDATE user_backups SET is_pinned = ? WHERE id = ? AND user_id = ?')
+        .run(nextPinned, backupId, req.user.id);
+
+    const updatedRow = getUserBackupRecord(req.user.id, backupId);
+    return res.json({
+        success: true,
+        backup: buildBackupEntryPayload(updatedRow),
+    });
+});
+
+router.get('/backups/:id/export', requireEntitlement('extendedBackups'), (req, res) => {
+    const backupId = Number(req.params.id);
+    if (!Number.isInteger(backupId) || backupId <= 0) {
+        return sendError(res, 400, 'Некорректный ID резервной копии', 'invalid_backup_id');
+    }
+
+    const row = getUserBackupRecord(req.user.id, backupId);
+    if (!row) {
+        return sendError(res, 404, 'Резервная копия не найдена', 'backup_not_found');
+    }
+
+    const parsedData = parseBackupDataSafely(row.data);
+    if (!parsedData) {
+        return sendError(res, 500, 'Данные резервной копии повреждены', 'backup_corrupted');
+    }
+
+    const datePart = String(row.created_at || nowIso()).slice(0, 10);
+    const filename = `finkeeper24-backup-${backupId}-${datePart}.json`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+    return res.json({
+        format: 'finkeeper24-backup',
+        version: '2.3.0',
+        exportedAt: nowIso(),
+        backupId: row.id,
+        createdAt: row.created_at,
+        isPinned: Boolean(row.is_pinned),
+        data: parsedData,
+    });
+});
+
+router.post('/backups/import', requireEntitlement('extendedBackups'), (req, res) => {
+    const rawPayload = req.body?.backup ?? req.body?.data ?? req.body;
+    const restoreImmediately = Boolean(req.body?.restoreImmediately);
+    const confirmationText = typeof req.body?.confirmationText === 'string'
+        ? req.body.confirmationText.trim()
+        : '';
+
+    const snapshot = (rawPayload && rawPayload.format === 'finkeeper24-backup' && rawPayload.data)
+        ? rawPayload.data
+        : rawPayload;
+
+    if (!snapshot || typeof snapshot !== 'object' || !Array.isArray(snapshot.categories) || !Array.isArray(snapshot.months)) {
+        return sendError(res, 400, 'Некорректный формат JSON-файла резервной копии FinKeeper24', 'invalid_backup_format');
+    }
+
+    if (restoreImmediately && confirmationText !== BACKUP_RESTORE_CONFIRMATION_TEXT) {
+        return sendError(
+            res,
+            400,
+            `Для подтверждения введите "${BACKUP_RESTORE_CONFIRMATION_TEXT}"`,
+            'invalid_confirmation_text'
+        );
+    }
+
+    try {
+        const serialized = JSON.stringify({
+            categories: Array.isArray(snapshot.categories) ? snapshot.categories : [],
+            income_sources: Array.isArray(snapshot.income_sources) ? snapshot.income_sources : [],
+            savings_goals: Array.isArray(snapshot.savings_goals) ? snapshot.savings_goals : [],
+            months: Array.isArray(snapshot.months) ? snapshot.months : [],
+            incomes: Array.isArray(snapshot.incomes) ? snapshot.incomes : [],
+            expenses: Array.isArray(snapshot.expenses) ? snapshot.expenses : [],
+            budgets: Array.isArray(snapshot.budgets) ? snapshot.budgets : [],
+            savings_transactions: Array.isArray(snapshot.savings_transactions) ? snapshot.savings_transactions : [],
+            auto_created_records: Array.isArray(snapshot.auto_created_records) ? snapshot.auto_created_records : [],
+            planned_overrides: Array.isArray(snapshot.planned_overrides) ? snapshot.planned_overrides : [],
+        });
+
+        const info = db.prepare(
+            'INSERT INTO user_backups (user_id, data, is_pinned, created_at) VALUES (?, ?, 0, ?)'
+        ).run(req.user.id, serialized, nowIso());
+
+        const insertedRow = getUserBackupRecord(req.user.id, Number(info.lastInsertRowid));
+        if (restoreImmediately) {
+            restoreBackupSnapshot(req.user.id, JSON.parse(serialized));
+            const broadcast = req.app.get('broadcast');
+            if (broadcast) broadcast(req.user.id, 'all', 'restored');
+        }
+
+        return res.json({
+            success: true,
+            restored: restoreImmediately,
+            backup: buildBackupEntryPayload(insertedRow),
+        });
+    } catch (e) {
+        logger.error('import_backup_failed', {
+            requestId: req.requestId,
+            userId: req.user.id,
+            error: e,
+        });
+        return sendError(res, 500, e.message || 'Не удалось импортировать резервную копию', 'backup_import_failed');
+    }
+});
+
+router.get('/sessions', (req, res) => {
+    try {
+        let currentSessionId = req.user?.sid ? Number(req.user.sid) : null;
+        if (!currentSessionId) {
+            const rt = getRefreshTokenFromRequest(req);
+            const session = rt ? getValidRefreshSession(rt) : null;
+            if (session && session.user_id === req.user.id) {
+                currentSessionId = session.id;
+            }
+        }
+        if (currentSessionId) {
+            updateRefreshSessionDeviceMetadata(currentSessionId, req.user.id, extractDeviceMetadata(req));
+        }
+        const entitlements = getUserEntitlements(req.user.id);
+        const sessions = listActiveRefreshSessions(req.user.id, currentSessionId);
+        return res.json({
+            sessions,
+            maxDevices: entitlements.limits.maxDevices,
+            isUnlimited: entitlements.features.unlimitedDevices,
+        });
+    } catch (e) {
+        logger.error('list_sessions_failed', {
+            requestId: req.requestId,
+            userId: req.user.id,
+            error: e,
+        });
+        return sendError(res, 500, 'Не удалось загрузить список активных устройств', 'list_sessions_failed');
+    }
+});
+
+router.delete('/sessions/:id', (req, res) => {
+    const sessionId = Number(req.params.id);
+    if (!Number.isInteger(sessionId) || sessionId <= 0) {
+        return sendError(res, 400, 'Некорректный ID сессии', 'invalid_session_id');
+    }
+
+    const revoked = revokeUserRefreshSessionById(req.user.id, sessionId);
+    if (!revoked) {
+        return sendError(res, 404, 'Сессия не найдена или уже завершена', 'session_not_found');
+    }
+
+    return res.json({
+        success: true,
+        id: sessionId,
+    });
 });
 
 router.post('/restore', restoreRateLimiter, (req, res) => {

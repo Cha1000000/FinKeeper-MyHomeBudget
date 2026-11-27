@@ -1,7 +1,14 @@
 package ru.homebudget.finkeeper.ui.navigation
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,9 +22,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -32,8 +41,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,6 +58,7 @@ import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
 import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
 import ru.homebudget.finkeeper.data.remote.TokenStorage
+import ru.homebudget.finkeeper.data.repository.WebSocketService
 import ru.homebudget.finkeeper.data.update.AppUpdateChecker
 import ru.homebudget.finkeeper.data.update.AppUpdateStatus
 import ru.homebudget.finkeeper.ui.Strings
@@ -53,8 +69,11 @@ import ru.homebudget.finkeeper.ui.components.IconCalendar
 import ru.homebudget.finkeeper.ui.components.IconDashboard
 import ru.homebudget.finkeeper.ui.components.IconLogOut
 import ru.homebudget.finkeeper.ui.components.IconPiggyBank
+import ru.homebudget.finkeeper.ui.components.IconProCrownGlass
 import ru.homebudget.finkeeper.ui.components.IconReceipt
 import ru.homebudget.finkeeper.ui.components.IconSettings
+import ru.homebudget.finkeeper.ui.components.ProPaywallDialog
+import ru.homebudget.finkeeper.ui.components.ProPillBadge
 import ru.homebudget.finkeeper.ui.components.PullToRefreshWrapper
 import ru.homebudget.finkeeper.ui.screens.CategoriesScreen
 import ru.homebudget.finkeeper.ui.screens.DashboardScreen
@@ -100,6 +119,7 @@ fun AppNavigation(
 ) {
     val tokenStorage = koinInject<TokenStorage>()
     val analyticsTracker = koinInject<AnalyticsTracker>()
+    val webSocketService = koinInject<WebSocketService>()
     val securityOnboardingPromptState = remember { SecurityOnboardingPromptState(tokenStorage) }
     val appUpdateChecker = koinInject<AppUpdateChecker>()
     val appUpdatePromptState = remember { AppUpdatePromptState() }
@@ -108,6 +128,16 @@ fun AppNavigation(
     var showSecurityOnboardingPrompt by remember { mutableStateOf(false) }
     // Настройки открыты из подсказки «Добавьте email» — раскрыть раздел защиты аккаунта
     var settingsFocusAccountProtection by remember { mutableStateOf(false) }
+    LaunchedEffect(webSocketService) {
+        webSocketService.dataChanged.collect { event ->
+            if (event.entity == "entitlements") {
+                authViewModel.refreshEntitlements()
+                settingsViewModel.loadBackups()
+                settingsViewModel.loadSessions()
+                dashboardViewModel.loadData(showLoader = false)
+            }
+        }
+    }
     LaunchedEffect(currentScreen) {
         if (currentScreen != Screen.Settings) settingsFocusAccountProtection = false
         val screenName = when (currentScreen) {
@@ -236,10 +266,14 @@ fun AppNavigation(
                         ) {
                             DashboardScreen(
                                 state = dashboardState,
+                                entitlements = authState.entitlements,
                                 onRefresh = { dashboardViewModel.loadData() },
                                 onPrevMonth = { dashboardViewModel.prevMonth() },
                                 onNextMonth = { dashboardViewModel.nextMonth() },
                                 onDismissError = { dashboardViewModel.clearError() },
+                                onSelectTrendPeriod = { dashboardViewModel.selectTrendPeriod(it) },
+                                onExportReport = { fmt, period -> dashboardViewModel.exportReport(fmt, period) },
+                                onOpenPaywall = { featureKey -> authViewModel.openPaywall(featureKey) },
                                 topBanner = dashboardBanner,
                                 onOpenMonthExpenses = {
                                     monthViewModel.setActiveTab(0)
@@ -338,6 +372,7 @@ fun AppNavigation(
                         SettingsScreen(
                             state = settingsState,
                             user = authState.user,
+                            entitlements = authState.entitlements,
                             username = authState.user?.username ?: "",
                             onUpdateUsername = { name, callback ->
                                 settingsViewModel.updateUsername(name, callback)
@@ -367,6 +402,32 @@ fun AppNavigation(
                             onRestoreBackup = { backupId, confirmationText, callback ->
                                 settingsViewModel.restoreBackup(backupId, confirmationText, callback)
                             },
+                            onTogglePinBackup = { backup ->
+                                settingsViewModel.togglePinBackup(backup)
+                            },
+                            onExportBackupJson = { backup ->
+                                settingsViewModel.exportBackupJson(backup)
+                            },
+                            onImportBackupJson = {
+                                settingsViewModel.importBackupJsonFromFile()
+                            },
+                            onRevokeSession = { sessionId ->
+                                settingsViewModel.revokeSession(sessionId)
+                            },
+                            onOpenPaywall = { featureKey ->
+                                authViewModel.openPaywall(featureKey)
+                            },
+                            onRedeemPromo = { code ->
+                                authViewModel.redeemPromoCode(code) {
+                                    dashboardViewModel.loadData(showLoader = false)
+                                    settingsViewModel.loadBackups()
+                                    settingsViewModel.loadSessions()
+                                }
+                            },
+                            onClearPromoFeedback = { authViewModel.clearPaywallFeedback() },
+                            isPromoBusy = authState.isPaywallBusy,
+                            promoError = if (!authState.isPaywallVisible) authState.paywallError else null,
+                            promoSuccessMessage = if (!authState.isPaywallVisible) authState.paywallSuccessMessage else null,
                             onLogout = { authViewModel.logout() },
                             onClearStatus = { settingsViewModel.clearStatus() },
                             onRetrySync = { settingsViewModel.retrySync() },
@@ -488,6 +549,32 @@ fun AppNavigation(
                 }
             }
         }
+    }
+
+    if (authState.isPaywallVisible) {
+        ProPaywallDialog(
+            entitlements = authState.entitlements,
+            highlightedFeatureKey = authState.paywallFeatureKey,
+            isBusy = authState.isPaywallBusy,
+            errorMessage = authState.paywallError,
+            successMessage = authState.paywallSuccessMessage,
+            onStartTrial = {
+                authViewModel.startFreeTrial {
+                    dashboardViewModel.loadData(showLoader = false)
+                    settingsViewModel.loadBackups()
+                    settingsViewModel.loadSessions()
+                }
+            },
+            onRedeemPromo = { code ->
+                authViewModel.redeemPromoCode(code) {
+                    dashboardViewModel.loadData(showLoader = false)
+                    settingsViewModel.loadBackups()
+                    settingsViewModel.loadSessions()
+                }
+            },
+            onClearFeedback = { authViewModel.clearPaywallFeedback() },
+            onDismiss = { authViewModel.closePaywall() },
+        )
     }
 }
 
@@ -899,6 +986,8 @@ private fun DesktopSidebar(
     }
 }
 
+private enum class WindowControlGlyph { Minimize, Fullscreen, Close }
+
 @Composable
 fun DesktopWindowControls(
     onClose: () -> Unit,
@@ -906,65 +995,165 @@ fun DesktopWindowControls(
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
     Row(
         modifier = modifier
-            .padding(top = 10.dp, end = 16.dp),
+            .padding(top = 12.dp, end = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        LiquidGlassWindowControlButton(
+            glyph = WindowControlGlyph.Minimize,
+            tint = Color(0xFFD6A85A),
+            isDark = isDark,
+            onClick = onMinimize,
+        )
+        LiquidGlassWindowControlButton(
+            glyph = WindowControlGlyph.Fullscreen,
+            tint = Color(0xFF4CA887),
+            isDark = isDark,
+            onClick = onToggleFullscreen,
+        )
+        LiquidGlassWindowControlButton(
+            glyph = WindowControlGlyph.Close,
+            tint = Color(0xFFD66A6A),
+            isDark = isDark,
+            onClick = onClose,
+        )
+    }
+}
+
+@Composable
+private fun LiquidGlassWindowControlButton(
+    glyph: WindowControlGlyph,
+    tint: Color,
+    isDark: Boolean,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val hoverProgress by animateFloatAsState(
+        targetValue = if (isHovered) 1f else 0f,
+        animationSpec = tween(durationMillis = 150),
+    )
+
+    val baseAlpha = if (isDark) {
+        0.24f + 0.34f * hoverProgress
+    } else {
+        0.22f + 0.30f * hoverProgress
+    }
+    val topGlossAlpha = if (isDark) {
+        0.28f + 0.14f * hoverProgress
+    } else {
+        0.55f + 0.15f * hoverProgress
+    }
+    val borderTopAlpha = if (isDark) {
+        0.42f + 0.25f * hoverProgress
+    } else {
+        0.70f + 0.15f * hoverProgress
+    }
+    val iconColor = if (isDark) {
+        Color.White.copy(alpha = 0.72f + 0.26f * hoverProgress)
+    } else {
+        Color(0xFF0F172A).copy(alpha = 0.65f + 0.28f * hoverProgress)
+    }
+
+    val bgBrush = Brush.verticalGradient(
+        colors = listOf(
+            tint.copy(alpha = (baseAlpha + 0.14f).coerceAtMost(0.88f)),
+            tint.copy(alpha = baseAlpha),
+            tint.copy(alpha = (baseAlpha + 0.08f).coerceAtMost(0.84f)),
+        ),
+    )
+    val borderBrush = Brush.linearGradient(
+        colors = listOf(
+            Color.White.copy(alpha = borderTopAlpha),
+            tint.copy(alpha = 0.45f + 0.30f * hoverProgress),
+            Color.Black.copy(alpha = if (isDark) 0.30f else 0.12f),
+        ),
+        start = Offset(0f, 0f),
+        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+    )
+
+    Box(
+        modifier = Modifier
+            .size(22.dp)
+            .shadow(
+                elevation = (3f + 3f * hoverProgress).dp,
+                shape = CircleShape,
+                spotColor = tint.copy(alpha = 0.38f + 0.22f * hoverProgress),
+                ambientColor = Color.Black.copy(alpha = 0.35f),
+            )
+            .clip(CircleShape)
+            .background(bgBrush)
+            .border(width = 1.dp, brush = borderBrush, shape = CircleShape)
+            .hoverable(interactionSource = interactionSource)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Верхний глянцевый блик линзы (Liquid Glass)
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(Color(0xFFFBBF24))
-                .clickable(onClick = onMinimize)
-                .widthIn(min = 16.dp)
-                .height(16.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "−",
-                color = Color.Black,
-                fontSize = 11.sp,
-                lineHeight = 11.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(y = (1).dp),
-            )
-        }
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(Color(0xFF34D399))
-                .clickable(onClick = onToggleFullscreen)
-                .widthIn(min = 16.dp)
-                .height(16.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "☐",
-                color = Color.Black,
-                fontSize = 10.sp,
-                lineHeight = 10.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(y = (1).dp),
-            )
-        }
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(Color(0xFFEF4444))
-                .clickable(onClick = onClose)
-                .widthIn(min = 16.dp)
-                .height(16.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "✕",
-                color = Color.Black,
-                fontSize = 9.sp,
-                lineHeight = 9.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(y = (0).dp),
-            )
+                .matchParentSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to Color.White.copy(alpha = topGlossAlpha),
+                        0.46f to Color.White.copy(alpha = 0.04f),
+                        0.50f to Color.Transparent,
+                        1.0f to Color.Black.copy(alpha = if (isDark) 0.16f else 0.06f),
+                    ),
+                ),
+        )
+
+        Canvas(modifier = Modifier.size(10.dp)) {
+            val w = size.width
+            val h = size.height
+            val stroke = 1.4.dp.toPx()
+
+            when (glyph) {
+                WindowControlGlyph.Minimize -> {
+                    val y = h * 0.54f
+                    drawLine(
+                        color = iconColor,
+                        start = Offset(w * 0.14f, y),
+                        end = Offset(w * 0.86f, y),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round,
+                    )
+                }
+                WindowControlGlyph.Fullscreen -> {
+                    val inset = w * 0.16f
+                    drawRoundRect(
+                        color = iconColor,
+                        topLeft = Offset(inset, inset),
+                        size = Size(w - inset * 2f, h - inset * 2f),
+                        cornerRadius = CornerRadius(1.6.dp.toPx(), 1.6.dp.toPx()),
+                        style = Stroke(width = stroke),
+                    )
+                }
+                WindowControlGlyph.Close -> {
+                    val inset = w * 0.18f
+                    drawLine(
+                        color = iconColor,
+                        start = Offset(inset, inset),
+                        end = Offset(w - inset, h - inset),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = iconColor,
+                        start = Offset(w - inset, inset),
+                        end = Offset(inset, h - inset),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
         }
     }
 }

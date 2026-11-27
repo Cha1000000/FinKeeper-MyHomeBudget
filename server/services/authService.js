@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { db, nowIso } = require('../db/connection');
 const config = require('../config');
 const { initialCategories, initialSavings, initialIncomeSources } = require('../default_data');
+const { getUserEntitlements } = require('./entitlementService');
 const {
     validateOptionalEmail,
     validateRequiredEmail,
@@ -18,9 +19,13 @@ function hashRefreshToken(token) {
     return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-function createAccessToken(user) {
+function createAccessToken(user, sessionId = null) {
+    const payload = { id: user.id, username: user.username, type: 'access' };
+    if (sessionId) {
+        payload.sid = Number(sessionId);
+    }
     return jwt.sign(
-        { id: user.id, username: user.username, type: 'access' },
+        payload,
         config.jwtSecret,
         { expiresIn: config.accessTokenTtl }
     );
@@ -41,19 +46,171 @@ function cleanupExpiredRefreshSessions() {
     `).run(nowIso());
 }
 
-function issueRefreshSession(userId, isPersistent = false) {
+function decodeHeaderValueSafely(rawValue) {
+    if (typeof rawValue !== 'string') return '';
+    const trimmed = rawValue.trim();
+    if (!trimmed) return '';
+    if (trimmed.includes('%')) {
+        try {
+            return decodeURIComponent(trimmed).trim();
+        } catch (_) {
+            return trimmed;
+        }
+    }
+    return trimmed;
+}
+
+function inferPlatformAndDeviceName(rawPlatform, rawDeviceName, userAgent) {
+    const ua = String(userAgent || '');
+    let platform = String(rawPlatform || '').trim().toLowerCase();
+    if (!platform) {
+        if (/android/i.test(ua)) platform = 'android';
+        else if (/iphone|ipad|ios/i.test(ua)) platform = 'ios';
+        else if (/windows/i.test(ua)) platform = 'windows';
+        else if (/macintosh|mac os x/i.test(ua)) platform = 'macos';
+        else if (/linux/i.test(ua)) platform = 'linux';
+        else platform = 'web';
+    }
+
+    let deviceName = decodeHeaderValueSafely(rawDeviceName).replace(/\s+-\s+/g, ' • ');
+    if (!deviceName) {
+        let browser = '';
+        if (/edg\//i.test(ua)) browser = 'Edge';
+        else if (/YaBrowser/i.test(ua)) browser = 'Yandex Browser';
+        else if (/chrome\//i.test(ua)) browser = 'Chrome';
+        else if (/firefox\//i.test(ua)) browser = 'Firefox';
+        else if (/safari\//i.test(ua)) browser = 'Safari';
+
+        const platformLabels = {
+            web: 'Web',
+            android: 'Android',
+            ios: 'iOS',
+            windows: 'Windows Desktop',
+            macos: 'macOS Desktop',
+            linux: 'Linux Desktop',
+            desktop: 'Desktop',
+        };
+        const baseLabel = platformLabels[platform] || 'FinKeeper24';
+        deviceName = browser ? `${baseLabel} • ${browser}` : baseLabel;
+    }
+
+    return {
+        platform: platform.slice(0, 32),
+        deviceName: deviceName.slice(0, 120),
+    };
+}
+
+function extractDeviceMetadata(req) {
+    if (!req || typeof req.get !== 'function') {
+        return {
+            platform: 'web',
+            deviceName: 'FinKeeper24',
+            userAgent: null,
+            ip: null,
+        };
+    }
+    const rawPlatform = typeof req.body?.platform === 'string'
+        ? req.body.platform
+        : (req.get('X-App-Platform') || '');
+    const rawDeviceName = typeof req.body?.deviceName === 'string'
+        ? req.body.deviceName
+        : (req.get('X-Device-Name') || '');
+    const userAgent = req.get('user-agent') || null;
+    const ip = req.ip || null;
+    const { platform, deviceName } = inferPlatformAndDeviceName(rawPlatform, rawDeviceName, userAgent);
+    return {
+        platform,
+        deviceName,
+        rawDeviceName,
+        userAgent,
+        ip,
+    };
+}
+
+function issueRefreshSession(userId, isPersistent = false, deviceMeta = {}) {
     cleanupExpiredRefreshSessions();
     const refreshToken = generateRefreshToken();
     const tokenHash = hashRefreshToken(refreshToken);
     const timestamp = nowIso();
     const expiresAt = getRefreshSessionExpiryIso();
+    const platform = deviceMeta.platform || 'web';
+    const deviceName = deviceMeta.deviceName || 'FinKeeper24';
+    const userAgent = deviceMeta.userAgent || null;
+    const ip = deviceMeta.ip || null;
 
+    const info = db.prepare(`
+        INSERT INTO auth_refresh_sessions (user_id, token_hash, expires_at, created_at, last_used_at, revoked_at, is_persistent, platform, device_name, user_agent, ip)
+        VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
+    `).run(userId, tokenHash, expiresAt, timestamp, timestamp, isPersistent ? 1 : 0, platform, deviceName, userAgent, ip);
+
+    // Мягкий лимит активных устройств (в Free — 2 устройства, в PRO — безлимит):
+    // при входе на новом устройстве сверх лимита автоматически отзываются самые старые по last_used_at сессии
+    const entitlements = getUserEntitlements(userId);
+    const maxDevices = entitlements.limits.maxDevices;
+    const activeSessions = db.prepare(`
+        SELECT id
+        FROM auth_refresh_sessions
+        WHERE user_id = ? AND revoked_at IS NULL AND expires_at > ?
+        ORDER BY COALESCE(last_used_at, created_at) DESC, id DESC
+    `).all(userId, timestamp);
+
+    if (activeSessions.length > maxDevices) {
+        const toRevoke = activeSessions.slice(maxDevices).map(s => s.id);
+        const placeholders = toRevoke.map(() => '?').join(',');
+        db.prepare(`
+            UPDATE auth_refresh_sessions
+            SET revoked_at = ?
+            WHERE id IN (${placeholders}) AND revoked_at IS NULL
+        `).run(timestamp, ...toRevoke);
+    }
+
+    return {
+        sessionId: Number(info.lastInsertRowid),
+        refreshToken,
+        expiresAt,
+    };
+}
+
+function updateRefreshSessionDeviceMetadata(sessionId, userId, deviceMeta = {}) {
+    if (!sessionId || !userId) return;
+    const rawHeaderName = decodeHeaderValueSafely(deviceMeta.rawDeviceName || '');
+    if (!rawHeaderName) return;
+    const formattedName = rawHeaderName.replace(/\s+-\s+/g, ' • ').slice(0, 120);
     db.prepare(`
-        INSERT INTO auth_refresh_sessions (user_id, token_hash, expires_at, created_at, last_used_at, revoked_at, is_persistent)
-        VALUES (?, ?, ?, ?, ?, NULL, ?)
-    `).run(userId, tokenHash, expiresAt, timestamp, timestamp, isPersistent ? 1 : 0);
+        UPDATE auth_refresh_sessions
+        SET device_name = ?
+        WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND COALESCE(device_name, '') != ?
+    `).run(formattedName, sessionId, userId, formattedName);
+}
 
-    return { refreshToken, expiresAt };
+function listActiveRefreshSessions(userId, currentSessionId = null) {
+    cleanupExpiredRefreshSessions();
+    const rows = db.prepare(`
+        SELECT id, platform, device_name, user_agent, ip, created_at, last_used_at, expires_at, is_persistent
+        FROM auth_refresh_sessions
+        WHERE user_id = ? AND revoked_at IS NULL AND expires_at > ?
+        ORDER BY COALESCE(last_used_at, created_at) DESC, id DESC
+    `).all(userId, nowIso());
+
+    return rows.map((row) => ({
+        id: row.id,
+        platform: row.platform || 'web',
+        deviceName: row.device_name || 'FinKeeper24',
+        ip: row.ip || null,
+        createdAt: row.created_at,
+        lastUsedAt: row.last_used_at || row.created_at,
+        expiresAt: row.expires_at,
+        isCurrent: currentSessionId != null && Number(row.id) === Number(currentSessionId),
+    }));
+}
+
+function revokeUserRefreshSessionById(userId, sessionId) {
+    const result = db.prepare(`
+        UPDATE auth_refresh_sessions
+        SET revoked_at = COALESCE(revoked_at, ?)
+        WHERE id = ? AND user_id = ? AND revoked_at IS NULL
+    `).run(nowIso(), sessionId, userId);
+    return result.changes > 0;
 }
 
 function revokeRefreshSessionByToken(refreshToken) {
@@ -230,6 +387,7 @@ function buildUserPayload(user) {
         recoveryEmailProvider: recoveryInfo.provider,
         created_at: user.created_at,
         linkedAuthProviders,
+        entitlements: getUserEntitlements(user.id),
     };
 }
 
@@ -246,17 +404,19 @@ function buildAuthResponse(req, user, accessToken, refreshToken = null) {
 }
 
 function issueAuthSession(req, res, user, rememberMe = true) {
-    const accessToken = createAccessToken(user);
-    const { refreshToken } = issueRefreshSession(user.id, rememberMe);
+    const deviceMeta = extractDeviceMetadata(req);
+    const { sessionId, refreshToken } = issueRefreshSession(user.id, rememberMe, deviceMeta);
+    const accessToken = createAccessToken(user, sessionId);
     setRefreshTokenCookie(res, refreshToken, rememberMe);
     return buildAuthResponse(req, user, accessToken, refreshToken);
 }
 
 function refreshAuthSession(req, res, user, session) {
-    const accessToken = createAccessToken(user);
+    const accessToken = createAccessToken(user, session.id);
     const isPersistent = Boolean(session.is_persistent);
+    const existingRefreshToken = getRefreshTokenFromRequest(req);
 
-    // Slide expiration window if persistent
+    // Продлеваем текущую сессию устройства без создания дублирующей строки в auth_refresh_sessions
     if (isPersistent) {
         const newExpiresAt = getRefreshSessionExpiryIso();
         db.prepare('UPDATE auth_refresh_sessions SET expires_at = ?, last_used_at = ? WHERE id = ?').run(
@@ -264,43 +424,10 @@ function refreshAuthSession(req, res, user, session) {
             nowIso(),
             session.id
         );
-
-        // Re-issue cookie with new Expiry to slide browser window too
-        // We reuse the same refresh token hidden in the cookie if possible.
-        // But we don't have the plaintext refresh token here (we only have the hash in the DB).
-        // The browser already has it. We can just send a new cookie IF we had the token.
-        // Since we don't have the plaintext token, we should've probably issued a NEW token,
-        // OR we can just NOT extend the browser cookie BUT that would limit total session length.
-        
-        // Actually, to slide the browser cookie, we NEED to send a NEW token (or the same one).
-        // Let's issue a NEW refresh token but KEEP it linked to the same "session group" if we cared,
-        // but simple "issue NEW, revoke OLD" had race conditions.
-        // I will issue a NEW token and NOT revoke the old one yet, OR I'll just skip re-issuing
-        // for now and focus on making sure the DB doesn't expire it.
-        
-        // Actually, most "eternal" systems just have a long-lived cookie (30 days) AND they refresh IT
-        // whenever the access token is refreshed.
-        
-        // Let's NEW strategy:
-        // Issue NEW refresh token, but KEEP the old one valid for a "grace period" (e.g., 1 minute).
-        // BUT better: just issue a NEW token and let the old one expire/be cleaned up.
-        
-        const { refreshToken } = issueRefreshSession(user.id, isPersistent);
-        setRefreshTokenCookie(res, refreshToken, isPersistent);
-        // We SHOULD revoke the CURRENT one if we issued a NEW one, but let's just revoke it 
-        // after issuing the new one to be safe.
-        // To avoid race conditions: just revoke it and it's fine as long as we don't do it 
-        // synchronously BEFORE the new one is issued? No, race condition is when 2 requests hit /refresh at once.
-        
-        // If 2 requests hit /refresh for token A:
-        // Req 1: Get session for A, issue new token B, revoke A.
-        // Req 2: Get session for A -> FAIL (already revoked).
-        
-        // If I DON'T revoke A immediately, both will issue B and C. 
-        // The browser will have either B or C. Both are valid. A will be killed by cleanup.
-        
-        // So: issue NEW, DON'T revoke old yet (leave to cleanup).
-        return buildAuthResponse(req, user, accessToken, refreshToken);
+        if (existingRefreshToken) {
+            setRefreshTokenCookie(res, existingRefreshToken, isPersistent);
+        }
+        return buildAuthResponse(req, user, accessToken, existingRefreshToken);
     }
 
     return buildAuthResponse(req, user, accessToken, null);
@@ -487,7 +614,11 @@ function findRecoverableUsersByEmail(email) {
 module.exports = {
     hashRefreshToken,
     createAccessToken,
+    extractDeviceMetadata,
     issueRefreshSession,
+    listActiveRefreshSessions,
+    updateRefreshSessionDeviceMetadata,
+    revokeUserRefreshSessionById,
     revokeRefreshSessionByToken,
     revokeRefreshSessionById,
     revokeAllRefreshSessionsForUser,

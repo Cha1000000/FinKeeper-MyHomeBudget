@@ -1,16 +1,33 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Save, RotateCcw, Key, User, ShieldAlert, Loader2, Layout as LayoutIcon, LogOut, Sun, Moon, Monitor } from 'lucide-react';
-import { clearUserEmail, createManualBackup, getBackupEntries, requestEmailVerification, restoreBackup, updatePassword, updateUserEmail, updateUsername } from '../api';
-import type { BackupEntry } from '../api';
-import { useAuth } from '../context/AuthContext';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Settings as SettingsIcon, Save, RotateCcw, Key, User, ShieldAlert, Loader2, Layout as LayoutIcon, LogOut, Sun, Moon, Monitor, Download, Upload, Smartphone, Laptop, Trash2 } from 'lucide-react';
+import {
+    clearUserEmail,
+    createManualBackup,
+    exportBackupJson,
+    getBackupEntries,
+    getUserSessions,
+    importBackupJson,
+    redeemPromoCode,
+    requestEmailVerification,
+    restoreBackup,
+    revokeUserSession,
+    togglePinBackup,
+    updatePassword,
+    updateUserEmail,
+    updateUsername,
+} from '../api';
+import type { BackupEntry, UserSessionEntry } from '../api';
+import { useAuth, useEntitlements } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import PageState from '../components/PageState';
 import StatusBanner from '../components/StatusBanner';
+import { ProBackupVaultIcon, ProCrownIcon, ProDevicesIcon, ProLockIcon, ProPinIcon } from '../components/ProIcons';
 
 const BACKUP_RESTORE_CONFIRMATION_TEXT = 'ВОССТАНОВИТЬ';
 
 const Settings: React.FC = () => {
     const { user, updateUser, uiSettings, updateUiSettings, logout } = useAuth(); // Need login or some way to refresh user
+    const { entitlements, openPaywall } = useEntitlements();
     const [username, setUsername] = useState(user?.username || '');
     const [email, setEmail] = useState(user?.email || user?.recoveryEmail || '');
     const [currentPassword, setCurrentPassword] = useState('');
@@ -18,11 +35,27 @@ const Settings: React.FC = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [emailDebugToken, setEmailDebugToken] = useState<{ token: string; expiresAt: string } | null>(null);
     const [backups, setBackups] = useState<BackupEntry[]>([]);
+    const [maxBackupsLimit, setMaxBackupsLimit] = useState<number>(entitlements.limits.maxBackups);
     const [selectedBackupId, setSelectedBackupId] = useState<number | null>(null);
     const [restoreConfirmationText, setRestoreConfirmationText] = useState('');
     const [isBackupsLoading, setIsBackupsLoading] = useState(false);
+    const [pinningBackupId, setPinningBackupId] = useState<number | null>(null);
+    const [exportingBackupId, setExportingBackupId] = useState<number | null>(null);
+    const [pendingImportedBackup, setPendingImportedBackup] = useState<{ fileName: string; payload: unknown } | null>(null);
+    const [importRestoreImmediately, setImportRestoreImmediately] = useState(false);
+    const [importConfirmationText, setImportConfirmationText] = useState('');
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    const [sessions, setSessions] = useState<UserSessionEntry[]>([]);
+    const [maxDevicesLimit, setMaxDevicesLimit] = useState<number>(entitlements.limits.maxDevices);
+    const [isUnlimitedDevices, setIsUnlimitedDevices] = useState<boolean>(entitlements.features.unlimitedDevices);
+    const [isSessionsLoading, setIsSessionsLoading] = useState(false);
+    const [revokingSessionId, setRevokingSessionId] = useState<number | null>(null);
+    const [showInlinePromo, setShowInlinePromo] = useState(false);
+    const [inlinePromoCode, setInlinePromoCode] = useState('');
+    const [isRedeemingInlinePromo, setIsRedeemingInlinePromo] = useState(false);
     
-    const [modalType, setModalType] = useState<'restore' | 'rename' | 'password' | 'logout' | null>(null);
+    const [modalType, setModalType] = useState<'restore' | 'rename' | 'password' | 'logout' | 'import_json' | null>(null);
     const [statusMessage, setStatusMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
     const [modalError, setModalError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -65,6 +98,9 @@ const Settings: React.FC = () => {
         try {
             const { data } = await getBackupEntries();
             setBackups(data.backups);
+            if (typeof data.maxBackups === 'number') {
+                setMaxBackupsLimit(data.maxBackups);
+            }
             setSelectedBackupId((currentSelected) => {
                 if (options?.keepSelection && currentSelected && data.backups.some((backup) => backup.id === currentSelected)) {
                     return currentSelected;
@@ -78,9 +114,24 @@ const Settings: React.FC = () => {
         }
     }, [getErrorMessage]);
 
+    const loadSessions = useCallback(async () => {
+        setIsSessionsLoading(true);
+        try {
+            const { data } = await getUserSessions();
+            setSessions(data.sessions);
+            setMaxDevicesLimit(data.maxDevices);
+            setIsUnlimitedDevices(data.isUnlimited);
+        } catch (error) {
+            console.error('Failed to load user sessions:', error);
+        } finally {
+            setIsSessionsLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         void loadBackups();
-    }, [loadBackups]);
+        void loadSessions();
+    }, [loadBackups, loadSessions, entitlements.isPro]);
 
     const closeModal = () => {
         if (!isLoading) {
@@ -142,6 +193,150 @@ const Settings: React.FC = () => {
             console.error(e);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleTogglePinBackup = async (backup: BackupEntry) => {
+        if (!entitlements.features.extendedBackups) {
+            openPaywall('extendedBackups');
+            return;
+        }
+        setPinningBackupId(backup.id);
+        setStatusMessage(null);
+        try {
+            const nextPinned = !backup.isPinned;
+            await togglePinBackup(backup.id, nextPinned);
+            await loadBackups({ keepSelection: true });
+            setStatusMessage({
+                type: 'success',
+                text: nextPinned
+                    ? 'Резервная копия закреплена и защищена от автоудаления.'
+                    : 'Закрепление резервной копии снято.',
+            });
+        } catch (error) {
+            setStatusMessage({ type: 'error', text: getErrorMessage(error, 'Не удалось изменить закрепление копии.') });
+        } finally {
+            setPinningBackupId(null);
+        }
+    };
+
+    const handleExportBackupJson = async (backup: BackupEntry) => {
+        if (!entitlements.features.extendedBackups) {
+            openPaywall('extendedBackups');
+            return;
+        }
+        setExportingBackupId(backup.id);
+        setStatusMessage(null);
+        try {
+            const response = await exportBackupJson(backup.id);
+            const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/json' }));
+            const link = document.createElement('a');
+            const datePart = String(backup.createdAt || '').slice(0, 10) || 'snapshot';
+            link.href = blobUrl;
+            link.setAttribute('download', `finkeeper24-backup-${backup.id}-${datePart}.json`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            setStatusMessage({ type: 'error', text: getErrorMessage(error, 'Не удалось скачать файл резервной копии.') });
+        } finally {
+            setExportingBackupId(null);
+        }
+    };
+
+    const handleTriggerJsonImport = () => {
+        if (!entitlements.features.extendedBackups) {
+            openPaywall('extendedBackups');
+            return;
+        }
+        fileInputRef.current?.click();
+    };
+
+    const handleJsonFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text) as unknown;
+            setPendingImportedBackup({ fileName: file.name, payload: parsed });
+            setImportRestoreImmediately(false);
+            setImportConfirmationText('');
+            setModalError(null);
+            setModalType('import_json');
+        } catch {
+            setStatusMessage({ type: 'error', text: 'Выбранный файл повреждён или не является резервной копией FinKeeper24.' });
+        }
+    };
+
+    const handleConfirmJsonImport = async () => {
+        if (!pendingImportedBackup) return;
+        if (importRestoreImmediately && importConfirmationText.trim() !== BACKUP_RESTORE_CONFIRMATION_TEXT) {
+            setModalError(`Введите ${BACKUP_RESTORE_CONFIRMATION_TEXT} для подтверждения немедленного восстановления.`);
+            return;
+        }
+        setIsLoading(true);
+        setModalError(null);
+        try {
+            const { data } = await importBackupJson({
+                backup: pendingImportedBackup.payload,
+                restoreImmediately: importRestoreImmediately,
+                confirmationText: importRestoreImmediately ? importConfirmationText.trim() : undefined,
+            });
+            setModalType(null);
+            setPendingImportedBackup(null);
+            await loadBackups();
+            if (data.restored) {
+                setStatusMessage({ type: 'success', text: 'Копия из файла загружена, данные восстановлены. Перезагрузка...' });
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                setStatusMessage({ type: 'success', text: 'Файл резервной копии успешно добавлен в ваш архив.' });
+            }
+        } catch (error) {
+            setModalError(getErrorMessage(error, 'Не удалось загрузить резервную копию из файла.'));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRevokeSession = async (sessionId: number) => {
+        setRevokingSessionId(sessionId);
+        setStatusMessage(null);
+        try {
+            await revokeUserSession(sessionId);
+            await loadSessions();
+            setStatusMessage({ type: 'success', text: 'Сеанс на устройстве успешно завершён.' });
+        } catch (error) {
+            setStatusMessage({ type: 'error', text: getErrorMessage(error, 'Не удалось завершить сеанс.') });
+        } finally {
+            setRevokingSessionId(null);
+        }
+    };
+
+    const handleRedeemInlinePromo = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const code = inlinePromoCode.trim();
+        if (!code) return;
+        setIsRedeemingInlinePromo(true);
+        setStatusMessage(null);
+        try {
+            const { data } = await redeemPromoCode(code);
+            updateUser({ entitlements: data.entitlements });
+            setInlinePromoCode('');
+            setShowInlinePromo(false);
+            setStatusMessage({
+                type: 'success',
+                text: data.entitlements.isLifetime
+                    ? 'Промокод применён! Вам активирован бессрочный Семейный PRO.'
+                    : 'Промокод успешно активирован!',
+            });
+            await Promise.all([loadBackups(), loadSessions()]);
+        } catch (error) {
+            setStatusMessage({ type: 'error', text: getErrorMessage(error, 'Не удалось активировать промокод.') });
+        } finally {
+            setIsRedeemingInlinePromo(false);
         }
     };
 
@@ -303,6 +498,124 @@ const Settings: React.FC = () => {
             ) : null}
 
             <div className="grid grid-cols-1 gap-6">
+                {/* Карточка подписки Семейный PRO */}
+                <div className="relative overflow-hidden rounded-3xl border border-emerald-500/35 bg-[var(--color-surface)]/95 p-6 md:p-8 shadow-[0_12px_40px_rgba(16,185,129,0.12)] backdrop-blur-md transition-colors">
+                    <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-emerald-500/15 blur-3xl" />
+                    <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/15 text-emerald-500 shadow-inner">
+                                <ProCrownIcon className="h-6 w-6" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                        Ваш тариф
+                                    </span>
+                                    {entitlements.isTrial ? (
+                                        <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                                            Триал PRO • осталось {entitlements.daysRemaining ?? 0} дн.
+                                        </span>
+                                    ) : entitlements.isPro ? (
+                                        <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                                            {entitlements.isLifetime || entitlements.expiresAt == null
+                                                ? 'Семейный PRO • Навсегда'
+                                                : `Семейный PRO • ${entitlements.daysRemaining ?? 0} дн.`}
+                                        </span>
+                                    ) : (
+                                        <span className="rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface-soft)] px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:text-[var(--color-text-muted)]">
+                                            Базовый (Бесплатно)
+                                        </span>
+                                    )}
+                                </div>
+                                <h2 className="text-xl font-extrabold text-slate-900 dark:text-[var(--color-text-main)]">
+                                    {entitlements.isPro ? 'Семейный PRO подключён' : 'Откройте все возможности Семейный PRO'}
+                                </h2>
+                                <p className="text-sm text-slate-600 dark:text-[var(--color-text-muted)] max-w-2xl">
+                                    {entitlements.isPro
+                                        ? 'Вам доступны глубокая аналитика за 12 месяцев, экспорт в Excel/CSV, архив до 30 резервных копий с закреплением и сохранением в файл, а также безлимит устройств.'
+                                        : 'Базовый учёт всегда бесплатен. В Семейный PRO (199 ₽/мес) входят экспорт в Excel, аналитика за 12 мес, расчёт скорости трат, 30 резервных копий с сохранением в файл и безлимит устройств.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => openPaywall()}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-[0_8px_24px_rgba(16,185,129,0.3)] hover:opacity-95 transition-opacity"
+                            >
+                                <ProCrownIcon className="h-4 w-4" />
+                                <span>
+                                    {entitlements.canStartTrial
+                                        ? 'Попробовать 14 дней бесплатно'
+                                        : entitlements.isPro
+                                            ? 'Управление подпиской / Промокод'
+                                            : 'Открыть Семейный PRO'}
+                                </span>
+                            </button>
+                            {!entitlements.isLifetime && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowInlinePromo((prev) => !prev)}
+                                    className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                                >
+                                    {showInlinePromo ? 'Скрыть поле промокода' : 'Активировать промокод'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {showInlinePromo && !entitlements.isLifetime && (
+                        <form
+                            onSubmit={handleRedeemInlinePromo}
+                            className="relative z-10 mt-4 flex flex-col sm:flex-row gap-2.5 rounded-2xl border border-emerald-500/25 bg-[var(--color-surface-soft)]/80 p-3.5"
+                        >
+                            <input
+                                type="text"
+                                value={inlinePromoCode}
+                                onChange={(e) => setInlinePromoCode(e.target.value.toUpperCase())}
+                                placeholder="Введите промокод"
+                                disabled={isRedeemingInlinePromo}
+                                className="flex-1 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-surface)] px-3.5 py-2.5 text-sm font-semibold uppercase tracking-wider text-slate-900 dark:text-[var(--color-text-main)] outline-none focus:border-emerald-500"
+                            />
+                            <button
+                                type="submit"
+                                disabled={isRedeemingInlinePromo || !inlinePromoCode.trim()}
+                                className="inline-flex items-center justify-center rounded-xl bg-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+                            >
+                                {isRedeemingInlinePromo ? 'Активация...' : 'Применить'}
+                            </button>
+                        </form>
+                    )}
+
+                    <div className="relative z-10 mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)]/70 px-4 py-3">
+                            <p className="text-xs font-medium text-slate-500 dark:text-[var(--color-text-muted)]">Облачный архив копий</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-[var(--color-text-main)]">
+                                {entitlements.features.extendedBackups
+                                    ? `До ${entitlements.limits.maxBackups} копий, закрепление и файлы`
+                                    : `До ${entitlements.limits.maxBackups} авто-копий (30 в PRO)`}
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)]/70 px-4 py-3">
+                            <p className="text-xs font-medium text-slate-500 dark:text-[var(--color-text-muted)]">Активные устройства</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-[var(--color-text-main)]">
+                                {entitlements.features.unlimitedDevices
+                                    ? 'Безлимит устройств'
+                                    : `До ${entitlements.limits.maxDevices} устройств одновременно`}
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)]/70 px-4 py-3">
+                            <p className="text-xs font-medium text-slate-500 dark:text-[var(--color-text-muted)]">Аналитика и отчёты</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-[var(--color-text-main)]">
+                                {entitlements.features.extendedAnalytics
+                                    ? '12 мес • Скорость трат • Excel/CSV'
+                                    : 'График 3–6 мес (12 мес и Excel в PRO)'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Profile Settings */}
                 <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
                     <div className="p-6 border-b border-[var(--color-border-default)] dark:border-[var(--color-border-default)]/60 bg-slate-50/40 dark:bg-[var(--color-surface-soft)]/40 transition-colors">
@@ -624,16 +937,19 @@ const Settings: React.FC = () => {
 
                 {/* Data Management */}
                 <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
-                    <div className="p-6 border-b border-[var(--color-border-default)] dark:border-[var(--color-border-default)]/60 bg-slate-50/40 dark:bg-[var(--color-surface-soft)]/40 transition-colors">
+                    <div className="p-6 border-b border-[var(--color-border-default)] dark:border-[var(--color-border-default)]/60 bg-slate-50/40 dark:bg-[var(--color-surface-soft)]/40 flex flex-wrap items-center justify-between gap-3 transition-colors">
                         <h2 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] flex items-center gap-3 transition-colors">
-                            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 rounded-xl transition-colors">
-                                <ShieldAlert className="w-5 h-5" />
+                            <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl transition-colors">
+                                <ProBackupVaultIcon className="w-5 h-5" />
                             </div>
-                            Управление данными
+                            Управление данными и резервные копии
                         </h2>
+                        <span className="rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface)] px-3 py-1 text-xs font-bold tabular-nums text-slate-700 dark:text-[var(--color-text-main)]">
+                            Хранилище: {backups.length} / {maxBackupsLimit}
+                        </span>
                     </div>
                     
-                    <div className="p-6 md:p-8">
+                    <div className="p-6 md:p-8 space-y-6">
                         <div className="flex flex-col gap-5 rounded-2xl border border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] bg-slate-50 dark:bg-[var(--color-surface-soft)] p-6 md:flex-row md:items-start transition-colors">
                             <div className="p-3 bg-white dark:bg-[var(--color-surface)] shadow-sm border border-[var(--color-border-default)] dark:border-[var(--color-border-strong)] rounded-xl text-slate-500 dark:text-[var(--color-text-muted)] shrink-0 transition-colors">
                                 <RotateCcw className="w-6 h-6" />
@@ -641,8 +957,15 @@ const Settings: React.FC = () => {
                             <div className="min-w-0 flex-1">
                                 <h3 className="font-bold text-slate-800 dark:text-[var(--color-text-main)] transition-colors">Резервное копирование</h3>
                                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 mb-5 leading-relaxed transition-colors">
-                                    Создайте точку восстановления текущих данных или откатитесь к предыдущей сохраненной версии. Полезно перед экспериментами с категориями или крупным импортом.
+                                    Создайте точку восстановления текущих данных, закрепите важный снимок от автоудаления или сохраните копию в файл на устройство.
                                 </p>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".json,application/json"
+                                    className="hidden"
+                                    onChange={handleJsonFileSelected}
+                                />
                                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                                     <button 
                                         onClick={handleBackup}
@@ -659,8 +982,24 @@ const Settings: React.FC = () => {
                                     >
                                         Выбрать копию для восстановления
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleTriggerJsonImport}
+                                        disabled={isLoading}
+                                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:text-emerald-300 transition-all sm:w-auto"
+                                    >
+                                        <Upload className="w-4 h-4" />
+                                        <span>Загрузить из файла</span>
+                                        {!entitlements.features.extendedBackups && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-extrabold uppercase">
+                                                <ProLockIcon className="w-3 h-3" />
+                                                PRO
+                                            </span>
+                                        )}
+                                    </button>
                                 </div>
-                                <div className="mt-4 space-y-2">
+
+                                <div className="mt-5 space-y-2.5">
                                     {isBackupsLoading ? (
                                         <PageState
                                             variant="loading"
@@ -669,9 +1008,85 @@ const Settings: React.FC = () => {
                                             compact
                                         />
                                     ) : backups.length > 0 ? (
-                                        <p className="text-xs text-slate-500 dark:text-[var(--color-text-muted)] transition-colors">
-                                            {`Доступно резервных копий: ${backups.length}. Последняя: ${formatBackupDate(backups[0].createdAt)}`}
-                                        </p>
+                                        <div className="space-y-2">
+                                            {backups.slice(0, 8).map((backup) => (
+                                                <div
+                                                    key={backup.id}
+                                                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors ${
+                                                        backup.isPinned
+                                                            ? 'border-amber-500/40 bg-amber-500/5'
+                                                            : 'border-[var(--color-border-default)] bg-white dark:bg-[var(--color-surface)]'
+                                                    }`}
+                                                >
+                                                    <div className="min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="text-sm font-bold text-slate-800 dark:text-[var(--color-text-main)] tabular-nums">
+                                                                {formatBackupDate(backup.createdAt)}
+                                                            </span>
+                                                            <span className="text-xs text-slate-400 tabular-nums">
+                                                                ({formatBackupSize(backup.sizeBytes)})
+                                                            </span>
+                                                            {backup.isPinned && (
+                                                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                                                                    <ProPinIcon className="w-3 h-3" active />
+                                                                    Закреплён
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="mt-0.5 text-xs text-slate-500 dark:text-[var(--color-text-muted)]">
+                                                            {buildBackupDetails(backup)}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleTogglePinBackup(backup)}
+                                                            disabled={pinningBackupId === backup.id}
+                                                            title={
+                                                                entitlements.features.extendedBackups
+                                                                    ? (backup.isPinned ? 'Снять закрепление' : 'Закрепить от автоудаления')
+                                                                    : 'Закрепление бэкапов доступно в Семейный PRO'
+                                                            }
+                                                            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
+                                                                backup.isPinned
+                                                                    ? 'border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                                                    : 'border-[var(--color-border-default)] bg-[var(--color-surface-soft)] text-slate-600 dark:text-[var(--color-text-muted)] hover:text-slate-900 dark:hover:text-white'
+                                                            }`}
+                                                        >
+                                                            <ProPinIcon className="w-3.5 h-3.5" active={Boolean(backup.isPinned)} />
+                                                            <span>{backup.isPinned ? 'Закреплён' : 'Закрепить'}</span>
+                                                            {!entitlements.features.extendedBackups && (
+                                                                <ProLockIcon className="w-3 h-3 text-emerald-500" />
+                                                            )}
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleExportBackupJson(backup)}
+                                                            disabled={exportingBackupId === backup.id}
+                                                            title={
+                                                                entitlements.features.extendedBackups
+                                                                    ? 'Скачать резервную копию файлом'
+                                                                    : 'Сохранение копии в файл доступно в Семейный PRO'
+                                                            }
+                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)] px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-[var(--color-text-muted)] hover:text-slate-900 dark:hover:text-white transition-all"
+                                                        >
+                                                            <Download className="w-3.5 h-3.5" />
+                                                            <span>Файл</span>
+                                                            {!entitlements.features.extendedBackups && (
+                                                                <ProLockIcon className="w-3 h-3 text-emerald-500" />
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {backups.length > 8 && (
+                                                <p className="text-xs text-slate-500 dark:text-[var(--color-text-muted)] pt-1">
+                                                    Показаны последние 8 из {backups.length} копий. Полный список доступен в окне «Выбрать копию для восстановления».
+                                                </p>
+                                            )}
+                                        </div>
                                     ) : (
                                         <PageState
                                             variant="empty"
@@ -683,6 +1098,106 @@ const Settings: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {/* Активные устройства и сессии */}
+                <div className="bg-[var(--color-surface)]/90 dark:bg-[var(--color-surface)]/90 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2)] border border-[var(--color-border-default)] dark:border-[var(--color-border-default)] overflow-hidden transition-colors">
+                    <div className="p-6 border-b border-[var(--color-border-default)] dark:border-[var(--color-border-default)]/60 bg-slate-50/40 dark:bg-[var(--color-surface-soft)]/40 flex flex-wrap items-center justify-between gap-3 transition-colors">
+                        <h2 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] flex items-center gap-3 transition-colors">
+                            <div className="p-2 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 rounded-xl transition-colors">
+                                <ProDevicesIcon className="w-5 h-5" />
+                            </div>
+                            Активные устройства и сессии
+                        </h2>
+                        <span className="rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface)] px-3 py-1 text-xs font-bold tabular-nums text-slate-700 dark:text-[var(--color-text-main)]">
+                            {isUnlimitedDevices
+                                ? `Активно: ${sessions.length} • PRO Безлимит`
+                                : `Устройства: ${sessions.length} / ${maxDevicesLimit}`}
+                        </span>
+                    </div>
+
+                    <div className="p-6 md:p-8 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)]/60 px-4 py-3 text-xs text-slate-600 dark:text-[var(--color-text-muted)]">
+                            <span>
+                                {isUnlimitedDevices
+                                    ? 'В тарифе Семейный PRO вы можете быть авторизованы на любом количестве телефонов, компьютеров и браузеров одновременно.'
+                                    : `В базовом тарифе доступно до ${maxDevicesLimit} активных устройств одновременно. При входе на 3-м устройстве самый старый сеанс автоматически завершается.`}
+                            </span>
+                            {!isUnlimitedDevices && (
+                                <button
+                                    type="button"
+                                    onClick={() => openPaywall('unlimitedDevices')}
+                                    className="inline-flex items-center gap-1.5 shrink-0 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                                >
+                                    <ProCrownIcon className="w-3.5 h-3.5" />
+                                    <span>Снять лимит в PRO</span>
+                                </button>
+                            )}
+                        </div>
+
+                        {isSessionsLoading ? (
+                            <PageState
+                                variant="loading"
+                                title="Загружаем активные сессии"
+                                description="Проверяем список подключённых устройств."
+                                compact
+                            />
+                        ) : sessions.length > 0 ? (
+                            <div className="space-y-2.5">
+                                {sessions.map((session) => {
+                                    const isMobile = session.platform === 'android' || session.platform === 'ios';
+                                    return (
+                                        <div
+                                            key={session.id}
+                                            className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-colors ${
+                                                session.isCurrent
+                                                    ? 'border-emerald-500/40 bg-emerald-500/5'
+                                                    : 'border-[var(--color-border-default)] bg-[var(--color-surface)]'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3.5 min-w-0">
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)] text-slate-600 dark:text-[var(--color-text-muted)]">
+                                                    {isMobile ? <Smartphone className="w-5 h-5" /> : <Laptop className="w-5 h-5" />}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="text-sm font-bold text-slate-800 dark:text-[var(--color-text-main)] truncate">
+                                                            {session.deviceName}
+                                                        </span>
+                                                        {session.isCurrent && (
+                                                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                                                                Текущий сеанс
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-[var(--color-text-muted)]">
+                                                        Активность: {formatBackupDate(session.lastUsedAt)}
+                                                        {session.ip ? ` · IP: ${session.ip}` : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {!session.isCurrent && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRevokeSession(session.id)}
+                                                    disabled={revokingSessionId === session.id}
+                                                    className="inline-flex items-center justify-center gap-1.5 self-start sm:self-auto rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors disabled:opacity-50"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    <span>{revokingSessionId === session.id ? 'Завершение...' : 'Завершить'}</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-500 dark:text-[var(--color-text-muted)]">
+                                Список активных долгосрочных сессий пуст (вход выполнен без опции «Запомнить меня»).
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -882,6 +1397,77 @@ const Settings: React.FC = () => {
                             onClick={closeModal}
                             disabled={isLoading}
                             className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            Отмена
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={modalType === 'import_json'}
+                onClose={closeModal}
+                title="Загрузка резервной копии из файла"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-[var(--color-text-muted)]">
+                        Выбран файл: <strong className="text-slate-900 dark:text-[var(--color-text-main)]">{pendingImportedBackup?.fileName}</strong>
+                    </p>
+
+                    <label className="flex items-start gap-3 rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)] p-3.5 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={importRestoreImmediately}
+                            onChange={(e) => setImportRestoreImmediately(e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <div className="text-xs">
+                            <span className="font-bold text-slate-800 dark:text-[var(--color-text-main)]">
+                                Сразу восстановить данные из этого файла
+                            </span>
+                            <p className="mt-0.5 text-slate-500 dark:text-[var(--color-text-muted)]">
+                                Если не отмечено, снимок просто сохранится в вашем облачном архиве копий.
+                            </p>
+                        </div>
+                    </label>
+
+                    {importRestoreImmediately && (
+                        <div className="space-y-2">
+                            <div className="rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-2.5 text-xs text-rose-700 dark:text-rose-300">
+                                Текущие данные аккаунта будут заменены данными из файла. Введите <strong>{BACKUP_RESTORE_CONFIRMATION_TEXT}</strong>:
+                            </div>
+                            <input
+                                type="text"
+                                value={importConfirmationText}
+                                onChange={(e) => setImportConfirmationText(e.target.value)}
+                                placeholder={BACKUP_RESTORE_CONFIRMATION_TEXT}
+                                className="w-full rounded-xl border border-[var(--color-border-default)] bg-[var(--color-surface)] p-3 text-sm text-slate-900 dark:text-[var(--color-text-main)] outline-none focus:border-rose-400"
+                            />
+                        </div>
+                    )}
+
+                    {modalError && <StatusBanner variant="error">{modalError}</StatusBanner>}
+
+                    <div className="flex gap-3 pt-2">
+                        <button
+                            type="button"
+                            onClick={handleConfirmJsonImport}
+                            disabled={
+                                isLoading ||
+                                (importRestoreImmediately && importConfirmationText.trim() !== BACKUP_RESTORE_CONFIRMATION_TEXT)
+                            }
+                            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] py-3 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                        >
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                            <span>
+                                {importRestoreImmediately ? 'Импортировать и восстановить' : 'Добавить в архив'}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={closeModal}
+                            disabled={isLoading}
+                            className="flex-1 rounded-xl bg-gray-100 dark:bg-gray-800 py-3 text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
                             Отмена
                         </button>

@@ -4,7 +4,10 @@ import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import ru.homebudget.finkeeper.BuildConfig
+import ru.homebudget.finkeeper.data.model.Entitlements
 import ru.homebudget.finkeeper.ui.UiScale
 
 enum class AuthSessionEvent {
@@ -163,24 +166,49 @@ class TokenStorage(
         return server to local
     }
 
+    fun saveCachedEntitlements(userId: Long, entitlements: Entitlements) {
+        if (userId <= 0L) return
+        try {
+            val encoded = entitlementsJson.encodeToString(entitlements)
+            settings.putString("$KEY_ENTITLEMENTS_PREFIX$userId", encoded)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun loadCachedEntitlements(userId: Long): Entitlements? {
+        if (userId <= 0L) return null
+        val raw = settings.getStringOrNull("$KEY_ENTITLEMENTS_PREFIX$userId") ?: return null
+        return try {
+            entitlementsJson.decodeFromString<Entitlements>(raw)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun clear(authEvent: AuthSessionEvent? = null) {
+        val prevUserId = userId
         secureTokenStorage.clear()
         settings.remove(KEY_TOKEN)
         settings.remove(KEY_USER_ID)
         settings.remove(KEY_USERNAME)
         settings.remove(KEY_EMAIL)
         settings.remove(KEY_CUMULATIVE)
+        if (prevUserId > 0L) {
+            settings.remove("$KEY_ENTITLEMENTS_PREFIX$prevUserId")
+        }
         authEvent?.let { _authEvents.tryEmit(it) }
     }
 
     private fun normalizeServerUrl(url: String): String = url.trim().trimEnd('/')
 
     companion object {
+        private val entitlementsJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
         private const val KEY_TOKEN = "auth_token"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USERNAME = "user_name"
         private const val KEY_EMAIL = "user_email"
         private const val KEY_CUMULATIVE = "cumulative_balance"
+        private const val KEY_ENTITLEMENTS_PREFIX = "user_entitlements_"
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_UI_SCALE = "ui_scale"

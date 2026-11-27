@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -335,7 +336,9 @@ fun AppButton(
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary,
     style: GlassyButtonStyle = GlassyButtonStyle.Solid,
-    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleMedium
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleMedium,
+    shape: Shape = RoundedCornerShape(percent = 50),
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
 ) {
     GlassyButton(
         text = text,
@@ -346,7 +349,9 @@ fun AppButton(
         color = containerColor,
         textColor = contentColor,
         style = style,
-        textStyle = textStyle
+        textStyle = textStyle,
+        shape = shape,
+        contentPadding = contentPadding,
     )
 }
 

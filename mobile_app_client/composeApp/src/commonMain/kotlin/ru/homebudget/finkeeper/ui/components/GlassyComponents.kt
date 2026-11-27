@@ -5,9 +5,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -31,6 +33,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -100,9 +104,10 @@ fun GlassyButton(
     style: GlassyButtonStyle = GlassyButtonStyle.Glassy,
     color: Color = MaterialTheme.colorScheme.primary,
     textColor: Color = Color.White,
-    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleMedium
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleMedium,
+    shape: Shape = RoundedCornerShape(percent = 50),
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
 ) {
-    val shape = RoundedCornerShape(percent = 50)
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     if (style == GlassyButtonStyle.Solid) {
@@ -113,13 +118,14 @@ fun GlassyButton(
                     if (isDark) Modifier.border(
                         width = 1.dp,
                         brush = Brush.verticalGradient(
-                            listOf(Color.White.copy(alpha = 0.3f), Color.Transparent)
+                            listOf(Color.White.copy(alpha = 0.25f), Color.Transparent)
                         ),
                         shape = shape
                     ) else Modifier
                 ),
             enabled = enabled && !isLoading,
             shape = shape,
+            contentPadding = contentPadding,
             colors = ButtonDefaults.buttonColors(
                 containerColor = color,
                 contentColor = textColor,
@@ -127,8 +133,8 @@ fun GlassyButton(
                 disabledContentColor = textColor.copy(alpha = 0.5f)
             ),
             elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 8.dp,
-                pressedElevation = 2.dp
+                defaultElevation = 2.dp,
+                pressedElevation = 1.dp
             )
         ) {
             ButtonContent(text, isLoading, textColor, icon, textStyle)
@@ -184,7 +190,8 @@ fun GlassyButton(
                 .clip(shape)
                 .background(bgBrush)
                 .border(1.dp, borderBrush, shape)
-                .clickable(enabled = enabled && !isLoading, onClick = onClick),
+                .clickable(enabled = enabled && !isLoading, onClick = onClick)
+                .padding(contentPadding),
             contentAlignment = Alignment.Center
         ) {
             ButtonContent(text, isLoading, effectiveTextColor, icon, textStyle)
@@ -218,7 +225,10 @@ private fun ButtonContent(
             Text(
                 text = text,
                 style = textStyle,
-                color = textColor
+                color = textColor,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

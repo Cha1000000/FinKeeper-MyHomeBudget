@@ -25,6 +25,9 @@ const {
 } = require('../db/helpers');
 const logger = require('../logger');
 const { clientSupports, MIN_VERSION_SAVINGS_GOAL_NOT_EMPTY } = require('../middleware/clientVersion');
+const { getUserEntitlements } = require('../services/entitlementService');
+const { requireEntitlement } = require('../middleware/requireEntitlement');
+const { buildXlsxReport, buildCsvReport } = require('../services/exportService');
 
 // Retrieve broadcast logic dynamically since we mounted it in index.js
 const broadcastChange = (req, userId, entity, action) => {
@@ -1023,21 +1026,273 @@ router.get('/analytics/cumulative-balance', (req, res) => {
 });
 
 router.get('/analytics/trend', (req, res) => {
-    // Get last 6 months for THIS USER
-    const months = db.prepare('SELECT * FROM months WHERE user_id = ? ORDER BY year DESC, month DESC LIMIT 6').all(req.user.id).reverse();
+    const rawMonths = req.query.months !== undefined ? Number(req.query.months) : 6;
+    const requestedMonths = Number.isInteger(rawMonths) && rawMonths >= 1 && rawMonths <= 36 ? rawMonths : 6;
+
+    if (requestedMonths > 6) {
+        const entitlements = getUserEntitlements(req.user.id);
+        if (!entitlements.features.extendedAnalytics) {
+            return res.status(403).json({
+                error: 'Горизонт аналитики более 6 месяцев доступен в тарифе Семейный PRO',
+                code: 'PRO_REQUIRED',
+                feature: 'extendedAnalytics',
+                entitlements,
+            });
+        }
+    }
+
+    const rawYear = req.query.year !== undefined ? Number(req.query.year) : null;
+    const rawMonth = req.query.month !== undefined ? Number(req.query.month) : null;
+    const hasAnchor =
+        rawYear !== null &&
+        rawMonth !== null &&
+        Number.isInteger(rawYear) &&
+        Number.isInteger(rawMonth) &&
+        rawYear >= 1970 &&
+        rawYear <= 2100 &&
+        rawMonth >= 1 &&
+        rawMonth <= 12;
+
+    const months = hasAnchor
+        ? db.prepare(
+            `SELECT * FROM months
+             WHERE user_id = ? AND (year < ? OR (year = ? AND month <= ?))
+             ORDER BY year DESC, month DESC
+             LIMIT ?`
+        ).all(req.user.id, rawYear, rawYear, rawMonth, requestedMonths).reverse()
+        : db.prepare(
+            'SELECT * FROM months WHERE user_id = ? ORDER BY year DESC, month DESC LIMIT ?'
+        ).all(req.user.id, requestedMonths).reverse();
 
     const data = months.map(m => {
         // Пополнения копилок — отдельным столбцом savings, в expense их нет (как в карточке «Расходы»)
-        const { income, visibleExpenses, savings } = computeMonthTotals(m.id);
+        const { income, visibleExpenses, savings, balance } = computeMonthTotals(m.id);
         return {
             month: `${m.month}/${m.year}`,
+            year: m.year,
+            monthNumber: m.month,
             income,
             expense: visibleExpenses,
-            savings
+            savings,
+            balance,
         };
     });
 
-    res.json(data);
+    return res.json(data);
+});
+
+router.get('/analytics/insights', requireEntitlement('extendedAnalytics'), (req, res) => {
+    const userId = req.user.id;
+    const now = new Date();
+    let targetMonth = null;
+
+    if (req.query.monthId) {
+        targetMonth = db.prepare('SELECT * FROM months WHERE id = ? AND user_id = ?').get(Number(req.query.monthId), userId);
+    } else if (req.query.year && req.query.month) {
+        const y = Number(req.query.year);
+        const m = Number(req.query.month);
+        targetMonth = db.prepare('SELECT * FROM months WHERE user_id = ? AND year = ? AND month = ?').get(userId, y, m);
+        if (!targetMonth && Number.isInteger(y) && Number.isInteger(m) && m >= 1 && m <= 12) {
+            targetMonth = { id: null, year: y, month: m };
+        }
+    } else {
+        targetMonth = db.prepare('SELECT * FROM months WHERE user_id = ? ORDER BY year DESC, month DESC LIMIT 1').get(userId);
+    }
+
+    if (!targetMonth) {
+        targetMonth = { id: null, year: now.getFullYear(), month: now.getMonth() + 1 };
+    }
+
+    const totalDaysInMonth = daysInMonth(targetMonth.year, targetMonth.month);
+    const isCurrentMonth = targetMonth.year === now.getFullYear() && targetMonth.month === (now.getMonth() + 1);
+    const isPastMonth = targetMonth.year < now.getFullYear() ||
+        (targetMonth.year === now.getFullYear() && targetMonth.month < (now.getMonth() + 1));
+    const elapsedDays = isPastMonth ? totalDaysInMonth : (isCurrentMonth ? Math.max(1, Math.min(now.getDate(), totalDaysInMonth)) : 0);
+
+    const currentTotals = targetMonth.id
+        ? computeMonthTotals(targetMonth.id)
+        : { income: 0, expenses: 0, visibleExpenses: 0, savings: 0, balance: 0 };
+    const plannedAggregates = targetMonth.id
+        ? computePlannedAggregates(getPlannedRecords(userId, targetMonth.id, now))
+        : { plannedExpenses: 0, plannedIncomes: 0 };
+
+    const totalExpenses = currentTotals.visibleExpenses;
+    const dailyBurnRate = elapsedDays > 0 ? Math.round(totalExpenses / elapsedDays) : 0;
+    const projectedLinearExpenses = isCurrentMonth
+        ? Math.round(dailyBurnRate * totalDaysInMonth)
+        : Math.round(totalExpenses + plannedAggregates.plannedExpenses);
+    const projectedWithPlannedExpenses = Math.round(totalExpenses + plannedAggregates.plannedExpenses);
+
+    const prevYear = targetMonth.month === 1 ? targetMonth.year - 1 : targetMonth.year;
+    const prevMonthNum = targetMonth.month === 1 ? 12 : targetMonth.month - 1;
+    const prevMonthRow = db.prepare(
+        'SELECT * FROM months WHERE user_id = ? AND year = ? AND month = ?'
+    ).get(userId, prevYear, prevMonthNum);
+    const prevTotals = prevMonthRow
+        ? computeMonthTotals(prevMonthRow.id)
+        : { income: 0, expenses: 0, visibleExpenses: 0, savings: 0, balance: 0 };
+
+    const previousMonthExpenses = prevTotals.visibleExpenses;
+    const expenseDeltaAmount = totalExpenses - previousMonthExpenses;
+    const expenseDeltaPercent = previousMonthExpenses > 0
+        ? Math.round(((totalExpenses - previousMonthExpenses) / previousMonthExpenses) * 1000) / 10
+        : null;
+
+    // Сравнение расходов по категориям между текущим и предыдущим месяцем (без скрытой категории копилок)
+    const currentByCat = targetMonth.id
+        ? db.prepare(`
+            SELECT c.id AS categoryId, c.name AS categoryName, SUM(e.amount) AS total
+            FROM expenses e
+            JOIN categories c ON c.id = e.category_id
+            WHERE e.month_id = ? AND c.name != ?
+            GROUP BY c.id, c.name
+        `).all(targetMonth.id, SAVINGS_EXPENSE_CATEGORY)
+        : [];
+
+    const prevByCat = prevMonthRow
+        ? db.prepare(`
+            SELECT c.id AS categoryId, c.name AS categoryName, SUM(e.amount) AS total
+            FROM expenses e
+            JOIN categories c ON c.id = e.category_id
+            WHERE e.month_id = ? AND c.name != ?
+            GROUP BY c.id, c.name
+        `).all(prevMonthRow.id, SAVINGS_EXPENSE_CATEGORY)
+        : [];
+
+    const catMap = new Map();
+    for (const row of currentByCat) {
+        catMap.set(row.categoryId, {
+            categoryId: row.categoryId,
+            categoryName: row.categoryName,
+            currentAmount: Number(row.total) || 0,
+            previousAmount: 0,
+        });
+    }
+    for (const row of prevByCat) {
+        const existing = catMap.get(row.categoryId);
+        if (existing) {
+            existing.previousAmount = Number(row.total) || 0;
+        } else {
+            catMap.set(row.categoryId, {
+                categoryId: row.categoryId,
+                categoryName: row.categoryName,
+                currentAmount: 0,
+                previousAmount: Number(row.total) || 0,
+            });
+        }
+    }
+
+    const categoriesComparison = Array.from(catMap.values())
+        .map((item) => {
+            const deltaAmount = item.currentAmount - item.previousAmount;
+            const deltaPercent = item.previousAmount > 0
+                ? Math.round(((item.currentAmount - item.previousAmount) / item.previousAmount) * 1000) / 10
+                : null;
+            return {
+                ...item,
+                deltaAmount,
+                deltaPercent,
+            };
+        })
+        .sort((a, b) => Math.max(b.currentAmount, b.previousAmount) - Math.max(a.currentAmount, a.previousAmount));
+
+    return res.json({
+        year: targetMonth.year,
+        month: targetMonth.month,
+        burnRate: {
+            totalExpenses,
+            plannedExpenses: plannedAggregates.plannedExpenses,
+            daysInMonth: totalDaysInMonth,
+            elapsedDays,
+            dailyBurnRate,
+            projectedLinearExpenses,
+            projectedWithPlannedExpenses,
+        },
+        comparison: {
+            previousYear: prevYear,
+            previousMonth: prevMonthNum,
+            previousMonthIncome: prevTotals.income,
+            previousMonthExpenses,
+            expenseDeltaAmount,
+            expenseDeltaPercent,
+            categories: categoriesComparison,
+        },
+    });
+});
+
+router.get('/export/report', requireEntitlement('exportReports'), (req, res) => {
+    const userId = req.user.id;
+    const format = String(req.query.format || 'xlsx').trim().toLowerCase() === 'csv' ? 'csv' : 'xlsx';
+    const period = String(req.query.period || 'month').trim().toLowerCase();
+    const now = new Date();
+    const anchorYear = req.query.year ? Number(req.query.year) : now.getFullYear();
+    const anchorMonth = req.query.month ? Number(req.query.month) : (now.getMonth() + 1);
+
+    let limitMonths = 1;
+    if (period === 'quarter') limitMonths = 3;
+    else if (period === 'half_year' || period === '6m') limitMonths = 6;
+    else if (period === 'year' || period === '12m') limitMonths = 12;
+    else if (period === 'all') limitMonths = 120;
+
+    const months = db.prepare(`
+        SELECT * FROM months
+        WHERE user_id = ? AND (year < ? OR (year = ? AND month <= ?))
+        ORDER BY year DESC, month DESC
+        LIMIT ?
+    `).all(userId, anchorYear, anchorYear, anchorMonth, limitMonths).reverse();
+
+    const monthTotalsMap = new Map();
+    const monthIds = months.map(m => m.id);
+    for (const m of months) {
+        monthTotalsMap.set(m.id, computeMonthTotals(m.id));
+    }
+
+    let expenses = [];
+    let incomes = [];
+    if (monthIds.length > 0) {
+        const placeholders = monthIds.map(() => '?').join(',');
+        expenses = db.prepare(`
+            SELECT e.*, c.name AS category_name, m.year, m.month
+            FROM expenses e
+            JOIN categories c ON c.id = e.category_id
+            JOIN months m ON m.id = e.month_id
+            WHERE e.month_id IN (${placeholders}) AND c.name != ?
+            ORDER BY e.date DESC, e.id DESC
+        `).all(...monthIds, SAVINGS_EXPENSE_CATEGORY);
+
+        incomes = db.prepare(`
+            SELECT i.*, m.year, m.month
+            FROM incomes i
+            JOIN months m ON m.id = i.month_id
+            WHERE i.month_id IN (${placeholders})
+            ORDER BY i.date DESC, i.id DESC
+        `).all(...monthIds);
+    }
+
+    const savingsGoals = db.prepare(
+        'SELECT * FROM savings_goals WHERE user_id = ? ORDER BY id ASC'
+    ).all(userId);
+
+    const reportPayload = {
+        months,
+        monthTotalsMap,
+        expenses,
+        incomes,
+        savingsGoals,
+    };
+
+    const fileSuffix = `${anchorYear}-${String(anchorMonth).padStart(2, '0')}-${period}`;
+    if (format === 'csv') {
+        const buffer = buildCsvReport(reportPayload);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="finkeeper24-report-${fileSuffix}.csv"`);
+        return res.send(buffer);
+    }
+
+    const buffer = buildXlsxReport(reportPayload);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="finkeeper24-report-${fileSuffix}.xlsx"`);
+    return res.send(buffer);
 });
 
 module.exports = router;

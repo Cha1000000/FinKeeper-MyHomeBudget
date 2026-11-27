@@ -176,6 +176,13 @@ GitHub Actions workflows, all run manually via `workflow_dispatch`:
 - `build-desktop.yml` (Linux+Windows+macOS), `build-linux.yml` (`.deb`/`.rpm`), `build-windows.yml` (`.msi`), `build-mac.yml` (`.app`) — build desktop packages.
 - `publish-aur.yml` — publish/update the AUR package `finkeeper24-bin` (run after the new `.deb` is uploaded to finkeeper24.ru; sha256 is taken from the live file). Details: `mobile_app_client/README.md` → «Релиз и публикация», `docs_and_instructions/aur-ci-publish-plan.md`.
 
+## Active Roadmap & Feature Plans
+
+Feature plans live in `docs_and_instructions/plans/` (completed plans are archived in `docs_and_instructions/plans/archive/`):
+
+- **Monetization (`Семейный PRO`)**: `docs_and_instructions/plans/monetization_pro_plan.md` — approved 3-milestone strategy and architecture (`Entitlements` across server/Web/KMP with 7-day offline grace, 14-day free trial, Excel/CSV export & 12+ month analytics, extended 30-snapshot backups with pin & JSON file export/import, device session limits, YooKassa/Robokassa Sandbox → Self-Employed production billing, and multi-user Family Access with `owner`/`partner`/`member` roles; Priority Support / AI Telegram bot to be designed separately). See also the project card in Obsidian (`projects/FinKeeper24.md`).
+- **Versioning rule**: `MAJOR.MINOR` (e.g. `2.3.x`) is unified across the entire FinKeeper24 ecosystem (`mobile_app_client/`, `client/`, `server/`, `lending/`); `PATCH` can be bumped independently per platform for platform-specific hotfixes.
+
 ## Second-brain sync (start & end of session)
 
 Vladimir keeps a **knowledge card** for this project in his Obsidian "second brain" (an LLM Wiki

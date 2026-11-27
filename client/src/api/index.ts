@@ -147,6 +147,38 @@ export interface DebugTokenPreview {
     expiresAt: string;
 }
 
+export interface EntitlementFeatures {
+    exportReports: boolean;
+    extendedAnalytics: boolean;
+    extendedBackups: boolean;
+    unlimitedDevices: boolean;
+    familyAccess: boolean;
+    prioritySupport: boolean;
+}
+
+export interface EntitlementLimits {
+    maxBackups: number;
+    maxDevices: number;
+    analyticsMonths: number;
+    maxFamilyMembers: number;
+}
+
+export interface Entitlements {
+    plan: string;
+    status: string;
+    isPro: boolean;
+    isTrial: boolean;
+    isLifetime?: boolean;
+    trialUsed: boolean;
+    canStartTrial: boolean;
+    startedAt: string | null;
+    expiresAt: string | null;
+    daysRemaining: number | null;
+    source: string;
+    features: EntitlementFeatures;
+    limits: EntitlementLimits;
+}
+
 export interface User {
     id: number;
     username: string;
@@ -164,6 +196,7 @@ export interface User {
         email: string | null;
         emailVerified: boolean;
     }>;
+    entitlements?: Entitlements;
 }
 
 export interface AuthResponse {
@@ -244,17 +277,74 @@ export interface BackupEntrySummary {
 export interface BackupEntry {
     id: number;
     createdAt: string;
+    isPinned?: boolean;
     sizeBytes: number;
     summary: BackupEntrySummary;
 }
 
 export interface BackupListResponse {
     backups: BackupEntry[];
+    maxBackups?: number;
+    isExtended?: boolean;
 }
 
 export interface RestoreBackupResponse {
     success: boolean;
     backup: BackupEntry;
+}
+
+export interface UserSessionEntry {
+    id: number;
+    platform: string;
+    deviceName: string;
+    ip: string | null;
+    createdAt: string;
+    lastUsedAt: string;
+    expiresAt: string;
+    isCurrent: boolean;
+}
+
+export interface UserSessionsResponse {
+    sessions: UserSessionEntry[];
+    maxDevices: number;
+    isUnlimited: boolean;
+}
+
+export interface BillingMutationResponse {
+    success: boolean;
+    entitlements: Entitlements;
+}
+
+export interface AnalyticsCategoryComparison {
+    categoryId: number;
+    categoryName: string;
+    currentAmount: number;
+    previousAmount: number;
+    deltaAmount: number;
+    deltaPercent: number | null;
+}
+
+export interface AnalyticsInsightsResponse {
+    year: number;
+    month: number;
+    burnRate: {
+        totalExpenses: number;
+        plannedExpenses: number;
+        daysInMonth: number;
+        elapsedDays: number;
+        dailyBurnRate: number;
+        projectedLinearExpenses: number;
+        projectedWithPlannedExpenses: number;
+    };
+    comparison: {
+        previousYear: number;
+        previousMonth: number;
+        previousMonthIncome: number;
+        previousMonthExpenses: number;
+        expenseDeltaAmount: number;
+        expenseDeltaPercent: number | null;
+        categories: AnalyticsCategoryComparison[];
+    };
 }
 
 export const loginUser = (data: AuthData) => api.post<AuthResponse>('/auth/login', data);
@@ -283,6 +373,20 @@ export const requestEmailVerification = () => api.post<UserEmailVerificationRequ
 export const getBackupEntries = () => api.get<BackupListResponse>('/user/backups');
 export const restoreBackup = (backupId: number, confirmationText: string) => api.post<RestoreBackupResponse>('/user/restore', { backupId, confirmationText });
 export const createManualBackup = () => api.post('/user/backup');
+export const togglePinBackup = (backupId: number, isPinned?: boolean) =>
+    api.put<{ success: boolean; backup: BackupEntry }>(`/user/backups/${backupId}/pin`, isPinned !== undefined ? { isPinned } : {});
+export const exportBackupJson = (backupId: number) =>
+    api.get<Blob>(`/user/backups/${backupId}/export`, { responseType: 'blob' });
+export const importBackupJson = (payload: { backup: unknown; restoreImmediately?: boolean; confirmationText?: string }) =>
+    api.post<{ success: boolean; restored: boolean; backup: BackupEntry }>('/user/backups/import', payload);
+
+export const getUserSessions = () => api.get<UserSessionsResponse>('/user/sessions');
+export const revokeUserSession = (sessionId: number) =>
+    api.delete<{ success: boolean; id: number }>(`/user/sessions/${sessionId}`);
+
+export const getBillingStatus = () => api.get<{ entitlements: Entitlements }>('/billing/status');
+export const startFreeTrial = () => api.post<BillingMutationResponse>('/billing/start-trial');
+export const redeemPromoCode = (code: string) => api.post<BillingMutationResponse>('/billing/redeem-promo', { code });
 
 export interface Category {
     id: number;
@@ -441,7 +545,24 @@ export const resetPlannedOverride = (monthId: number, templateType: PlannedTempl
 export const confirmPlanned = (monthId: number, templateType: PlannedTemplateType, templateId: number, data?: { amount?: number, date?: string }) =>
     api.post<Expense | Income>(`/months/${monthId}/planned/${templateType}/${templateId}/confirm`, data ?? {});
 
-export const getAnalyticsTrend = () => api.get<{ month: string, income: number, expense: number, savings: number }[]>('/analytics/trend');
+export const getAnalyticsTrend = (months: number = 6, year?: number, month?: number) => {
+    const query = new URLSearchParams({ months: String(months) });
+    if (year !== undefined && month !== undefined) {
+        query.set('year', String(year));
+        query.set('month', String(month));
+    }
+    return api.get<{ month: string; year?: number; monthNumber?: number; income: number; expense: number; savings: number; balance?: number }[]>(
+        `/analytics/trend?${query.toString()}`
+    );
+};
+export const getAnalyticsInsights = (year: number, month: number) =>
+    api.get<AnalyticsInsightsResponse>(`/analytics/insights?year=${year}&month=${month}`);
+export const exportFinancialReport = (params: {
+    format: 'xlsx' | 'csv';
+    period: 'month' | 'quarter' | 'year' | 'all';
+    year: number;
+    month: number;
+}) => api.get<Blob>('/export/report', { params, responseType: 'blob' });
 export const getMonthSummary = (monthId: number) => api.get<MonthSummary>(`/months/${monthId}/summary`);
 export const getCumulativeBalance = (year: number, month: number) => api.get<{ cumulativeBalance: number }>(`/analytics/cumulative-balance?year=${year}&month=${month}`);
 

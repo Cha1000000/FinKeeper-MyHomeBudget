@@ -75,6 +75,13 @@ const passwordRecoveryConfirmRateLimiter = createRateLimiter({
     windowMs: config.rateLimitWindowMs,
 });
 
+const promoRedeemRateLimiter = createRateLimiter({
+    scope: 'promo_redeem',
+    max: 10,
+    windowMs: config.rateLimitWindowMs,
+    message: 'Слишком много попыток ввода промокода. Попробуйте позже.',
+});
+
 // Periodic cleanup of expired rate-limit buckets to prevent memory leaks
 setInterval(() => {
     const now = Date.now();
@@ -95,4 +102,5 @@ module.exports = {
     emailVerificationRateLimiter,
     passwordRecoveryRequestRateLimiter,
     passwordRecoveryConfirmRateLimiter,
+    promoRedeemRateLimiter,
 };

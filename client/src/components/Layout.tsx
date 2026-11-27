@@ -9,6 +9,8 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket, useDataChanged } from '../hooks/useWebSocket';
+import ProPaywallModal from './ProPaywallModal';
+import { ProCrownIcon } from './ProIcons';
 import {
     dismissSecurityOnboardingPrompt,
     markSecurityOnboardingPromptShown,
@@ -28,7 +30,7 @@ const Layout: React.FC = () => {
     const [totalAssets, setTotalAssets] = useState(0);
     const [sidebarRefreshError, setSidebarRefreshError] = useState<string | null>(null);
     const [isSecurityPromptDismissed, setIsSecurityPromptDismissed] = useState(false);
-    const { user, logout, uiSettings } = useAuth();
+    const { user, entitlements, openPaywall, logout, uiSettings } = useAuth();
     const [isCollapsed, setIsCollapsed] = useState(() => Boolean(uiSettings?.autoCollapseSidebar));
     const [prevAutoCollapse, setPrevAutoCollapse] = useState(uiSettings?.autoCollapseSidebar);
     const [prevPathname, setPrevPathname] = useState('');
@@ -228,7 +230,43 @@ const Layout: React.FC = () => {
                 {!isCollapsed && (
                 <div className="p-4 border-t border-[var(--color-sidebar-divider)] space-y-3 bg-gradient-to-t from-black/20 to-transparent">
                      <div className="flex justify-between items-center px-2">
-                        <span className="text-sm font-medium text-white truncate max-w-[120px] shadow-black/10 drop-shadow-sm">{user?.username}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm font-medium text-white truncate max-w-[96px] shadow-black/10 drop-shadow-sm">{user?.username}</span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (entitlements.isPro) {
+                                        navigate('/settings');
+                                    } else {
+                                        openPaywall();
+                                    }
+                                }}
+                                title={
+                                    entitlements.isTrial
+                                        ? `Триал PRO • осталось ${entitlements.daysRemaining ?? 0} дн.`
+                                        : entitlements.isPro
+                                            ? 'Семейный PRO активен'
+                                            : 'Попробовать Семейный PRO 14 дней бесплатно'
+                                }
+                                className={classNames(
+                                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide transition-all shrink-0 border',
+                                    entitlements.isTrial
+                                        ? 'bg-amber-400/20 border-amber-300/40 text-amber-200 hover:bg-amber-400/30'
+                                        : entitlements.isPro
+                                            ? 'bg-emerald-400/25 border-emerald-300/50 text-emerald-100 hover:bg-emerald-400/35'
+                                            : 'bg-white/15 border-white/25 text-white/90 hover:bg-white/25'
+                                )}
+                            >
+                                <ProCrownIcon className="w-3 h-3" />
+                                <span>
+                                    {entitlements.isTrial
+                                        ? `PRO ${entitlements.daysRemaining ?? ''}д`
+                                        : entitlements.isPro
+                                            ? 'PRO'
+                                            : 'PRO'}
+                                </span>
+                            </button>
+                        </div>
                         <div className="flex gap-1">
                             <NavLink to="/settings" className="text-white/70 hover:text-white transition-colors p-1.5 rounded-md hover:bg-white/10" title="Настройки">
                                 <Settings className="w-4 h-4" />
@@ -386,6 +424,7 @@ const Layout: React.FC = () => {
                 ) : null}
                 <Outlet />
             </main>
+            <ProPaywallModal />
         </div>
     );
 };

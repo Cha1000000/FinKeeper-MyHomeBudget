@@ -1,5 +1,6 @@
 const { db, nowIso } = require('./connection');
 const logger = require('../logger');
+const { getUserEntitlements } = require('../services/entitlementService');
 
 const MAX_BACKUPS = 5;
 // Скрытая категория (is_active = 0): каждое пополнение копилки дублируется в ней расходом,
@@ -146,13 +147,26 @@ function createBackup(userId) {
             planned_overrides,
         });
 
-        db.prepare('INSERT INTO user_backups (user_id, data, created_at) VALUES (?, ?, ?)').run(userId, backupData, nowIso());
+        db.prepare('INSERT INTO user_backups (user_id, data, is_pinned, created_at) VALUES (?, ?, 0, ?)').run(userId, backupData, nowIso());
 
-        const backups = db.prepare('SELECT id FROM user_backups WHERE user_id = ? ORDER BY created_at DESC, id DESC').all(userId);
-        if (backups.length > MAX_BACKUPS) {
-            const toDelete = backups.slice(MAX_BACKUPS).map(b => b.id);
-            const placeholders = toDelete.map(() => '?').join(',');
-            db.prepare(`DELETE FROM user_backups WHERE id IN (${placeholders})`).run(toDelete);
+        const entitlements = getUserEntitlements(userId);
+        const maxBackups = entitlements?.limits?.maxBackups || MAX_BACKUPS;
+        const backups = db.prepare(
+            'SELECT id, is_pinned FROM user_backups WHERE user_id = ? ORDER BY created_at DESC, id DESC'
+        ).all(userId);
+        if (backups.length > maxBackups) {
+            const excessCount = backups.length - maxBackups;
+            // Закреплённые бэкапы (is_pinned = 1) защищены от автоудаления при ротации:
+            // удаляем самые старые незакреплённые снимки
+            const unpinnedFromOldest = backups
+                .filter(b => !b.is_pinned)
+                .reverse()
+                .slice(0, excessCount)
+                .map(b => b.id);
+            if (unpinnedFromOldest.length > 0) {
+                const placeholders = unpinnedFromOldest.map(() => '?').join(',');
+                db.prepare(`DELETE FROM user_backups WHERE id IN (${placeholders})`).run(unpinnedFromOldest);
+            }
         }
         logger.info('backup_created', { userId });
     } catch (e) {
@@ -189,6 +203,7 @@ function buildBackupEntryPayload(row) {
     return {
         id: row.id,
         createdAt: row.created_at,
+        isPinned: Boolean(row.is_pinned),
         sizeBytes: Buffer.byteLength(row.data, 'utf8'),
         summary: buildBackupSummary(backupData),
     };
@@ -196,17 +211,17 @@ function buildBackupEntryPayload(row) {
 
 function listUserBackupEntries(userId) {
     const rows = db.prepare(`
-        SELECT id, data, created_at
+        SELECT id, data, is_pinned, created_at
         FROM user_backups
         WHERE user_id = ?
-        ORDER BY created_at DESC, id DESC
+        ORDER BY is_pinned DESC, created_at DESC, id DESC
     `).all(userId);
     return rows.map(buildBackupEntryPayload);
 }
 
 function getUserBackupRecord(userId, backupId) {
     return db.prepare(`
-        SELECT id, data, created_at
+        SELECT id, data, is_pinned, created_at
         FROM user_backups
         WHERE user_id = ? AND id = ?
         LIMIT 1

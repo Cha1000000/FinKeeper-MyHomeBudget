@@ -101,6 +101,7 @@ const requiredHealthTables = [
     'auth_refresh_sessions', 'auth_email_verification_tokens', 'auth_password_reset_tokens',
     'auth_identities', 'auth_login_exchange_codes', 'auth_social_login_attempts',
     'idempotency_keys', 'deleted_records',
+    'subscriptions', 'billing_transactions', 'promo_codes', 'promo_code_redemptions',
 ];
 
 function hasTable(tableName) {
@@ -160,15 +161,26 @@ function broadcastChange(userId, entity, action) {
         }
     });
 }
+function broadcastEntitlements(userId, entitlements) {
+    const message = JSON.stringify({ type: 'entitlement_updated', entitlements });
+    wss.clients.forEach(ws => {
+        if (ws.readyState === 1 && ws.userId === userId) {
+            ws.send(message);
+        }
+    });
+}
 app.set('broadcast', broadcastChange);
+app.set('broadcastEntitlements', broadcastEntitlements);
 
 // Mount Modular Routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+const billingRoutes = require('./routes/billing');
 const dataRoutes = require('./routes/data');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/api', dataRoutes);
 
 // Static Web Client

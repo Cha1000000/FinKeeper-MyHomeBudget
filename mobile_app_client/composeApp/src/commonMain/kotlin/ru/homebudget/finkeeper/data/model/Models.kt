@@ -16,6 +16,186 @@ data class AuthData(
 }
 
 @Serializable
+data class EntitlementFeatures(
+    val exportReports: Boolean = false,
+    val extendedAnalytics: Boolean = false,
+    val extendedBackups: Boolean = false,
+    val unlimitedDevices: Boolean = false,
+    val familyAccess: Boolean = false,
+    val prioritySupport: Boolean = false,
+)
+
+@Serializable
+data class EntitlementLimits(
+    val maxBackups: Int = 5,
+    val maxDevices: Int = 2,
+    val analyticsMonths: Int = 6,
+    val maxFamilyMembers: Int = 1,
+)
+
+@Serializable
+data class Entitlements(
+    val plan: String = "free",
+    val status: String = "active",
+    val isPro: Boolean = false,
+    val isTrial: Boolean = false,
+    val isLifetime: Boolean = false,
+    val trialUsed: Boolean = false,
+    val canStartTrial: Boolean = true,
+    val startedAt: String? = null,
+    val expiresAt: String? = null,
+    val daysRemaining: Int? = null,
+    val source: String = "system",
+    val features: EntitlementFeatures = EntitlementFeatures(),
+    val limits: EntitlementLimits = EntitlementLimits(),
+) {
+    /**
+     * Применяет 7-дневный льготный офлайн-период (OFFLINE_GRACE_DAYS = 7) для КМП-клиента:
+     * если устройство офлайн и у пользователя была активная PRO-подписка с датой окончания expiresAt,
+     * PRO-функции сохраняются ещё 7 суток после expiresAt до выхода в сеть.
+     */
+    fun withOfflineGrace(
+        isOffline: Boolean,
+        nowEpochMillis: Long,
+    ): Entitlements {
+        if (!isPro) return this
+        val expiresStr = expiresAt ?: return this
+        val expiresMillis = try {
+            kotlin.time.Instant.parse(expiresStr).toEpochMilliseconds()
+        } catch (_: Exception) {
+            return this
+        }
+
+        if (nowEpochMillis <= expiresMillis) {
+            return this
+        }
+
+        val graceDeadlineMillis = expiresMillis + OFFLINE_GRACE_DAYS * MILLIS_PER_DAY
+        if (isOffline && nowEpochMillis <= graceDeadlineMillis) {
+            return this.copy(
+                status = "grace_period",
+                daysRemaining = 0,
+            )
+        }
+
+        return FREE_DEFAULT.copy(
+            status = "expired",
+            trialUsed = this.trialUsed,
+            canStartTrial = false,
+            startedAt = this.startedAt,
+            expiresAt = this.expiresAt,
+        )
+    }
+
+    companion object {
+        const val OFFLINE_GRACE_DAYS = 7L
+        private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
+
+        val FREE_DEFAULT = Entitlements()
+    }
+}
+
+@Serializable
+data class BillingStatusResponse(
+    val entitlements: Entitlements = Entitlements.FREE_DEFAULT,
+)
+
+@Serializable
+data class BillingMutationResponse(
+    val success: Boolean = false,
+    val entitlements: Entitlements = Entitlements.FREE_DEFAULT,
+)
+
+@Serializable
+data class RedeemPromoRequest(
+    val code: String,
+)
+
+@Serializable
+data class PinBackupRequest(
+    val isPinned: Boolean,
+)
+
+@Serializable
+data class PinBackupResponse(
+    val success: Boolean,
+    val backup: BackupEntry,
+)
+
+@Serializable
+data class ImportBackupJsonRequest(
+    val backup: JsonElement,
+    val restoreImmediately: Boolean = false,
+    val confirmationText: String? = null,
+)
+
+@Serializable
+data class ImportBackupJsonResponse(
+    val success: Boolean,
+    val restored: Boolean = false,
+    val backup: BackupEntry,
+)
+
+@Serializable
+data class UserSessionEntry(
+    val id: Int,
+    val platform: String = "web",
+    val deviceName: String = "FinKeeper24",
+    val ip: String? = null,
+    val createdAt: String = "",
+    val lastUsedAt: String = "",
+    val expiresAt: String = "",
+    val isCurrent: Boolean = false,
+)
+
+@Serializable
+data class UserSessionsResponse(
+    val sessions: List<UserSessionEntry> = emptyList(),
+    val maxDevices: Int = 2,
+    val isUnlimited: Boolean = false,
+)
+
+@Serializable
+data class BurnRateMetrics(
+    val totalExpenses: Double = 0.0,
+    val plannedExpenses: Double = 0.0,
+    val daysInMonth: Int = 30,
+    val elapsedDays: Int = 1,
+    val dailyBurnRate: Double = 0.0,
+    val projectedLinearExpenses: Double = 0.0,
+    val projectedWithPlannedExpenses: Double = 0.0,
+)
+
+@Serializable
+data class AnalyticsCategoryComparison(
+    val categoryId: Int,
+    val categoryName: String,
+    val currentAmount: Double = 0.0,
+    val previousAmount: Double = 0.0,
+    val deltaAmount: Double = 0.0,
+    val deltaPercent: Double? = null,
+)
+
+@Serializable
+data class AnalyticsMonthComparison(
+    val previousYear: Int = 0,
+    val previousMonth: Int = 0,
+    val previousMonthIncome: Double = 0.0,
+    val previousMonthExpenses: Double = 0.0,
+    val expenseDeltaAmount: Double = 0.0,
+    val expenseDeltaPercent: Double? = null,
+    val categories: List<AnalyticsCategoryComparison> = emptyList(),
+)
+
+@Serializable
+data class AnalyticsInsightsResponse(
+    val year: Int,
+    val month: Int,
+    val burnRate: BurnRateMetrics = BurnRateMetrics(),
+    val comparison: AnalyticsMonthComparison = AnalyticsMonthComparison(),
+)
+
+@Serializable
 data class User(
     val id: Int,
     val username: String,
@@ -23,6 +203,7 @@ data class User(
     @SerialName("emailConfirmed") val emailConfirmed: Boolean = false,
     @SerialName("recoverabilityStatus") val recoverabilityStatus: String = "unprotected",
     @SerialName("canSelfRecover") val canSelfRecover: Boolean = false,
+    val entitlements: Entitlements? = null,
 )
 
 @Serializable
@@ -144,6 +325,7 @@ data class BackupEntrySummary(
 data class BackupEntry(
     val id: Int,
     val createdAt: String,
+    val isPinned: Boolean = false,
     val sizeBytes: Int = 0,
     val summary: BackupEntrySummary = BackupEntrySummary(),
 )
@@ -151,6 +333,8 @@ data class BackupEntry(
 @Serializable
 data class BackupListResponse(
     val backups: List<BackupEntry> = emptyList(),
+    val maxBackups: Int = 5,
+    val isExtended: Boolean = false,
 )
 
 @Serializable

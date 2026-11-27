@@ -8,6 +8,9 @@ expect val isDesktop: Boolean
 /** Платформа для сервера (заголовок X-App-Platform): android, ios или desktop */
 expect val appPlatform: String
 
+/** Человекочитаемое имя устройства и ОС для списка сессий (заголовок X-Device-Name, ASCII). */
+expect val appDeviceName: String
+
 @Composable
 expect fun AppLogoIcon(modifier: Modifier = Modifier)
 

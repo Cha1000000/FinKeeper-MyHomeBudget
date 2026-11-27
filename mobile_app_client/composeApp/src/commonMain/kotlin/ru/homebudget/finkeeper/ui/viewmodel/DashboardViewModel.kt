@@ -3,12 +3,14 @@ package ru.homebudget.finkeeper.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -32,6 +34,7 @@ import ru.homebudget.finkeeper.data.repository.savings.SavingsTransactionReposit
 import ru.homebudget.finkeeper.data.planned.toAutoExpense
 import ru.homebudget.finkeeper.data.planned.withoutDownloadedRecords
 import ru.homebudget.finkeeper.ui.Strings
+import ru.homebudget.finkeeper.util.FileTransfer
 import ru.homebudget.finkeeper.util.RetryConfig
 import ru.homebudget.finkeeper.util.withRetry
 
@@ -59,6 +62,10 @@ data class DashboardState(
     val availableWithoutSavings: Double? = null,
     val totalAssets: Double? = null,
     val trendData: List<TrendItem> = emptyList(),
+    val selectedTrendMonths: Int = 6,
+    val insights: AnalyticsInsightsResponse? = null,
+    val isExporting: Boolean = false,
+    val exportMessage: String? = null,
     val expenseBreakdown: List<ExpenseCategoryBreakdown> = emptyList(),
     // План-слой: суммы плановых платежей и прогноз месяца
     val plannedExpensesTotal: Double = 0.0,
@@ -110,6 +117,7 @@ class DashboardViewModel(
     }
 
     private var loadJob: Job? = null
+    private var trendJob: Job? = null
     private var loadedMonthKey: Int? = null
     private var pendingReload = false
 
@@ -118,7 +126,68 @@ class DashboardViewModel(
     }
 
     fun clearError() {
-        _state.value = _state.value.copy(error = null)
+        _state.value = _state.value.copy(error = null, exportMessage = null)
+    }
+
+    fun selectTrendPeriod(months: Int) {
+        if (_state.value.selectedTrendMonths == months) return
+        val year = _state.value.year
+        val month = _state.value.month
+        _state.value = _state.value.copy(selectedTrendMonths = months)
+        trendJob?.cancel()
+        trendJob = viewModelScope.launch {
+            try {
+                val freshTrend = withRetry(config = RetryConfig(maxAttempts = 2)) {
+                    apiClient.getTrend(months, year, month)
+                }
+                if (_state.value.selectedTrendMonths == months &&
+                    _state.value.year == year &&
+                    _state.value.month == month
+                ) {
+                    _state.value = _state.value.copy(trendData = freshTrend)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Офлайн или ошибка: оставляем текущие данные графика без мигания остальных карточек
+            }
+        }
+    }
+
+    fun exportReport(
+        format: String,
+        period: String,
+        onComplete: () -> Unit = {},
+    ) {
+        if (_state.value.isExporting) return
+        val year = _state.value.year
+        val month = _state.value.month
+        _state.value = _state.value.copy(isExporting = true, exportMessage = null)
+        viewModelScope.launch {
+            try {
+                val bytes = apiClient.exportReportBytes(
+                    format = format,
+                    period = period,
+                    year = year,
+                    month = month,
+                )
+                val ext = if (format.lowercase() == "csv") "csv" else "xlsx"
+                val fileName = "finkeeper24-report-$year-${month.toString().padStart(2, '0')}-$period.$ext"
+                val savedPath = withContext(Dispatchers.Default) {
+                    FileTransfer.saveDownloadedFile(fileName, bytes)
+                }
+                _state.value = _state.value.copy(
+                    isExporting = false,
+                    exportMessage = savedPath?.let { Strings.PRO_EXPORT_SAVED_FORMAT.replace("%1\$s", it) },
+                )
+                onComplete()
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(
+                    isExporting = false,
+                    error = Strings.PRO_EXPORT_ERROR,
+                )
+            }
+        }
     }
 
     fun loadData(showLoader: Boolean = true) {
@@ -208,8 +277,12 @@ class DashboardViewModel(
             // Фаза 2: сервер, с бюджетом и коротким замыканием после первой сетевой неудачи
             var summary: MonthSummary? = null
             var trend: List<TrendItem> = emptyList()
+            var insights: AnalyticsInsightsResponse? = _state.value.insights
             var ensured = false
             var serverCumulative: CumulativeSnapshot? = null
+            val requestedTrendMonths = _state.value.selectedTrendMonths
+            val cachedEntitlements = tokenStorage.loadCachedEntitlements(currentUserId)
+            val canLoadExtendedAnalytics = cachedEntitlements?.features?.extendedAnalytics == true || requestedTrendMonths > 6
 
             _state.value = _state.value.copy(isSyncing = true)
             val phase =
@@ -229,8 +302,13 @@ class DashboardViewModel(
                             withRetry(config = RetryConfig(maxAttempts = 2)) { apiClient.getMonthSummary(serverMonthId) }
                         }
                         trend = step {
-                            withRetry(config = RetryConfig(maxAttempts = 2)) { apiClient.getTrend() }
+                            withRetry(config = RetryConfig(maxAttempts = 2)) { apiClient.getTrend(requestedTrendMonths, year, month) }
                         } ?: emptyList()
+                        if (canLoadExtendedAnalytics) {
+                            optionalStep {
+                                insights = apiClient.getAnalyticsInsights(year, month)
+                            }
+                        }
                     }
                     serverCumulative = step {
                         // База оффлайн-оценки — непосредственно перед запросом: правки, сделанные
@@ -250,6 +328,7 @@ class DashboardViewModel(
                 serverCumulative = serverCumulative.takeIf { phase.serverError == null },
                 isOffline = !phase.reachable,
                 error = phase.serverError?.let { Strings.SERVER_REFRESH_FAILED },
+                insights = insights,
             )
         } catch (e: CancellationException) {
             throw e
@@ -290,6 +369,7 @@ class DashboardViewModel(
         serverCumulative: CumulativeSnapshot?,
         isOffline: Boolean,
         error: String?,
+        insights: AnalyticsInsightsResponse? = _state.value.insights,
     ) {
         // Читаем актуальные данные из локальной БД. Сбой чтения — ошибка экрана, а не нули
         val savingsGoals = savingsGoalRepository.getAllSavingsGoals(currentUserId).getOrThrow()
@@ -378,6 +458,7 @@ class DashboardViewModel(
                 availableWithoutSavings = cumulativeBalance,
                 totalAssets = totalAssets,
                 trendData = trend.ifEmpty { _state.value.trendData },
+                insights = insights,
                 expenseBreakdown = breakdown,
                 plannedExpensesTotal = plannedExpensesTotal,
                 plannedIncomesTotal = plannedIncomesTotal,

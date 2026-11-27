@@ -21,8 +21,8 @@ import ru.homebudget.finkeeper.data.remote.TokenStorage
 @Serializable
 data class DataChangedEvent(
     val type: String,
-    val entity: String,
-    val action: String,
+    val entity: String = "all",
+    val action: String = "updated",
 )
 
 /**
@@ -103,6 +103,14 @@ class WebSocketService(
                                     if (event.type == "data_changed") {
                                         println("WebSocket event: ${event.entity} ${event.action}")
                                         _dataChanged.emit(event)
+                                        syncManager.notifyDataChanged()
+                                    } else if (event.type == "entitlement_updated") {
+                                        val entitlementEvent = DataChangedEvent(
+                                            type = "data_changed",
+                                            entity = "entitlements",
+                                            action = "updated",
+                                        )
+                                        _dataChanged.emit(entitlementEvent)
                                         syncManager.notifyDataChanged()
                                     }
                                 } catch (e: CancellationException) {

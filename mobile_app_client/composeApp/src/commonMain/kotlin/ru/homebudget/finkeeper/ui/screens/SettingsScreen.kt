@@ -2,9 +2,14 @@ package ru.homebudget.finkeeper.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,15 +34,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import finkeeper24.composeapp.generated.resources.Res
 import finkeeper24.composeapp.generated.resources.app_icon
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import ru.homebudget.finkeeper.BuildConfig
+import ru.homebudget.finkeeper.data.model.BackupEntry
+import ru.homebudget.finkeeper.data.model.Entitlements
 import ru.homebudget.finkeeper.data.model.User
 import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.ui.Strings
@@ -50,6 +60,13 @@ import ru.homebudget.finkeeper.ui.components.CollapsibleGlassyCard
 import ru.homebudget.finkeeper.ui.components.ConfirmDialog
 import ru.homebudget.finkeeper.ui.components.GlassyButtonStyle
 import ru.homebudget.finkeeper.ui.components.GlassyCard
+import ru.homebudget.finkeeper.ui.components.IconDevicesGlass
+import ru.homebudget.finkeeper.ui.components.IconExportSheetGlass
+import ru.homebudget.finkeeper.ui.components.IconPinGlass
+import ru.homebudget.finkeeper.ui.components.IconProCrownGlass
+import ru.homebudget.finkeeper.ui.components.IconProLockGlass
+import ru.homebudget.finkeeper.ui.components.ProPillBadge
+import ru.homebudget.finkeeper.ui.components.PromoCodeDialog
 import ru.homebudget.finkeeper.ui.components.ScreenHeader
 import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.viewmodel.SettingsState
@@ -59,6 +76,7 @@ import ru.homebudget.finkeeper.util.formatDateTime
 fun SettingsScreen(
     state: SettingsState,
     user: User?,
+    entitlements: Entitlements = Entitlements.FREE_DEFAULT,
     username: String,
     onUpdateUsername: (String, () -> Unit) -> Unit,
     onUpdatePassword: (String, String, () -> Unit) -> Unit,
@@ -67,6 +85,16 @@ fun SettingsScreen(
     onRequestEmailVerification: ((User) -> Unit) -> Unit,
     onCreateBackup: () -> Unit,
     onRestoreBackup: (Int, String, () -> Unit) -> Unit,
+    onTogglePinBackup: (BackupEntry) -> Unit = {},
+    onExportBackupJson: (BackupEntry) -> Unit = {},
+    onImportBackupJson: () -> Unit = {},
+    onRevokeSession: (Int) -> Unit = {},
+    onOpenPaywall: (String?) -> Unit = {},
+    onRedeemPromo: (String) -> Unit = {},
+    onClearPromoFeedback: () -> Unit = {},
+    isPromoBusy: Boolean = false,
+    promoError: String? = null,
+    promoSuccessMessage: String? = null,
     onLogout: () -> Unit,
     onClearStatus: () -> Unit,
     onRetrySync: () -> Unit,
@@ -84,6 +112,7 @@ fun SettingsScreen(
     var protectionExpanded by rememberSaveable { mutableStateOf(expandAccountProtection) }
     var securityExpanded by rememberSaveable { mutableStateOf(false) }
     var dataExpanded by rememberSaveable { mutableStateOf(false) }
+    var sessionsExpanded by rememberSaveable { mutableStateOf(false) }
     var themeExpanded by rememberSaveable { mutableStateOf(false) }
     var uiScaleExpanded by rememberSaveable { mutableStateOf(false) }
     var newUsername by remember(username) { mutableStateOf(username) }
@@ -143,6 +172,16 @@ fun SettingsScreen(
         )
 
         AppInfoCard()
+
+        ProSubscriptionCard(
+            entitlements = entitlements,
+            isPromoBusy = isPromoBusy,
+            promoError = promoError,
+            promoSuccessMessage = promoSuccessMessage,
+            onOpenPaywall = { onOpenPaywall(null) },
+            onRedeemPromo = onRedeemPromo,
+            onClearPromoFeedback = onClearPromoFeedback,
+        )
 
         CollapsibleGlassyCard(
             title = Strings.SYNC_STATUS,
@@ -467,7 +506,9 @@ fun SettingsScreen(
             title = Strings.DATA_MANAGEMENT,
             expanded = dataExpanded,
             onExpandedChange = { dataExpanded = it },
-            summary = state.backupEntries.firstOrNull()?.let { Strings.BACKUP_LAST_SUMMARY.replace("%1\$s", formatDateTime(it.createdAt)) },
+            summary = Strings.PRO_BACKUP_STORAGE_FORMAT
+                .replace("%1\$d", state.backupEntries.size.toString())
+                .replace("%2\$d", state.maxBackups.toString()),
             highlightColor = MaterialTheme.colorScheme.primary,
         ) {
             Text(
@@ -477,15 +518,77 @@ fun SettingsScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             val colors = AppTheme.semanticColors
-            AppButton(
-                text = Strings.CREATE_BACKUP,
-                onClick = onCreateBackup,
-                enabled = !state.isLoading,
-                isLoading = state.isLoading,
-                containerColor = colors.backupBlue,
-                contentColor = Color.White,
-                style = GlassyButtonStyle.Glassy,
-            )
+            if (isDesktop) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    AppButton(
+                        text = Strings.CREATE_BACKUP,
+                        onClick = onCreateBackup,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        enabled = !state.isLoading,
+                        isLoading = state.isLoading,
+                        containerColor = colors.backupBlue,
+                        contentColor = Color.White,
+                        style = GlassyButtonStyle.Glassy,
+                        textStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                    AppButton(
+                        text = Strings.PRO_BACKUP_IMPORT_JSON,
+                        onClick = {
+                            if (entitlements.features.extendedBackups) {
+                                onImportBackupJson()
+                            } else {
+                                onOpenPaywall("extendedBackups")
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        enabled = !state.isLoading,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        style = GlassyButtonStyle.Glassy,
+                        textStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AppButton(
+                        text = Strings.CREATE_BACKUP,
+                        onClick = onCreateBackup,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        enabled = !state.isLoading,
+                        isLoading = state.isLoading,
+                        containerColor = colors.backupBlue,
+                        contentColor = Color.White,
+                        style = GlassyButtonStyle.Glassy,
+                        textStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                    AppButton(
+                        text = Strings.PRO_BACKUP_IMPORT_JSON,
+                        onClick = {
+                            if (entitlements.features.extendedBackups) {
+                                onImportBackupJson()
+                            } else {
+                                onOpenPaywall("extendedBackups")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        enabled = !state.isLoading,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        style = GlassyButtonStyle.Glassy,
+                        textStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = Strings.RESTORE_HELPER,
@@ -526,40 +629,120 @@ fun SettingsScreen(
                                 MaterialTheme.colorScheme.surfaceVariant
                             },
                         highlightColor =
-                            if (isSelected) {
+                            if (backup.isPinned) {
+                                Color(0xFFF59E0B)
+                            } else if (isSelected) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.outline
                             },
                     ) {
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { selectedBackupId = backup.id }
-                                    .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedBackupId = backup.id }
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = { selectedBackupId = backup.id },
-                            )
-                            Column(
-                                modifier = Modifier.padding(start = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    text = formatDateTime(backup.createdAt),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { selectedBackupId = backup.id },
                                 )
-                                Text(
-                                    text =
-                                        "Месяцев: ${backup.summary.months} · Доходов: ${backup.summary.incomes} · " +
-                                            "Расходов: ${backup.summary.expenses} · Копилок: ${backup.summary.savingsGoals}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Column(
+                                    modifier = Modifier.padding(start = 8.dp).weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = formatDateTime(backup.createdAt),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false),
+                                        )
+                                        if (backup.isPinned) {
+                                            ProPillBadge(
+                                                text = Strings.PRO_BACKUP_PINNED,
+                                                accentColor = Color(0xFFF59E0B),
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text =
+                                            "Месяцев: ${backup.summary.months} · Доходов: ${backup.summary.incomes} · " +
+                                                "Расходов: ${backup.summary.expenses} · Копилок: ${backup.summary.savingsGoals}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            if (entitlements.features.extendedBackups) {
+                                                onTogglePinBackup(backup)
+                                            } else {
+                                                onOpenPaywall("extendedBackups")
+                                            }
+                                        }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    IconPinGlass(active = backup.isPinned, size = 14.dp)
+                                    Text(
+                                        text = if (backup.isPinned) Strings.PRO_BACKUP_PINNED else Strings.PRO_BACKUP_PIN,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (backup.isPinned) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    if (!entitlements.features.extendedBackups) {
+                                        IconProLockGlass(size = 11.dp)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            if (entitlements.features.extendedBackups) {
+                                                onExportBackupJson(backup)
+                                            } else {
+                                                onOpenPaywall("extendedBackups")
+                                            }
+                                        }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    IconExportSheetGlass(size = 14.dp)
+                                    Text(
+                                        text = Strings.PRO_BACKUP_EXPORT_JSON,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    if (!entitlements.features.extendedBackups) {
+                                        IconProLockGlass(size = 11.dp)
+                                    }
+                                }
                             }
                         }
                     }
@@ -593,6 +776,129 @@ fun SettingsScreen(
                 contentColor = Color.White,
                 style = GlassyButtonStyle.Glassy,
             )
+        }
+
+        // Раздел: Активные устройства и сессии
+        val sessionsSummary = if (state.isUnlimitedDevices || entitlements.features.unlimitedDevices) {
+            Strings.PRO_SESSIONS_SUMMARY_UNLIMITED.replace("%1\$d", state.sessions.size.toString())
+        } else {
+            Strings.PRO_SESSIONS_SUMMARY_LIMITED
+                .replace("%1\$d", state.sessions.size.toString())
+                .replace("%2\$d", state.maxDevices.toString())
+        }
+        CollapsibleGlassyCard(
+            title = Strings.PRO_SESSIONS_TITLE,
+            expanded = sessionsExpanded,
+            onExpandedChange = { sessionsExpanded = it },
+            summary = sessionsSummary,
+            highlightColor = MaterialTheme.colorScheme.primary,
+        ) {
+            Text(
+                text = if (state.isUnlimitedDevices || entitlements.features.unlimitedDevices) {
+                    Strings.PRO_SESSIONS_PRO_HINT
+                } else {
+                    Strings.PRO_SESSIONS_FREE_HINT
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!entitlements.features.unlimitedDevices) {
+                Spacer(modifier = Modifier.height(10.dp))
+                AppButton(
+                    text = if (entitlements.canStartTrial) Strings.PRO_TRY_TRIAL_SHORT else Strings.PRO_OPEN_PAYWALL,
+                    onClick = { onOpenPaywall("unlimitedDevices") },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    containerColor = Color(0xFF10B981),
+                    contentColor = Color.White,
+                    style = GlassyButtonStyle.Solid,
+                    textStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    shape = RoundedCornerShape(14.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            state.sessions.forEach { session ->
+                GlassyCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    baseColor = if (session.isCurrent) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    highlightColor = if (session.isCurrent) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outline
+                    },
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            IconDevicesGlass(size = 20.dp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = session.deviceName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    if (session.isCurrent) {
+                                        ProPillBadge(
+                                            text = Strings.PRO_SESSIONS_CURRENT_BADGE,
+                                            accentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = formatDateTime(session.lastUsedAt) + (session.ip?.let { " · $it" } ?: ""),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                        if (!session.isCurrent) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.16f))
+                                    .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                                    .clickable(enabled = !state.isLoading) { onRevokeSession(session.id) }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = Strings.PRO_SESSIONS_REVOKE_BUTTON,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.error,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
 
         CollapsibleGlassyCard(
@@ -791,5 +1097,143 @@ private fun AppInfoCard() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProSubscriptionCard(
+    entitlements: Entitlements,
+    isPromoBusy: Boolean,
+    promoError: String?,
+    promoSuccessMessage: String?,
+    onOpenPaywall: () -> Unit,
+    onRedeemPromo: (String) -> Unit,
+    onClearPromoFeedback: () -> Unit,
+) {
+    val emeraldAccent = Color(0xFF10B981)
+    val amberAccent = Color(0xFFF59E0B)
+    var showPromoDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(promoSuccessMessage, showPromoDialog) {
+        if (showPromoDialog && promoSuccessMessage != null) {
+            kotlinx.coroutines.delay(900)
+            showPromoDialog = false
+            onClearPromoFeedback()
+        }
+    }
+
+    GlassyCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        baseColor = MaterialTheme.colorScheme.surface,
+        highlightColor = emeraldAccent.copy(alpha = 0.28f),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconProCrownGlass(size = 24.dp)
+                    Text(
+                        text = Strings.PRO_FAMILY_TITLE,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                when {
+                    entitlements.isTrial -> ProPillBadge(
+                        text = Strings.PRO_TRIAL_ACTIVE_FORMAT.replace(
+                            "%1\$d",
+                            (entitlements.daysRemaining ?: 0).toString(),
+                        ),
+                        accentColor = amberAccent,
+                    )
+                    entitlements.isLifetime || (entitlements.isPro && entitlements.expiresAt == null) -> ProPillBadge(
+                        text = Strings.PRO_LIFETIME_BADGE,
+                        accentColor = emeraldAccent,
+                    )
+                    entitlements.isPro -> ProPillBadge(
+                        text = Strings.PRO_ACTIVE_BADGE,
+                        accentColor = emeraldAccent,
+                    )
+                    else -> ProPillBadge(
+                        text = Strings.PRO_FREE_PLAN_BADGE,
+                        accentColor = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            Text(
+                text = Strings.PRO_PAYWALL_SUBTITLE,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            AppButton(
+                text = when {
+                    entitlements.canStartTrial -> Strings.PRO_START_TRIAL_CTA
+                    entitlements.isPro -> Strings.PRO_MANAGE_SUBSCRIPTION
+                    else -> Strings.PRO_OPEN_PAYWALL
+                },
+                onClick = onOpenPaywall,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                containerColor = emeraldAccent,
+                contentColor = Color.White,
+                style = GlassyButtonStyle.Solid,
+                textStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                shape = RoundedCornerShape(14.dp),
+            )
+
+            if (!entitlements.isLifetime && !(entitlements.isPro && entitlements.expiresAt == null)) {
+                Text(
+                    text = Strings.PRO_HAVE_PROMO,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            onClearPromoFeedback()
+                            showPromoDialog = true
+                        }
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                )
+            }
+            if (!showPromoDialog && promoSuccessMessage != null) {
+                Text(
+                    text = promoSuccessMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = emeraldAccent,
+                )
+            }
+        }
+    }
+
+    if (showPromoDialog) {
+        PromoCodeDialog(
+            isBusy = isPromoBusy,
+            errorMessage = promoError,
+            successMessage = promoSuccessMessage,
+            onApply = onRedeemPromo,
+            onDismiss = {
+                onClearPromoFeedback()
+                showPromoDialog = false
+            },
+        )
     }
 }

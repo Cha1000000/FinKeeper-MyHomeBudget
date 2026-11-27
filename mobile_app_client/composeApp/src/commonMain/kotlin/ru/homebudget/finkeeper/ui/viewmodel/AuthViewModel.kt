@@ -8,11 +8,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 import ru.homebudget.finkeeper.data.analytics.AnalyticsEvents
 import ru.homebudget.finkeeper.data.analytics.AnalyticsTracker
 import ru.homebudget.finkeeper.data.analytics.NoOpAnalyticsTracker
 import ru.homebudget.finkeeper.data.model.AuthData
 import ru.homebudget.finkeeper.data.model.DebugTokenPreview
+import ru.homebudget.finkeeper.data.model.Entitlements
 import ru.homebudget.finkeeper.data.model.SocialProvider
 import ru.homebudget.finkeeper.data.model.User
 import ru.homebudget.finkeeper.data.remote.AuthSessionEvent
@@ -27,6 +29,7 @@ import ru.homebudget.finkeeper.util.withRetry
 
 data class AuthState(
     val user: User? = null,
+    val entitlements: Entitlements = Entitlements.FREE_DEFAULT,
     val isLoading: Boolean = true,
     val isAuthenticated: Boolean = false,
     val error: String? = null,
@@ -34,6 +37,11 @@ data class AuthState(
     val recoveryDebugToken: DebugTokenPreview? = null,
     val socialProviders: List<SocialProvider> = emptyList(),
     val socialLoginProvider: String? = null,
+    val isPaywallVisible: Boolean = false,
+    val paywallFeatureKey: String? = null,
+    val isPaywallBusy: Boolean = false,
+    val paywallError: String? = null,
+    val paywallSuccessMessage: String? = null,
 )
 
 class AuthViewModel(
@@ -55,13 +63,31 @@ class AuthViewModel(
         _state.value =
             _state.value.copy(
                 user = null,
+                entitlements = Entitlements.FREE_DEFAULT,
                 isLoading = false,
                 isAuthenticated = false,
                 error = null,
                 infoMessage = infoMessage,
                 recoveryDebugToken = null,
                 socialLoginProvider = null,
+                isPaywallVisible = false,
+                paywallFeatureKey = null,
+                isPaywallBusy = false,
+                paywallError = null,
+                paywallSuccessMessage = null,
             )
+    }
+
+    private fun resolveUserEntitlements(user: User, isOffline: Boolean): Entitlements {
+        val nowMillis = Clock.System.now().toEpochMilliseconds()
+        val serverEntitlements = user.entitlements
+        if (serverEntitlements != null) {
+            tokenStorage.saveCachedEntitlements(user.id.toLong(), serverEntitlements)
+            return serverEntitlements.withOfflineGrace(isOffline = isOffline, nowEpochMillis = nowMillis)
+        }
+        val cached = tokenStorage.loadCachedEntitlements(user.id.toLong())
+        return cached?.withOfflineGrace(isOffline = isOffline, nowEpochMillis = nowMillis)
+            ?: Entitlements.FREE_DEFAULT
     }
 
     private fun persistAuthData(authData: AuthData) {
@@ -70,6 +96,9 @@ class AuthViewModel(
         tokenStorage.userId = authData.user.id.toLong()
         tokenStorage.username = authData.user.username
         tokenStorage.email = authData.user.email
+        authData.user.entitlements?.let {
+            tokenStorage.saveCachedEntitlements(authData.user.id.toLong(), it)
+        }
         analyticsTracker.setUserId(authData.user.id.toLong())
     }
 
@@ -84,12 +113,17 @@ class AuthViewModel(
         }
     }
 
-    private fun cachedUser(): User =
-        User(
-            id = tokenStorage.userId.toInt(),
+    private fun cachedUser(): User {
+        val uid = tokenStorage.userId.toInt()
+        val cachedEnt = tokenStorage.loadCachedEntitlements(tokenStorage.userId)
+            ?.withOfflineGrace(isOffline = true, nowEpochMillis = Clock.System.now().toEpochMilliseconds())
+        return User(
+            id = uid,
             username = tokenStorage.username ?: "Офлайн",
             email = tokenStorage.email,
+            entitlements = cachedEnt,
         )
+    }
 
     private fun checkAuth() {
         val hasAccessToken = tokenStorage.accessToken != null
@@ -103,7 +137,14 @@ class AuthViewModel(
         val hasLocalUser = tokenStorage.userId > 0L
         if (hasLocalUser) {
             analyticsTracker.setUserId(tokenStorage.userId)
-            _state.value = _state.value.copy(user = cachedUser(), isLoading = false, isAuthenticated = true, error = null)
+            val localUser = cachedUser()
+            _state.value = _state.value.copy(
+                user = localUser,
+                entitlements = resolveUserEntitlements(localUser, isOffline = true),
+                isLoading = false,
+                isAuthenticated = true,
+                error = null,
+            )
         }
         viewModelScope.launch {
             try {
@@ -114,7 +155,14 @@ class AuthViewModel(
                 tokenStorage.userId = user.id.toLong()
                 tokenStorage.username = user.username
                 tokenStorage.email = user.email
-                _state.value = _state.value.copy(user = user, isLoading = false, isAuthenticated = true, error = null)
+                val resolvedEntitlements = resolveUserEntitlements(user, isOffline = false)
+                _state.value = _state.value.copy(
+                    user = user,
+                    entitlements = resolvedEntitlements,
+                    isLoading = false,
+                    isAuthenticated = true,
+                    error = null,
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -133,6 +181,7 @@ class AuthViewModel(
                             tokenStorage.email = user.email
                             _state.value = _state.value.copy(
                                 user = user,
+                                entitlements = resolveUserEntitlements(user, isOffline = false),
                                 isLoading = false,
                                 isAuthenticated = true,
                                 error = null,
@@ -302,6 +351,7 @@ class AuthViewModel(
                 _state.value =
                     _state.value.copy(
                         user = authData.user,
+                        entitlements = resolveUserEntitlements(authData.user, isOffline = false),
                         isLoading = false,
                         isAuthenticated = true,
                         error = null,
@@ -366,6 +416,7 @@ class AuthViewModel(
                 _state.value =
                     _state.value.copy(
                         user = authData.user,
+                        entitlements = resolveUserEntitlements(authData.user, isOffline = false),
                         isLoading = false,
                         isAuthenticated = true,
                         error = null,
@@ -583,7 +634,142 @@ class AuthViewModel(
     }
 
     fun updateUser(user: User) {
-        _state.value = _state.value.copy(user = user)
+        val nextEntitlements = user.entitlements?.also {
+            tokenStorage.saveCachedEntitlements(user.id.toLong(), it)
+        } ?: _state.value.entitlements
+        _state.value = _state.value.copy(
+            user = user,
+            entitlements = nextEntitlements,
+        )
+    }
+
+    fun openPaywall(featureKey: String? = null) {
+        _state.value = _state.value.copy(
+            isPaywallVisible = true,
+            paywallFeatureKey = featureKey,
+            paywallError = null,
+            paywallSuccessMessage = null,
+        )
+    }
+
+    fun closePaywall() {
+        if (_state.value.isPaywallBusy) return
+        _state.value = _state.value.copy(
+            isPaywallVisible = false,
+            paywallFeatureKey = null,
+            paywallError = null,
+            paywallSuccessMessage = null,
+        )
+    }
+
+    fun clearPaywallFeedback() {
+        _state.value = _state.value.copy(
+            paywallError = null,
+            paywallSuccessMessage = null,
+        )
+    }
+
+    fun refreshEntitlements() {
+        viewModelScope.launch {
+            try {
+                val status = apiClient.getBillingStatus()
+                val uid = _state.value.user?.id?.toLong() ?: tokenStorage.userId
+                if (uid > 0L) {
+                    tokenStorage.saveCachedEntitlements(uid, status.entitlements)
+                }
+                _state.value = _state.value.copy(
+                    entitlements = status.entitlements,
+                    user = _state.value.user?.copy(entitlements = status.entitlements),
+                )
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun startFreeTrial(onActivated: (Entitlements) -> Unit = {}) {
+        if (_state.value.isPaywallBusy) return
+        _state.value = _state.value.copy(
+            isPaywallBusy = true,
+            paywallError = null,
+            paywallSuccessMessage = null,
+        )
+        viewModelScope.launch {
+            try {
+                val res = apiClient.startFreeTrial()
+                val uid = _state.value.user?.id?.toLong() ?: tokenStorage.userId
+                if (uid > 0L) {
+                    tokenStorage.saveCachedEntitlements(uid, res.entitlements)
+                }
+                _state.value = _state.value.copy(
+                    entitlements = res.entitlements,
+                    user = _state.value.user?.copy(entitlements = res.entitlements),
+                    isPaywallBusy = false,
+                    paywallSuccessMessage = Strings.PRO_TRIAL_ACTIVATED_SUCCESS,
+                )
+                onActivated(res.entitlements)
+                delay(800)
+                _state.value = _state.value.copy(
+                    isPaywallVisible = false,
+                    paywallFeatureKey = null,
+                    paywallSuccessMessage = null,
+                )
+            } catch (e: ApiException) {
+                _state.value = _state.value.copy(
+                    isPaywallBusy = false,
+                    paywallError = e.message,
+                )
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(
+                    isPaywallBusy = false,
+                    paywallError = Strings.CONNECTION_ERROR,
+                )
+            }
+        }
+    }
+
+    fun redeemPromoCode(
+        code: String,
+        onActivated: (Entitlements) -> Unit = {},
+    ) {
+        val trimmed = code.trim().uppercase()
+        if (trimmed.isBlank() || _state.value.isPaywallBusy) return
+        _state.value = _state.value.copy(
+            isPaywallBusy = true,
+            paywallError = null,
+            paywallSuccessMessage = null,
+        )
+        viewModelScope.launch {
+            try {
+                val res = apiClient.redeemPromoCode(trimmed)
+                val uid = _state.value.user?.id?.toLong() ?: tokenStorage.userId
+                if (uid > 0L) {
+                    tokenStorage.saveCachedEntitlements(uid, res.entitlements)
+                }
+                _state.value = _state.value.copy(
+                    entitlements = res.entitlements,
+                    user = _state.value.user?.copy(entitlements = res.entitlements),
+                    isPaywallBusy = false,
+                    paywallSuccessMessage = Strings.PRO_PROMO_ACTIVATED_SUCCESS,
+                )
+                onActivated(res.entitlements)
+                delay(800)
+                _state.value = _state.value.copy(
+                    isPaywallVisible = false,
+                    paywallFeatureKey = null,
+                    paywallSuccessMessage = null,
+                )
+            } catch (e: ApiException) {
+                _state.value = _state.value.copy(
+                    isPaywallBusy = false,
+                    paywallError = e.message,
+                )
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(
+                    isPaywallBusy = false,
+                    paywallError = Strings.CONNECTION_ERROR,
+                )
+            }
+        }
     }
 
     fun clearError() {

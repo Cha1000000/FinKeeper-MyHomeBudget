@@ -97,6 +97,7 @@ npm run start:prod
 
 -   [Implementation Plan](docs_and_instructions/implementation_plan.md): Original project goals and database schema.
 -   [Walkthrough](docs_and_instructions/walkthrough.md): User guide and feature overview.
+-   [Monetization Plan (`Семейный PRO`)](docs_and_instructions/plans/monetization_pro_plan.md): Approved 3-milestone monetization roadmap (`Entitlements` architecture, 14-day free trial, Excel/CSV export & extended analytics, 30-snapshot backups with JSON import/export, device management, YooKassa/Robokassa billing, and Family Access with roles).
 
 ## Second-brain sync (start & end of session)
 

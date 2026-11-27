@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { exchangeSocialAuthCode, getMe, loginUser, registerUser } from '../api';
-import type { User, AuthData } from '../api';
+import { exchangeSocialAuthCode, getBillingStatus, getMe, loginUser, registerUser } from '../api';
+import type { User, AuthData, Entitlements } from '../api';
 import { refreshRememberedSession } from '../auth/sessionRecovery';
 import { readLocalStorageJson } from '../utils';
 import {
@@ -25,14 +25,48 @@ const DEFAULT_UI_SETTINGS: UiSettings = {
   theme: 'light',
 };
 
+export const DEFAULT_FREE_ENTITLEMENTS: Entitlements = {
+  plan: 'free',
+  status: 'active',
+  isPro: false,
+  isTrial: false,
+  isLifetime: false,
+  trialUsed: false,
+  canStartTrial: true,
+  startedAt: null,
+  expiresAt: null,
+  daysRemaining: null,
+  source: 'system',
+  features: {
+    exportReports: false,
+    extendedAnalytics: false,
+    extendedBackups: false,
+    unlimitedDevices: false,
+    familyAccess: false,
+    prioritySupport: false,
+  },
+  limits: {
+    maxBackups: 5,
+    maxDevices: 2,
+    analyticsMonths: 6,
+    maxFamilyMembers: 1,
+  },
+};
+
 interface AuthContextType {
   user: User | null;
+  entitlements: Entitlements;
   isLoading: boolean;
   login: (data: AuthData) => Promise<void>;
   register: (data: AuthData) => Promise<void>;
   completeSocialLogin: (code: string) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
+  refreshEntitlements: () => Promise<Entitlements | null>;
+  isPaywallOpen: boolean;
+  paywallFeature: string | null;
+  openPaywall: (highlightFeature?: string) => void;
+  closePaywall: () => void;
   uiSettings: UiSettings;
   updateUiSettings: (settings: Partial<UiSettings>) => void;
 }
@@ -42,6 +76,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [paywallFeature, setPaywallFeature] = useState<string | null>(null);
   const [uiSettings, setUiSettings] = useState<UiSettings>(() => {
     const parsed = readLocalStorageJson<Partial<UiSettings>>('uiSettings', DEFAULT_UI_SETTINGS);
     return {
@@ -210,6 +246,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(prev => prev ? { ...prev, ...data } : null);
   }, []);
 
+  const refreshEntitlements = useCallback(async (): Promise<Entitlements | null> => {
+    try {
+      const { data } = await getBillingStatus();
+      setUser(prev => prev ? { ...prev, entitlements: data.entitlements } : null);
+      return data.entitlements;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const openPaywall = useCallback((highlightFeature?: string) => {
+    setPaywallFeature(highlightFeature ?? null);
+    setIsPaywallOpen(true);
+  }, []);
+
+  const closePaywall = useCallback(() => {
+    setIsPaywallOpen(false);
+    setPaywallFeature(null);
+  }, []);
+
+  useEffect(() => {
+    const handleEntitlementUpdated = (e: Event) => {
+      const nextEntitlements = (e as CustomEvent<Entitlements>).detail;
+      if (nextEntitlements) {
+        setUser(prev => prev ? { ...prev, entitlements: nextEntitlements } : null);
+      } else {
+        void refreshEntitlements();
+      }
+    };
+
+    window.addEventListener('ws:entitlement_updated', handleEntitlementUpdated);
+    return () => window.removeEventListener('ws:entitlement_updated', handleEntitlementUpdated);
+  }, [refreshEntitlements]);
+
   const updateUiSettings = (newSettings: Partial<UiSettings>) => {
     setUiSettings(prev => {
       const updated = { ...prev, ...newSettings };
@@ -218,8 +288,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const entitlements = user?.entitlements ?? DEFAULT_FREE_ENTITLEMENTS;
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, completeSocialLogin, logout, updateUser, uiSettings, updateUiSettings }}>
+    <AuthContext.Provider value={{
+      user,
+      entitlements,
+      isLoading,
+      login,
+      register,
+      completeSocialLogin,
+      logout,
+      updateUser,
+      refreshEntitlements,
+      isPaywallOpen,
+      paywallFeature,
+      openPaywall,
+      closePaywall,
+      uiSettings,
+      updateUiSettings,
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -231,4 +319,17 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+};
+
+export const useEntitlements = () => {
+  const { entitlements, openPaywall, closePaywall, refreshEntitlements } = useAuth();
+  return {
+    entitlements,
+    isPro: entitlements.isPro,
+    isTrial: entitlements.isTrial,
+    canStartTrial: entitlements.canStartTrial,
+    openPaywall,
+    closePaywall,
+    refreshEntitlements,
+  };
 };

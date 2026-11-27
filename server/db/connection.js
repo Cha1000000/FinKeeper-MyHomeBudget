@@ -215,13 +215,71 @@ function ensureSchemaUpToDate() {
             consumed_at TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
+
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            plan TEXT NOT NULL DEFAULT 'free',
+            status TEXT NOT NULL DEFAULT 'active',
+            source TEXT NOT NULL DEFAULT 'system',
+            trial_used INTEGER NOT NULL DEFAULT 0,
+            started_at TEXT,
+            expires_at TEXT,
+            family_group_id INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS billing_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            provider TEXT NOT NULL,
+            external_payment_id TEXT UNIQUE,
+            plan_period TEXT NOT NULL,
+            amount_rub REAL NOT NULL DEFAULT 0,
+            status TEXT NOT NULL,
+            raw_payload TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS promo_codes (
+            code TEXT PRIMARY KEY,
+            duration_days INTEGER NOT NULL DEFAULT 0,
+            max_uses INTEGER,
+            used_count INTEGER NOT NULL DEFAULT 0,
+            expires_at TEXT,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            plan TEXT NOT NULL DEFAULT 'pro',
+            is_lifetime INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS promo_code_redemptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            code TEXT NOT NULL,
+            redeemed_at TEXT NOT NULL,
+            UNIQUE(user_id, code),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (code) REFERENCES promo_codes(code)
+        );
     `);
 
     addColumnIfMissing('users', 'email', 'TEXT');
     addColumnIfMissing('users', 'email_confirmed_at', 'TEXT');
     addColumnIfMissing('users', 'auth_password_enabled', 'INTEGER NOT NULL DEFAULT 1');
     addColumnIfMissing('auth_refresh_sessions', 'is_persistent', 'INTEGER NOT NULL DEFAULT 0');
+    addColumnIfMissing('auth_refresh_sessions', 'platform', 'TEXT');
+    addColumnIfMissing('auth_refresh_sessions', 'device_name', 'TEXT');
+    addColumnIfMissing('auth_refresh_sessions', 'user_agent', 'TEXT');
+    addColumnIfMissing('auth_refresh_sessions', 'ip', 'TEXT');
     addColumnIfMissing('auth_social_login_attempts', 'exchange_code', 'TEXT');
+    addColumnIfMissing('user_backups', 'is_pinned', 'INTEGER NOT NULL DEFAULT 0');
+    addColumnIfMissing('promo_codes', 'plan', "TEXT NOT NULL DEFAULT 'pro'");
+    addColumnIfMissing('promo_codes', 'is_lifetime', 'INTEGER NOT NULL DEFAULT 0');
 
     // Колонка используется кодом (summary, корректировки копилки), но в db_setup.js
     // её нет — без этой миграции свежая установка падает на первом же запросе к ней
@@ -301,7 +359,60 @@ function ensureSchemaUpToDate() {
 
         CREATE INDEX IF NOT EXISTS idx_auth_social_login_attempts_status
         ON auth_social_login_attempts(status);
+
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id
+        ON subscriptions(user_id);
+
+        CREATE INDEX IF NOT EXISTS idx_billing_transactions_user_id
+        ON billing_transactions(user_id);
+
+        CREATE INDEX IF NOT EXISTS idx_auth_refresh_sessions_user_id
+        ON auth_refresh_sessions(user_id);
     `);
+
+    // Выдаём автору (подтверждённый email владельца) вечный Семейный PRO при старте сервера
+    const ownerEmailsRaw = process.env.OWNER_PRO_EMAILS?.trim() || 'racerkafa@yandex.ru';
+    const ownerEmails = ownerEmailsRaw.split(',').map(item => item.trim().toLowerCase()).filter(Boolean);
+    if (ownerEmails.length > 0 && hasTable('users') && hasTable('subscriptions')) {
+        const nowStr = nowIso();
+        const ownerUsers = db.prepare(`
+            SELECT DISTINCT u.id
+            FROM users u
+            LEFT JOIN auth_identities ai ON ai.user_id = u.id
+            WHERE (u.email IS NOT NULL AND u.email_confirmed_at IS NOT NULL AND LOWER(TRIM(u.email)) IN (${ownerEmails.map(() => '?').join(',')}))
+               OR (ai.provider_email IS NOT NULL AND ai.provider_email_verified = 1 AND LOWER(TRIM(ai.provider_email)) IN (${ownerEmails.map(() => '?').join(',')}))
+        `).all(...ownerEmails, ...ownerEmails);
+
+        const grantStmt = db.prepare(`
+            INSERT INTO subscriptions (user_id, plan, status, source, trial_used, started_at, expires_at, created_at, updated_at)
+            VALUES (?, 'pro_family', 'active', 'manual_grant', 0, ?, NULL, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                plan = 'pro_family',
+                status = 'active',
+                source = 'manual_grant',
+                expires_at = NULL,
+                updated_at = excluded.updated_at
+        `);
+        for (const owner of ownerUsers) {
+            grantStmt.run(owner.id, nowStr, nowStr, nowStr);
+        }
+    }
+
+    // Константный бессрочный промокод для семьи и друзей автора
+    if (hasTable('promo_codes')) {
+        const nowStr = nowIso();
+        db.prepare(`
+            INSERT INTO promo_codes (code, duration_days, max_uses, used_count, expires_at, is_active, plan, is_lifetime, created_at)
+            VALUES ('BOBA777', 0, NULL, 0, NULL, 1, 'pro_family', 1, ?)
+            ON CONFLICT(code) DO UPDATE SET
+                duration_days = 0,
+                max_uses = NULL,
+                expires_at = NULL,
+                is_active = 1,
+                plan = 'pro_family',
+                is_lifetime = 1
+        `).run(nowStr);
+    }
 
     // Дедуп категорий/источников по (user_id, name) с перепривязкой ссылок и UNIQUE-индексы,
     // предотвращающие повторное появление дублей (баг гонки синка/регистрации).

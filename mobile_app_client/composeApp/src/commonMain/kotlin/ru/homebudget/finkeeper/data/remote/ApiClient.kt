@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonElement
 import ru.homebudget.finkeeper.BuildConfig
 import ru.homebudget.finkeeper.data.model.*
 import ru.homebudget.finkeeper.data.network.GATEWAY_FAILURE_STATUS_CODES
+import ru.homebudget.finkeeper.util.appDeviceName
 import ru.homebudget.finkeeper.util.appPlatform
 import ru.homebudget.finkeeper.data.network.ServerLinkState
 import ru.homebudget.finkeeper.data.network.isConnectivityFailure
@@ -63,6 +64,7 @@ class ApiClient(
                 // По версии сервер сохраняет старое поведение для приложений, которые не знают новых правил
                 header("X-App-Version", BuildConfig.APP_VERSION.removePrefix("v"))
                 header("X-App-Platform", appPlatform)
+                header("X-Device-Name", appDeviceName)
                 val token = tokenStorage.accessToken
                 if (token != null) {
                     header("Authorization", "Bearer $token")
@@ -374,6 +376,78 @@ class ApiClient(
         val response =
             client.post("$baseUrl/user/restore") {
                 setBody(RestoreBackupRequest(backupId, confirmationText))
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun togglePinBackup(
+        backupId: Int,
+        isPinned: Boolean,
+    ): PinBackupResponse {
+        val response =
+            client.put("$baseUrl/user/backups/$backupId/pin") {
+                setBody(PinBackupRequest(isPinned = isPinned))
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun exportBackupJsonBytes(backupId: Int): ByteArray {
+        val response = client.get("$baseUrl/user/backups/$backupId/export")
+        checkResponse(response)
+        return response.readRawBytes()
+    }
+
+    suspend fun importBackupJson(
+        backupJsonText: String,
+        restoreImmediately: Boolean = false,
+        confirmationText: String? = null,
+    ): ImportBackupJsonResponse {
+        val parsedElement = json.parseToJsonElement(backupJsonText)
+        val response =
+            client.post("$baseUrl/user/backups/import") {
+                setBody(
+                    ImportBackupJsonRequest(
+                        backup = parsedElement,
+                        restoreImmediately = restoreImmediately,
+                        confirmationText = confirmationText,
+                    )
+                )
+            }
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun getUserSessions(): UserSessionsResponse {
+        val response = client.get("$baseUrl/user/sessions")
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun revokeUserSession(sessionId: Int) {
+        val response = client.delete("$baseUrl/user/sessions/$sessionId")
+        checkResponse(response)
+    }
+
+    // ── Billing & Entitlements (Семейный PRO) ──
+
+    suspend fun getBillingStatus(): BillingStatusResponse {
+        val response = client.get("$baseUrl/billing/status")
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun startFreeTrial(): BillingMutationResponse {
+        val response = client.post("$baseUrl/billing/start-trial")
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun redeemPromoCode(code: String): BillingMutationResponse {
+        val response =
+            client.post("$baseUrl/billing/redeem-promo") {
+                setBody(RedeemPromoRequest(code = code))
             }
         checkResponse(response)
         return response.body()
@@ -818,10 +892,35 @@ class ApiClient(
         return response.body()
     }
 
-    suspend fun getTrend(): List<TrendItem> {
-        val response = client.get("$baseUrl/analytics/trend")
+    suspend fun getTrend(
+        months: Int = 6,
+        year: Int? = null,
+        month: Int? = null,
+    ): List<TrendItem> {
+        val anchor = if (year != null && month != null) "&year=$year&month=$month" else ""
+        val response = client.get("$baseUrl/analytics/trend?months=$months$anchor")
         checkResponse(response)
         return response.body()
+    }
+
+    suspend fun getAnalyticsInsights(
+        year: Int,
+        month: Int,
+    ): AnalyticsInsightsResponse {
+        val response = client.get("$baseUrl/analytics/insights?year=$year&month=$month")
+        checkResponse(response)
+        return response.body()
+    }
+
+    suspend fun exportReportBytes(
+        format: String,
+        period: String,
+        year: Int,
+        month: Int,
+    ): ByteArray {
+        val response = client.get("$baseUrl/export/report?format=$format&period=$period&year=$year&month=$month")
+        checkResponse(response)
+        return response.readRawBytes()
     }
 
     suspend fun getCumulativeBalance(year: Int, month: Int): CumulativeBalanceResponse {

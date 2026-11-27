@@ -557,3 +557,221 @@ fun IconMoreDots(
         drawCircle(color = color, radius = r, center = Offset(s * 0.75f, y))
     }
 }
+
+// ── Уровень 3: Объёмные иконки Семейный PRO (Liquid Glass) ─────────────
+
+/** Объёмная корона Семейный PRO с изумрудно-золотым градиентом и бликами. */
+@Composable
+fun IconProCrownGlass(
+    size: Dp = 20.dp,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val s = this.size.width
+        val crownGrad = Brush.linearGradient(
+            colors = listOf(Color(0xFF34D399), Color(0xFF10B981), Color(0xFFF59E0B)),
+            start = Offset(s * 0.1f, s * 0.15f),
+            end = Offset(s * 0.9f, s * 0.85f),
+        )
+        val crownPath = Path().apply {
+            moveTo(s * 0.16f, s * 0.74f)
+            lineTo(s * 0.10f, s * 0.34f)
+            lineTo(s * 0.33f, s * 0.50f)
+            lineTo(s * 0.50f, s * 0.20f)
+            lineTo(s * 0.67f, s * 0.50f)
+            lineTo(s * 0.90f, s * 0.34f)
+            lineTo(s * 0.84f, s * 0.74f)
+            close()
+        }
+        drawPath(crownPath, brush = crownGrad)
+        drawPath(
+            crownPath,
+            color = Color.White.copy(alpha = 0.45f),
+            style = Stroke(width = s * 0.05f, join = StrokeJoin.Round),
+        )
+        drawRoundRect(
+            brush = Brush.horizontalGradient(listOf(Color(0xFF059669), Color(0xFFD97706))),
+            topLeft = Offset(s * 0.16f, s * 0.78f),
+            size = Size(s * 0.68f, s * 0.11f),
+            cornerRadius = CornerRadius(s * 0.05f, s * 0.05f),
+        )
+        drawCircle(color = Color(0xFFFEF3C7), radius = s * 0.055f, center = Offset(s * 0.50f, s * 0.54f))
+        drawCircle(color = Color(0xFFA7F3D0), radius = s * 0.045f, center = Offset(s * 0.30f, s * 0.60f))
+        drawCircle(color = Color(0xFFFDE68A), radius = s * 0.045f, center = Offset(s * 0.70f, s * 0.60f))
+    }
+}
+
+/** Стеклянный замок PRO-функции. */
+@Composable
+fun IconProLockGlass(
+    color: Color = Color(0xFF10B981),
+    size: Dp = 14.dp,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val s = this.size.width
+        val sw = s * 0.11f
+        val shackle = Path().apply {
+            moveTo(s * 0.32f, s * 0.45f)
+            lineTo(s * 0.32f, s * 0.30f)
+            cubicTo(s * 0.32f, s * 0.14f, s * 0.68f, s * 0.14f, s * 0.68f, s * 0.30f)
+            lineTo(s * 0.68f, s * 0.45f)
+        }
+        drawPath(shackle, color = color, style = Stroke(width = sw, cap = StrokeCap.Round))
+        drawRoundRect(
+            color = color.copy(alpha = 0.22f),
+            topLeft = Offset(s * 0.20f, s * 0.44f),
+            size = Size(s * 0.60f, s * 0.44f),
+            cornerRadius = CornerRadius(s * 0.14f, s * 0.14f),
+        )
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(s * 0.20f, s * 0.44f),
+            size = Size(s * 0.60f, s * 0.44f),
+            cornerRadius = CornerRadius(s * 0.14f, s * 0.14f),
+            style = Stroke(width = sw * 0.85f),
+        )
+        drawCircle(color = color, radius = s * 0.065f, center = Offset(s * 0.50f, s * 0.66f))
+    }
+}
+
+/** Объёмное пламя для карточки Burn Rate (скорость трат). */
+@Composable
+fun IconBurnFlameGlass(
+    size: Dp = 20.dp,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val s = this.size.width
+        val outerGrad = Brush.linearGradient(
+            colors = listOf(Color(0xFFFBBF24), Color(0xFFF97316), Color(0xFFE11D48)),
+            start = Offset(s * 0.3f, s * 0.1f),
+            end = Offset(s * 0.7f, s * 0.9f),
+        )
+        val outer = Path().apply {
+            moveTo(s * 0.53f, s * 0.10f)
+            cubicTo(s * 0.56f, s * 0.24f, s * 0.44f, s * 0.32f, s * 0.38f, s * 0.42f)
+            cubicTo(s * 0.32f, s * 0.49f, s * 0.36f, s * 0.56f, s * 0.36f, s * 0.56f)
+            cubicTo(s * 0.30f, s * 0.52f, s * 0.29f, s * 0.44f, s * 0.29f, s * 0.44f)
+            cubicTo(s * 0.20f, s * 0.53f, s * 0.18f, s * 0.64f, s * 0.22f, s * 0.75f)
+            cubicTo(s * 0.26f, s * 0.86f, s * 0.37f, s * 0.92f, s * 0.50f, s * 0.92f)
+            cubicTo(s * 0.68f, s * 0.92f, s * 0.80f, s * 0.78f, s * 0.80f, s * 0.60f)
+            cubicTo(s * 0.80f, s * 0.40f, s * 0.66f, s * 0.26f, s * 0.53f, s * 0.10f)
+            close()
+        }
+        drawPath(outer, brush = outerGrad)
+        val inner = Path().apply {
+            moveTo(s * 0.51f, s * 0.46f)
+            cubicTo(s * 0.53f, s * 0.54f, s * 0.44f, s * 0.60f, s * 0.44f, s * 0.70f)
+            cubicTo(s * 0.44f, s * 0.78f, s * 0.49f, s * 0.83f, s * 0.55f, s * 0.80f)
+            cubicTo(s * 0.62f, s * 0.77f, s * 0.65f, s * 0.69f, s * 0.64f, s * 0.61f)
+            cubicTo(s * 0.63f, s * 0.54f, s * 0.56f, s * 0.50f, s * 0.51f, s * 0.46f)
+            close()
+        }
+        drawPath(
+            inner,
+            brush = Brush.verticalGradient(listOf(Color(0xFFFEF08A), Color(0xFFFB923C))),
+        )
+    }
+}
+
+/** Стеклянная таблица Excel/CSV экспорта. */
+@Composable
+fun IconExportSheetGlass(
+    color: Color = Color(0xFF10B981),
+    size: Dp = 18.dp,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val s = this.size.width
+        val sw = s * 0.085f
+        val cr = CornerRadius(s * 0.15f, s * 0.15f)
+        drawRoundRect(
+            color = color.copy(alpha = 0.18f),
+            topLeft = Offset(s * 0.16f, s * 0.12f),
+            size = Size(s * 0.68f, s * 0.76f),
+            cornerRadius = cr,
+        )
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(s * 0.16f, s * 0.12f),
+            size = Size(s * 0.68f, s * 0.76f),
+            cornerRadius = cr,
+            style = Stroke(width = sw),
+        )
+        drawLine(color, Offset(s * 0.30f, s * 0.35f), Offset(s * 0.70f, s * 0.35f), sw, StrokeCap.Round)
+        drawLine(color, Offset(s * 0.30f, s * 0.52f), Offset(s * 0.70f, s * 0.52f), sw, StrokeCap.Round)
+        drawLine(color, Offset(s * 0.30f, s * 0.69f), Offset(s * 0.54f, s * 0.69f), sw, StrokeCap.Round)
+        drawCircle(color = color, radius = s * 0.06f, center = Offset(s * 0.68f, s * 0.69f))
+    }
+}
+
+/** Стеклянная булавка закрепления бэкапа (Pin). */
+@Composable
+fun IconPinGlass(
+    active: Boolean,
+    color: Color = if (active) Color(0xFFF59E0B) else Color(0xFF94A3B8),
+    size: Dp = 16.dp,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val s = this.size.width
+        val sw = s * 0.095f
+        val body = Path().apply {
+            moveTo(s * 0.36f, s * 0.18f)
+            lineTo(s * 0.64f, s * 0.18f)
+            lineTo(s * 0.60f, s * 0.46f)
+            lineTo(s * 0.72f, s * 0.58f)
+            lineTo(s * 0.72f, s * 0.64f)
+            lineTo(s * 0.28f, s * 0.64f)
+            lineTo(s * 0.28f, s * 0.58f)
+            lineTo(s * 0.40f, s * 0.46f)
+            close()
+        }
+        if (active) {
+            drawPath(body, color = color.copy(alpha = 0.28f))
+        }
+        drawPath(body, color = color, style = Stroke(width = sw, join = StrokeJoin.Round))
+        drawLine(color, Offset(s * 0.50f, s * 0.64f), Offset(s * 0.50f, s * 0.88f), sw, StrokeCap.Round)
+    }
+}
+
+/** Стеклянная иконка устройств (ноутбук + смартфон). */
+@Composable
+fun IconDevicesGlass(
+    color: Color = Color(0xFF10B981),
+    size: Dp = 18.dp,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val s = this.size.width
+        val sw = s * 0.08f
+        drawRoundRect(
+            color = color.copy(alpha = 0.16f),
+            topLeft = Offset(s * 0.10f, s * 0.20f),
+            size = Size(s * 0.58f, s * 0.42f),
+            cornerRadius = CornerRadius(s * 0.08f, s * 0.08f),
+        )
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(s * 0.10f, s * 0.20f),
+            size = Size(s * 0.58f, s * 0.42f),
+            cornerRadius = CornerRadius(s * 0.08f, s * 0.08f),
+            style = Stroke(width = sw),
+        )
+        drawLine(color, Offset(s * 0.24f, s * 0.74f), Offset(s * 0.52f, s * 0.74f), sw, StrokeCap.Round)
+        drawRoundRect(
+            color = color.copy(alpha = 0.26f),
+            topLeft = Offset(s * 0.64f, s * 0.38f),
+            size = Size(s * 0.26f, s * 0.44f),
+            cornerRadius = CornerRadius(s * 0.07f, s * 0.07f),
+        )
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(s * 0.64f, s * 0.38f),
+            size = Size(s * 0.26f, s * 0.44f),
+            cornerRadius = CornerRadius(s * 0.07f, s * 0.07f),
+            style = Stroke(width = sw),
+        )
+    }
+}

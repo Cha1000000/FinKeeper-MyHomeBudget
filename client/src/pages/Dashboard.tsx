@@ -3,18 +3,31 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight, Clock, CalendarClock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight, Clock, CalendarClock, Download, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getAnalyticsTrend, ensureMonth, getMonthSummary, getExpenses, getSavingsGoals, getCumulativeBalance, getBudgets, getPlannedRecords } from '../api';
-import type { SavingsGoal, Expense, PlannedResponse, PlannedItem } from '../api';
+import {
+    getAnalyticsTrend,
+    getAnalyticsInsights,
+    exportFinancialReport,
+    ensureMonth,
+    getMonthSummary,
+    getExpenses,
+    getSavingsGoals,
+    getCumulativeBalance,
+    getBudgets,
+    getPlannedRecords,
+} from '../api';
+import type { SavingsGoal, Expense, PlannedResponse, PlannedItem, AnalyticsInsightsResponse } from '../api';
 import { formatCurrency, readSavedMonthDate } from '../utils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useDataChanged } from '../hooks/useWebSocket';
 import { useTheme } from '../context/ThemeContext';
+import { useEntitlements } from '../context/AuthContext';
 import PageState from '../components/PageState';
 import StatusBanner from '../components/StatusBanner';
 import Modal from '../components/Modal';
+import { ProBurnFlameIcon, ProCrownIcon, ProExportSheetIcon, ProLockIcon } from '../components/ProIcons';
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#6366f1', '#14b8a6'];
 const DOT_COLOR_CLASSES = ['bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-pink-500', 'bg-amber-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-teal-500'];
@@ -42,6 +55,38 @@ const DASHBOARD_MONTH_KEY = 'dashboard_selected_month';
 
 const getInitialDate = (): Date => readSavedMonthDate(DASHBOARD_MONTH_KEY);
 
+const SHORT_MONTH_NAMES_RU = [
+    'янв.', 'фев.', 'мар.', 'апр.', 'май', 'июн.',
+    'июл.', 'авг.', 'сен.', 'окт.', 'ноя.', 'дек.',
+];
+
+const FULL_MONTH_NAMES_RU = [
+    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+];
+
+const formatTrendMonthLabel = (rawMonth: string): string => {
+    const parts = String(rawMonth).split('/');
+    if (parts.length !== 2) return String(rawMonth);
+    const month = Number(parts[0]);
+    const year = Number(parts[1]);
+    if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year)) {
+        return String(rawMonth);
+    }
+    return `${SHORT_MONTH_NAMES_RU[month - 1]} ${year}`;
+};
+
+const formatTrendMonthFullLabel = (rawMonth: string): string => {
+    const parts = String(rawMonth).split('/');
+    if (parts.length !== 2) return String(rawMonth);
+    const month = Number(parts[0]);
+    const year = Number(parts[1]);
+    if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year)) {
+        return String(rawMonth);
+    }
+    return `${FULL_MONTH_NAMES_RU[month - 1]} ${year}`;
+};
+
 const Dashboard: React.FC = () => {
     const [currentDate, setCurrentDate] = useState(getInitialDate);
     const [trendData, setTrendData] = useState<TrendItem[]>([]);
@@ -53,11 +98,20 @@ const Dashboard: React.FC = () => {
     const [totalLimit, setTotalLimit] = useState<number>(0);
     const [planned, setPlanned] = useState<PlannedResponse | null>(null);
     const [planModal, setPlanModal] = useState<'expenses' | 'incomes' | null>(null);
+    const [trendMonths, setTrendMonths] = useState<3 | 6 | 12>(6);
+    const [insights, setInsights] = useState<AnalyticsInsightsResponse | null>(null);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
+    const [exportPeriod, setExportPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportError, setExportError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { resolvedTheme } = useTheme();
+    const { entitlements, openPaywall } = useEntitlements();
     const isDarkSurface = resolvedTheme !== 'light';
     const fetchRequestIdRef = useRef(0);
+    const effectiveTrendMonths: 3 | 6 | 12 = !entitlements.features.extendedAnalytics && trendMonths > 6 ? 6 : trendMonths;
 
     const totalAllExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
     const totalVisibleExpense = allExpenses
@@ -111,12 +165,15 @@ const Dashboard: React.FC = () => {
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth() + 1;
 
-            // 1. Trend Data + Selected Month + Savings + Cumulative Balance
-            const [trendRes, mRes, savingsRes, cumulativeRes] = await Promise.all([
-                getAnalyticsTrend(),
+            // 1. Trend Data + Selected Month + Savings + Cumulative Balance + PRO Insights
+            const [trendRes, mRes, savingsRes, cumulativeRes, insightsRes] = await Promise.all([
+                getAnalyticsTrend(effectiveTrendMonths, year, month),
                 ensureMonth(year, month),
                 getSavingsGoals(),
                 getCumulativeBalance(year, month),
+                entitlements.features.extendedAnalytics
+                    ? getAnalyticsInsights(year, month).catch(() => null)
+                    : Promise.resolve(null),
             ]);
             if (requestId !== fetchRequestIdRef.current) return;
 
@@ -131,6 +188,7 @@ const Dashboard: React.FC = () => {
             setTrendData(trendRes.data);
             setCurrentSummary(summaryRes.data);
             setPlanned(plannedRes.data);
+            setInsights(insightsRes ? insightsRes.data : null);
 
             // Group expenses by category (exclude hidden savings expenses)
             const catMap: Record<string, number> = {};
@@ -164,7 +222,54 @@ const Dashboard: React.FC = () => {
                 setIsLoading(false);
             }
         }
-    }, [currentDate]);
+    }, [currentDate, effectiveTrendMonths, entitlements.features.extendedAnalytics]);
+
+    const handleSelectTrendPeriod = (period: 3 | 6 | 12) => {
+        if (period > 6 && !entitlements.features.extendedAnalytics) {
+            openPaywall('extendedAnalytics');
+            return;
+        }
+        setTrendMonths(period);
+    };
+
+    const handleOpenExport = () => {
+        if (!entitlements.features.exportReports) {
+            openPaywall('exportReports');
+            return;
+        }
+        setExportError(null);
+        setIsExportModalOpen(true);
+    };
+
+    const handleDownloadReport = async () => {
+        setIsExporting(true);
+        setExportError(null);
+        try {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            const response = await exportFinancialReport({
+                format: exportFormat,
+                period: exportPeriod,
+                year,
+                month,
+            });
+            const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            const ext = exportFormat === 'csv' ? 'csv' : 'xlsx';
+            link.setAttribute('download', `finkeeper24-report-${year}-${String(month).padStart(2, '0')}-${exportPeriod}.${ext}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(blobUrl);
+            setIsExportModalOpen(false);
+        } catch (err: unknown) {
+            console.error('Export report error:', err);
+            setExportError('Не удалось сформировать отчёт. Попробуйте ещё раз.');
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     useEffect(() => {
         void fetchData();
@@ -207,9 +312,25 @@ const Dashboard: React.FC = () => {
 
     return (
         <div className="mx-auto w-full min-w-0 max-w-5xl xl:max-w-[1440px] grid grid-rows-[auto_auto_auto_auto_1fr] gap-8 min-h-full">
-            <header>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-[var(--color-text-main)] tracking-tight">Обзор финансов</h2>
-                <p className="text-slate-500 dark:text-[var(--color-text-muted)] text-sm mt-1">Сводка за выбранный месяц и аналитика</p>
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-[var(--color-text-main)] tracking-tight">Обзор финансов</h2>
+                    <p className="text-slate-500 dark:text-[var(--color-text-muted)] text-sm mt-1">Сводка за выбранный месяц и аналитика</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleOpenExport}
+                    className="inline-flex items-center justify-center gap-2 self-start sm:self-auto rounded-2xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-2.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 transition-all shadow-sm"
+                >
+                    <ProExportSheetIcon className="w-4 h-4" />
+                    <span>Экспорт Excel / CSV</span>
+                    {!entitlements.features.exportReports && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-200">
+                            <ProLockIcon className="w-3 h-3" />
+                            PRO
+                        </span>
+                    )}
+                </button>
             </header>
 
             {error && (
@@ -381,9 +502,29 @@ const Dashboard: React.FC = () => {
 
                 {/* Trend Chart */}
                 <div className="min-w-0 overflow-hidden bg-[var(--color-surface)]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-sm dark:shadow-none border border-[var(--color-border-default)] transition-colors flex flex-col min-h-0">
-                    <div className="flex items-center justify-between mb-8 flex-shrink-0">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-8 flex-shrink-0">
                         <h3 className="text-lg font-bold text-slate-800 dark:text-[var(--color-text-main)] tracking-tight">Динамика финансов</h3>
-                        <span className="text-xs font-medium text-slate-500 dark:text-[var(--color-text-muted)] bg-slate-100 dark:bg-[var(--color-surface-soft)] px-3 py-1.5 rounded-full transition-colors">6 месяцев</span>
+                        <div className="inline-flex items-center gap-1 rounded-2xl bg-slate-100 dark:bg-[var(--color-surface-soft)] p-1 border border-[var(--color-border-default)]">
+                            {([3, 6, 12] as const).map((period) => {
+                                const isActive = effectiveTrendMonths === period;
+                                const isLocked = period > 6 && !entitlements.features.extendedAnalytics;
+                                return (
+                                    <button
+                                        key={period}
+                                        type="button"
+                                        onClick={() => handleSelectTrendPeriod(period)}
+                                        className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                                            isActive
+                                                ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                                                : 'text-slate-600 dark:text-[var(--color-text-muted)] hover:text-slate-900 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        <span>{period} мес</span>
+                                        {isLocked && <ProLockIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                     <div className="flex-1 min-h-0 w-full">
                         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={320}>
@@ -391,6 +532,7 @@ const Dashboard: React.FC = () => {
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkSurface ? '#252b41' : '#f8fafc'} />
                                 <XAxis
                                     dataKey="month"
+                                    tickFormatter={formatTrendMonthLabel}
                                     tick={{ fontSize: 12, fill: isDarkSurface ? '#949eb5' : '#94a3b8' }}
                                     axisLine={false}
                                     tickLine={false}
@@ -399,6 +541,7 @@ const Dashboard: React.FC = () => {
                                 <YAxis hide />
                                 <Tooltip
                                     cursor={{ fill: isDarkSurface ? '#191d2d' : '#f8fafc' }}
+                                    labelFormatter={(label) => formatTrendMonthFullLabel(String(label ?? ''))}
                                     formatter={(value: number | undefined) => formatCurrency(value ?? 0)}
                                     contentStyle={{
                                         borderRadius: '16px',
@@ -514,6 +657,251 @@ const Dashboard: React.FC = () => {
                 </div>
 
             </div>
+
+            {/* Глубокая аналитика PRO: Burn Rate & Сравнение с прошлым месяцем */}
+            {entitlements.features.extendedAnalytics && insights ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-3xl border border-[var(--color-border-default)] bg-[var(--color-surface)]/90 backdrop-blur-md p-6 shadow-sm transition-colors">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-500/25 bg-amber-500/10">
+                                    <ProBurnFlameIcon className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-base font-bold text-slate-800 dark:text-[var(--color-text-main)]">
+                                            Скорость трат
+                                        </h3>
+                                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                                            PRO
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-[var(--color-text-muted)] mt-0.5">
+                                        Учтено дней: {insights.burnRate.elapsedDays} из {insights.burnRate.daysInMonth}
+                                    </p>
+                                </div>
+                            </div>
+                            {insights.comparison.expenseDeltaPercent !== null && (
+                                <span
+                                    className={`rounded-xl px-2.5 py-1 text-xs font-bold tabular-nums ${
+                                        insights.comparison.expenseDeltaPercent <= 0
+                                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                            : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                    }`}
+                                >
+                                    {insights.comparison.expenseDeltaPercent > 0 ? '+' : ''}
+                                    {insights.comparison.expenseDeltaPercent}% к прошл. мес.
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)]/70 p-4">
+                                <p className="text-xs font-medium text-slate-500 dark:text-[var(--color-text-muted)]">Средний расход в день</p>
+                                <p className="mt-1 text-2xl font-extrabold tabular-nums text-slate-900 dark:text-[var(--color-text-main)]">
+                                    {formatCurrency(insights.burnRate.dailyBurnRate)}
+                                    <span className="text-xs font-semibold text-slate-400 ml-1">/ день</span>
+                                </p>
+                            </div>
+                            <div className="rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)]/70 p-4">
+                                <p className="text-xs font-medium text-slate-500 dark:text-[var(--color-text-muted)]">Оценка к концу месяца</p>
+                                <p className="mt-1 text-2xl font-extrabold tabular-nums text-slate-900 dark:text-[var(--color-text-main)]">
+                                    {formatCurrency(insights.burnRate.projectedWithPlannedExpenses)}
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-slate-400 dark:text-[var(--color-text-muted)]">
+                                    прошлый месяц: {formatCurrency(insights.comparison.previousMonthExpenses)}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-[var(--color-border-default)] bg-[var(--color-surface)]/90 backdrop-blur-md p-6 shadow-sm transition-colors">
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-slate-800 dark:text-[var(--color-text-main)]">
+                                    Сравнение категорий с прошлым месяцем
+                                </h3>
+                                <p className="text-xs text-slate-500 dark:text-[var(--color-text-muted)] mt-0.5">
+                                    Динамика топ-статей расходов
+                                </p>
+                            </div>
+                            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                                PRO
+                            </span>
+                        </div>
+
+                        {insights.comparison.categories.length > 0 ? (
+                            <div className="space-y-2.5">
+                                {insights.comparison.categories.slice(0, 4).map((cat) => (
+                                    <div
+                                        key={cat.categoryId}
+                                        className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-surface-soft)]/60 px-3.5 py-2.5 text-xs"
+                                    >
+                                        <span className="font-semibold text-slate-800 dark:text-[var(--color-text-main)] truncate">
+                                            {cat.categoryName}
+                                        </span>
+                                        <div className="flex items-center gap-2 shrink-0 tabular-nums">
+                                            <span className="text-slate-400">
+                                                {formatCurrency(cat.previousAmount)} →
+                                            </span>
+                                            <span className="font-bold text-slate-900 dark:text-[var(--color-text-main)]">
+                                                {formatCurrency(cat.currentAmount)}
+                                            </span>
+                                            {cat.deltaPercent !== null && (
+                                                <span
+                                                    className={`rounded-lg px-1.5 py-0.5 text-[11px] font-bold ${
+                                                        cat.deltaPercent <= 0
+                                                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                                            : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+                                                    }`}
+                                                >
+                                                    {cat.deltaPercent > 0 ? '+' : ''}
+                                                    {cat.deltaPercent}%
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-400 dark:text-[var(--color-text-muted)] py-6 text-center">
+                                Недостаточно данных за текущий и предыдущий месяцы для сравнения категорий.
+                            </p>
+                        )}
+                    </div>
+                </div>
+            ) : (
+                <div className="rounded-3xl border border-emerald-500/25 bg-[var(--color-surface)]/90 backdrop-blur-md p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/10">
+                            <ProBurnFlameIcon className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-bold text-slate-800 dark:text-[var(--color-text-main)]">
+                                    Глубокая аналитика и скорость трат
+                                </h3>
+                                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                                    Семейный PRO
+                                </span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-[var(--color-text-muted)] mt-0.5">
+                                Скорость трат в день, сравнение категорий с прошлым месяцем, динамика за 12 месяцев и выгрузка в Excel.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => openPaywall('extendedAnalytics')}
+                        className="inline-flex items-center justify-center gap-2 shrink-0 rounded-2xl bg-[var(--color-primary)] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
+                    >
+                        <ProCrownIcon className="w-4 h-4" />
+                        <span>{entitlements.canStartTrial ? 'Попробовать 14 дней бесплатно' : 'Открыть PRO'}</span>
+                    </button>
+                </div>
+            )}
+
+            {/* Модалка экспорта отчёта Excel / CSV */}
+            <Modal
+                isOpen={isExportModalOpen}
+                onClose={() => !isExporting && setIsExportModalOpen(false)}
+                title="Экспорт финансового отчёта"
+            >
+                <div className="space-y-4">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-[var(--color-text-muted)] mb-2">
+                            Формат файла
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => setExportFormat('xlsx')}
+                                className={`rounded-2xl border p-3.5 text-left transition-all ${
+                                    exportFormat === 'xlsx'
+                                        ? 'border-emerald-500 bg-emerald-500/10'
+                                        : 'border-[var(--color-border-default)] bg-[var(--color-surface-soft)]'
+                                }`}
+                            >
+                                <div className="flex items-center gap-2 font-bold text-sm text-slate-900 dark:text-[var(--color-text-main)]">
+                                    <ProExportSheetIcon className="w-4 h-4 text-emerald-500" />
+                                    <span>Excel (.xlsx)</span>
+                                </div>
+                                <p className="mt-1 text-xs text-slate-500 dark:text-[var(--color-text-muted)]">
+                                    4 вкладки: Сводка, Расходы, Доходы, Копилки
+                                </p>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setExportFormat('csv')}
+                                className={`rounded-2xl border p-3.5 text-left transition-all ${
+                                    exportFormat === 'csv'
+                                        ? 'border-emerald-500 bg-emerald-500/10'
+                                        : 'border-[var(--color-border-default)] bg-[var(--color-surface-soft)]'
+                                }`}
+                            >
+                                <div className="flex items-center gap-2 font-bold text-sm text-slate-900 dark:text-[var(--color-text-main)]">
+                                    <Download className="w-4 h-4 text-emerald-500" />
+                                    <span>CSV (.csv)</span>
+                                </div>
+                                <p className="mt-1 text-xs text-slate-500 dark:text-[var(--color-text-muted)]">
+                                    Универсальная таблица в кодировке UTF-8 BOM
+                                </p>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-[var(--color-text-muted)] mb-2">
+                            Период выгрузки (относительно {format(currentDate, 'LLLL yyyy', { locale: ru })})
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {([
+                                { id: 'month', label: '1 месяц' },
+                                { id: 'quarter', label: 'Квартал (3 мес)' },
+                                { id: 'year', label: 'Год (12 мес)' },
+                                { id: 'all', label: 'За всё время' },
+                            ] as const).map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => setExportPeriod(item.id)}
+                                    className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition-all ${
+                                        exportPeriod === item.id
+                                            ? 'border-emerald-500 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
+                                            : 'border-[var(--color-border-default)] bg-[var(--color-surface-soft)] text-slate-700 dark:text-[var(--color-text-muted)]'
+                                    }`}
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {exportError && (
+                        <StatusBanner variant="error">{exportError}</StatusBanner>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                        <button
+                            type="button"
+                            onClick={handleDownloadReport}
+                            disabled={isExporting}
+                            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] py-3 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                        >
+                            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                            <span>{isExporting ? 'Формируем файл...' : `Скачать .${exportFormat}`}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsExportModalOpen(false)}
+                            disabled={isExporting}
+                            className="rounded-xl bg-slate-100 dark:bg-[var(--color-surface-soft)] px-5 py-3 text-sm font-semibold text-slate-700 dark:text-[var(--color-text-muted)]"
+                        >
+                            Отмена
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
             {/* Read-only попап списка плановых платежей/поступлений (управление — на экране Месяц) */}
             <Modal

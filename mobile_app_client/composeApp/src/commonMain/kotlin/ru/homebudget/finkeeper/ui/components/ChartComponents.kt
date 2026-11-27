@@ -5,23 +5,30 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +48,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ru.homebudget.finkeeper.data.model.TrendItem
 import ru.homebudget.finkeeper.ui.Strings
@@ -48,6 +56,7 @@ import ru.homebudget.finkeeper.ui.theme.AppTheme
 import ru.homebudget.finkeeper.ui.theme.ChartColors
 import ru.homebudget.finkeeper.ui.viewmodel.ExpenseCategoryBreakdown
 import ru.homebudget.finkeeper.util.formatCurrency
+import ru.homebudget.finkeeper.util.isDesktop
 import ru.homebudget.finkeeper.util.monthName
 import ru.homebudget.finkeeper.util.shortMonthName
 import kotlin.math.PI
@@ -484,10 +493,14 @@ private fun LegendItem(label: String, color: Color) {
 /**
  * Столбчатая диаграмма с группировкой и выбором месяца по тапу для просмотра точных сумм.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FinancialDynamicsChart(
     trendData: List<TrendItem>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectedPeriodMonths: Int = 6,
+    isExtendedAnalyticsUnlocked: Boolean = false,
+    onSelectPeriodMonths: ((Int) -> Unit)? = null,
 ) {
     val semantic = AppTheme.semanticColors
     var selectedIndex by remember(trendData) { mutableStateOf<Int?>(null) }
@@ -500,11 +513,25 @@ fun FinancialDynamicsChart(
         highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = Strings.FINANCIAL_DYNAMICS,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = Strings.FINANCIAL_DYNAMICS,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+                if (onSelectPeriodMonths != null) {
+                    TrendPeriodChips(
+                        selectedPeriodMonths = selectedPeriodMonths,
+                        isExtendedAnalyticsUnlocked = isExtendedAnalyticsUnlocked,
+                        onSelectPeriodMonths = onSelectPeriodMonths,
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(10.dp))
 
             if (trendData.isNotEmpty()) {
@@ -552,25 +579,81 @@ fun FinancialDynamicsChart(
                     }
                 }
 
-                BarChartCanvas(
-                    data = trendData,
-                    selectedIndex = selectedIndex,
-                    onSelect = { idx ->
-                        selectedIndex = if (selectedIndex == idx) null else idx
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                )
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val count = trendData.size
+                    val baseBarDp = when {
+                        count > 16 -> 5.dp
+                        count > 8 -> 7.dp
+                        else -> 12.dp
+                    }
+                    val baseBarGapDp = when {
+                        count > 16 -> 1.5.dp
+                        count > 8 -> 2.dp
+                        else -> 4.dp
+                    }
+                    val baseGroupGapDp = when {
+                        count > 16 -> 5.dp
+                        count > 8 -> 8.dp
+                        else -> 14.dp
+                    }
+                    val baseGroupWidthDp = baseBarDp * 3 + baseBarGapDp * 2
+                    val baseTotalGroupsDp =
+                        baseGroupWidthDp * count + baseGroupGapDp * (count - 1).coerceAtLeast(0)
+                    val availableForBarsDp = (maxWidth - 20.dp).coerceAtLeast(160.dp)
 
-                Spacer(modifier = Modifier.height(8.dp))
-                MonthLabelsRow(
-                    trendData = trendData,
-                    selectedIndex = selectedIndex,
-                    onSelect = { idx ->
-                        selectedIndex = if (selectedIndex == idx) null else idx
-                    },
-                )
+                    val fitScale = if (baseTotalGroupsDp > availableForBarsDp) {
+                        (availableForBarsDp / baseTotalGroupsDp).coerceIn(0.35f, 1f)
+                    } else {
+                        1f
+                    }
+
+                    val barDp = baseBarDp * fitScale
+                    val barGapDp = baseBarGapDp * fitScale
+                    val groupGapDp = baseGroupGapDp * fitScale
+                    val groupWidthDp = barDp * 3 + barGapDp * 2
+                    val totalGroupsWidthDp =
+                        groupWidthDp * count + groupGapDp * (count - 1).coerceAtLeast(0)
+                    val effectiveWidthDp = maxWidth
+                    val firstX = ((effectiveWidthDp - totalGroupsWidthDp) / 2f).coerceAtLeast(4.dp)
+                    val labelStep = when {
+                        count > 16 -> 4
+                        count > 8 -> 2
+                        else -> 1
+                    }
+                    val labelWidthDp = (groupWidthDp + groupGapDp) * labelStep
+
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        BarChartCanvas(
+                            data = trendData,
+                            selectedIndex = selectedIndex,
+                            barDp = barDp,
+                            barGapDp = barGapDp,
+                            groupGapDp = groupGapDp,
+                            firstXDp = firstX,
+                            onSelect = { idx ->
+                                selectedIndex = if (selectedIndex == idx) null else idx
+                            },
+                            modifier = Modifier
+                                .width(effectiveWidthDp)
+                                .height(200.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        MonthLabelsRow(
+                            trendData = trendData,
+                            selectedIndex = selectedIndex,
+                            totalWidth = effectiveWidthDp,
+                            firstX = firstX,
+                            groupWidth = groupWidthDp,
+                            groupGap = groupGapDp,
+                            labelWidth = labelWidthDp.coerceAtMost(48.dp),
+                            labelStep = labelStep,
+                            onSelect = { idx ->
+                                selectedIndex = if (selectedIndex == idx) null else idx
+                            },
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
@@ -592,6 +675,55 @@ fun FinancialDynamicsChart(
     }
 }
 
+@Composable
+private fun TrendPeriodChips(
+    selectedPeriodMonths: Int,
+    isExtendedAnalyticsUnlocked: Boolean,
+    onSelectPeriodMonths: (Int) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        listOf(
+            3 to Strings.PRO_PERIOD_3M,
+            6 to Strings.PRO_PERIOD_6M,
+            12 to Strings.PRO_PERIOD_12M,
+        ).forEach { (months, label) ->
+            val isActive = selectedPeriodMonths == months
+            val isLocked = months > 6 && !isExtendedAnalyticsUnlocked
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (isActive) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                    )
+                    .clickable { onSelectPeriodMonths(months) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isActive) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+                if (isLocked) {
+                    IconProLockGlass(
+                        color = if (isActive) MaterialTheme.colorScheme.onPrimary else Color(0xFF10B981),
+                        size = 11.dp,
+                    )
+                }
+            }
+        }
+    }
+}
+
 /**
  * Canvas для отрисовки столбчатой диаграммы с группировкой и тапом по месяцу.
  */
@@ -599,6 +731,10 @@ fun FinancialDynamicsChart(
 private fun BarChartCanvas(
     data: List<TrendItem>,
     selectedIndex: Int?,
+    barDp: Dp,
+    barGapDp: Dp,
+    groupGapDp: Dp,
+    firstXDp: Dp,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -607,16 +743,13 @@ private fun BarChartCanvas(
     val highlightPillColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
 
     Canvas(
-        modifier = modifier.pointerInput(data) {
+        modifier = modifier.pointerInput(data, barDp, barGapDp, groupGapDp, firstXDp) {
             detectTapGestures { offset ->
-                val padding = 16.dp.toPx()
-                val chartWidth = size.width - padding * 2
-                val barWidth = 12.dp.toPx()
-                val barGap = 4.dp.toPx()
-                val groupGap = 14.dp.toPx()
+                val barWidth = barDp.toPx()
+                val barGap = barGapDp.toPx()
+                val groupGap = groupGapDp.toPx()
                 val groupWidth = barWidth * 3 + barGap * 2
-                val totalGroupsWidth = groupWidth * data.size + groupGap * (data.size - 1).coerceAtLeast(0)
-                val firstX = padding + (chartWidth - totalGroupsWidth) / 2f
+                val firstX = firstXDp.toPx()
 
                 data.indices.forEach { index ->
                     val startX = firstX + index * (groupWidth + groupGap)
@@ -630,17 +763,16 @@ private fun BarChartCanvas(
     ) {
         val canvasWidth = size.width
         val canvasHeight = size.height
-        val padding = 16.dp.toPx()
+        val padding = 12.dp.toPx()
         val verticalPad = 14.dp.toPx()
-        val chartWidth = canvasWidth - padding * 2
         val chartHeight = canvasHeight - verticalPad * 2
 
         val maxValue = data.maxOfOrNull { maxOf(it.income, it.expense, it.savings) } ?: 1.0
         val safeMaxValue = if (maxValue == 0.0) 1.0 else maxValue
 
-        val barWidth = 12.dp.toPx()
-        val barGap = 4.dp.toPx()
-        val groupGap = 14.dp.toPx()
+        val barWidth = barDp.toPx()
+        val barGap = barGapDp.toPx()
+        val groupGap = groupGapDp.toPx()
         val groupWidth = barWidth * 3 + barGap * 2
 
         val gridLines = 5
@@ -655,8 +787,7 @@ private fun BarChartCanvas(
             )
         }
 
-        val totalGroupsWidth = groupWidth * data.size + groupGap * (data.size - 1).coerceAtLeast(0)
-        val firstX = padding + (chartWidth - totalGroupsWidth) / 2f
+        val firstX = firstXDp.toPx()
 
         data.forEachIndexed { index, item ->
             val startX = firstX + index * (groupWidth + groupGap)
@@ -703,27 +834,29 @@ private fun BarChartCanvas(
 private fun MonthLabelsRow(
     trendData: List<TrendItem>,
     selectedIndex: Int?,
+    totalWidth: Dp,
+    firstX: Dp,
+    groupWidth: Dp,
+    groupGap: Dp,
+    labelWidth: Dp,
+    labelStep: Int = 1,
     onSelect: (Int) -> Unit,
 ) {
-    val barWidth = 12.dp
-    val barGap = 4.dp
-    val groupGap = 14.dp
-    val groupWidth = barWidth * 3 + barGap * 2
-    val totalGroupsWidth = groupWidth * trendData.size + groupGap * (trendData.size - 1).coerceAtLeast(0)
+    val labelOffsetAdjust = (labelWidth - groupWidth) / 2f
+    val maxOffset = (totalWidth - labelWidth).coerceAtLeast(0.dp)
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center
-    ) {
-        Row(
-            modifier = Modifier.width(totalGroupsWidth),
-            horizontalArrangement = Arrangement.spacedBy(groupGap)
-        ) {
-            trendData.forEachIndexed { index, item ->
-                val isSelected = selectedIndex == index
+    Box(modifier = Modifier.width(totalWidth)) {
+        trendData.forEachIndexed { index, item ->
+            val isSelected = selectedIndex == index
+            val isLast = index == trendData.lastIndex
+            val showLabel = labelStep == 1 || index % labelStep == 0 || isLast || isSelected
+            if (showLabel) {
+                val xOffset = (firstX + (groupWidth + groupGap) * index - labelOffsetAdjust)
+                    .coerceIn(0.dp, maxOffset)
                 Box(
                     modifier = Modifier
-                        .width(groupWidth)
+                        .offset(x = xOffset)
+                        .width(labelWidth)
                         .clip(RoundedCornerShape(6.dp))
                         .then(
                             if (isSelected) {
@@ -742,7 +875,7 @@ private fun MonthLabelsRow(
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        softWrap = false,
                     )
                 }
             }
